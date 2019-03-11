@@ -1,3 +1,4 @@
+
 module Lambdabot.Plugin.Social.Seen.UserStatus where
 
 import Control.Applicative

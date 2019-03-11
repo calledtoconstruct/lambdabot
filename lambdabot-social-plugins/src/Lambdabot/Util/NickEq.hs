@@ -13,15 +13,14 @@
 -- bar-separated list of (nicks or open terms); an open term is like a
 -- nick but preceded with a star.
 
-module Lambdabot.Util.NickEq
-    ( Polynick
-    , nickMatches
-    , readPolynick
-    , showPolynick
-    
-    , lookupMononickMap
-    , mononickToPolynick
-    ) where
+module Lambdabot.Util.NickEq (
+  Polynick,
+  nickMatches,
+  readPolynick,
+  showPolynick,
+  lookupMononickMap,
+  mononickToPolynick
+) where
 
 import Lambdabot.Message
 import Lambdabot.Monad
@@ -34,12 +33,10 @@ import Data.Maybe (mapMaybe)
 
 data Polynick = Polynick [Nick] deriving (Eq) -- for now
 
--- |Determine if a nick matches a polynick.  The state is read at the
--- point of binding.
+-- | Determine if a nick matches a polynick.  The state is read at the point of binding.
 nickMatches :: LB (Nick -> Polynick -> Bool)
 nickMatches = return m'
-    where
-      m' nck (Polynick nck2) = nck `elem` nck2
+    where m' nck (Polynick nck2) = nck `elem` nck2
 
 -- | Parse a read polynick.
 readPolynick :: Message a => a -> String -> Polynick

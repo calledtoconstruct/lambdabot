@@ -36,7 +36,7 @@ doMetar :: MonadLB m => String -> Cmd m ()
 doMetar code | length code == 4 && all isAlpha code = do
     msg <- browseLB $ do
         let src = addsSrc (map toUpper code)
-        (uri, resp) <- request $ getRequest src
+        (_, resp) <- request $ getRequest src
         case rspCode resp of
             (2,_,_) -> return $ extractMetar (rspBody resp)
             _ -> return $ "Request failed."

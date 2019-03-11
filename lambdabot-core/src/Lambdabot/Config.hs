@@ -5,15 +5,13 @@
 -- | Extensible configuration system for lambdabot
 --
 -- TODO: there's notthing lambdabot-specific about this, it could be a useful standalone library.
-module Lambdabot.Config
-    ( Config
-    , getConfigDefault
-    , mergeConfig
-
-    , MonadConfig(..)
-
-    , config
-    , configWithMerge
+module Lambdabot.Config (
+    Config,
+    getConfigDefault,
+    mergeConfig,
+    MonadConfig(..),
+    config,
+    configWithMerge
     ) where
 
 import Control.Applicative

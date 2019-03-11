@@ -3,7 +3,9 @@
 -- GPL version 2 or later (see http://www.gnu.org/copyleft/gpl.html)
 
 -- | Keep track of IRC users.
-module Lambdabot.Plugin.Social.Seen (seenPlugin) where
+module Lambdabot.Plugin.Social.Seen (
+  seenPlugin
+) where
 
 import Lambdabot.Bot
 import Lambdabot.Compat.AltTime
@@ -31,7 +33,9 @@ import qualified Data.Map as M
 import Text.Printf
 
 type SeenState = (MaxMap, SeenMap)
+
 type SeenMap   = M.Map PackedNick UserStatus
+
 type MaxMap    = M.Map Channel Int
 
 type Seen = ModuleT SeenState LB
@@ -39,52 +43,40 @@ type Seen = ModuleT SeenState LB
 ------------------------------------------------------------------------
 
 seenPlugin :: Module (M.Map Channel Int, M.Map PackedNick UserStatus)
-seenPlugin = newModule
-    { moduleDefState = return (M.empty,M.empty)
-
-    , moduleCmds = return
-        [ (command "users")
-            { help = say "users [chan]. Report the maximum number of users seen in a channel, and active users in the last 30 minutes"
-            , process = doUsers
-            }
-        , (command "seen")
-            { help = say "seen <user>. Report if a user has been seen by the bot"
-            , process = doSeen
-            }
-        ]
-
-    , moduleInit = do
-        sequence_
-            [ registerCallback signal (withSeenFM cb)
-            | (signal, cb) <- zip
-                ["JOIN", "PART", "QUIT", "NICK", "353",      "PRIVMSG"]
-                [joinCB, partCB, quitCB, nickCB, joinChanCB, msgCB]
-            ]
-
-        c <- lb $ findLBFileForReading "seen"
-        s <- maybe (return (P.pack "")) (io . P.readFile) c
-        let ls = L.fromStrict s
-        mbDecoded <- io . try . evaluate $ decode ls
-        case mbDecoded of
-            Left exc@SomeException{} -> do
-                -- try reading the old format (slightly different type... oh, "binary"...)
-                mbOld <- io . try . evaluate $ decode ls
-                case mbOld of
-                    Left SomeException{} ->
-                        warningM ("WARNING: failed to read Seen module state: "  ++ show exc)
-                    Right (maxMap, seenMap) ->
-                        writeMS (M.mapKeys P.pack maxMap, seenMap)
-            Right decoded -> writeMS decoded
-
-    , moduleExit = do
-        chans <- lift $ ircGetChannels
-        unless (null chans) $ do
-            ct    <- io getClockTime
-            modifyMS $ \(n,m) -> (n, botPart ct (map packNick chans) m)
-
-        -- and write out our state:
-        withMS $ \s _ -> lb (findLBFileForWriting "seen") >>= \ c -> io (encodeFile c s)
+seenPlugin = newModule {
+  moduleDefState = return (M.empty,M.empty),
+  moduleCmds = return [
+    (command "users") {
+      help = say "users [chan]. Report the maximum number of users seen in a channel, and active users in the last 30 minutes",
+      process = doUsers
+    },
+    (command "seen") {
+      help = say "seen <user>. Report if a user has been seen by the bot",
+      process = doSeen
     }
+  ],
+  moduleInit = do
+    sequence_ [ registerCallback signal (withSeenFM cb) | (signal, cb) <- zip ["JOIN", "PART", "QUIT", "NICK", "353",      "PRIVMSG"] [joinCB, partCB, quitCB, nickCB, joinChanCB, msgCB] ]
+    c <- lb $ findLBFileForReading "seen"
+    s <- maybe (return (P.pack "")) (io . P.readFile) c
+    let ls = L.fromStrict s
+    mbDecoded <- io . try . evaluate $ decode ls
+    case mbDecoded of
+      Left exc@SomeException{} -> do
+        -- try reading the old format (slightly different type... oh, "binary"...)
+        mbOld <- io . try . evaluate $ decode ls
+        case mbOld of
+          Left SomeException{} -> warningM ("WARNING: failed to read Seen module state: "  ++ show exc)
+          Right (maxMap, seenMap) -> writeMS (M.mapKeys P.pack maxMap, seenMap)
+      Right decoded -> writeMS decoded,
+  moduleExit = do
+    chans <- lift $ ircGetChannels
+    unless (null chans) $ do
+      clockTime <- io getClockTime
+      modifyMS $ \(n,m) -> (n, botPart clockTime (map packNick chans) m)
+      -- and write out our state:
+      withMS $ \s _ -> lb (findLBFileForWriting "seen") >>= \ c -> io (encodeFile c s)
+}
 
 lcNick :: Nick -> Nick
 lcNick (Nick svr nck) = Nick svr (map toLower nck)
@@ -93,131 +85,105 @@ lcNick (Nick svr nck) = Nick svr (map toLower nck)
 
 doUsers :: String -> Cmd Seen ()
 doUsers rest = withMsg $ \msg -> do
-    -- first step towards tracking the maximum number of users
-    chan <- getTarget
-    (m, seenFM) <- readMS
-    s <- io getClockTime
-    let who = packNick $ lcNick $ if null rest then chan else parseNick (G.server msg) rest
-        now = length [ () | (_,Present _ chans) <- M.toList seenFM
-                          , who `elem` chans ]
-
-        n = case M.lookup who m of Nothing -> 1; Just n' -> n'
-
-        active = length [() | (_,st@(Present _ chans)) <- M.toList seenFM
-                            , who `elem` chans && isActive st ]
-
-        isActive (Present (Just (ct,_td)) _cs) = recent ct
-        isActive _                             = False
-
-        recent t = diffClockTimes s t < gap_minutes
-        gap_minutes = TimeDiff 1800 -- 30 minutes
-
-        percent p q = 100 * (fromIntegral p / fromIntegral q) :: Double
-
-        total   0 0 = "0"
-        total   p q = printf "%d (%0.1f%%)" p (percent p q)
-
-    say $! printf "Maximum users seen in %s: %d, currently: %s, active: %s"
-        (fmtNick (G.server msg) $ unpackNick who) n (total now n) (total active now)
+  -- first step towards tracking the maximum number of users
+  chan <- getTarget
+  (m, seenFM) <- readMS
+  s <- io getClockTime
+  let who = packNick $ lcNick $ if null rest then chan else parseNick (G.server msg) rest
+  let now = length [ () | (_, Present _ chans) <- M.toList seenFM, who `elem` chans ]
+  let n = case M.lookup who m of
+            Nothing -> 1
+            Just n' -> n'
+  let gap_minutes = TimeDiff 1800 -- 30 minutes
+  let recent t = diffClockTimes s t < gap_minutes
+  let isActive (Present (Just (ct, _td)) _cs) = recent ct
+      isActive _                             = False
+  let active = length [() | (_, st@(Present _ chans)) <- M.toList seenFM, who `elem` chans && isActive st ]
+  let percent p q = 100 * (fromIntegral p / fromIntegral q) :: Double
+  let total   0 0 = "0"
+      total   p q = printf "%d (%0.1f%%)" p (percent p q)
+  say $! printf "Maximum users seen in %s: %d, currently: %s, active: %s" (fmtNick (G.server msg) $ unpackNick who) n (total now n) (total active now)
 
 doSeen :: String -> Cmd Seen ()
 doSeen rest = withMsg $ \msg -> do
-    target <- getTarget
-    (_,seenFM) <- readMS
-    now        <- io getClockTime
-    let (txt,safe) = (getAnswer msg rest seenFM now)
-    if safe || not ("#" `isPrefixOf` nName target)
-        then mapM_ say txt
-        else lb (ircPrivmsg (G.nick msg) (unlines txt))
+  target      <- getTarget
+  (_, seenFM) <- readMS
+  now         <- io getClockTime
+  let (txt, safe) = (getAnswer msg rest seenFM now)
+  if safe || not ("#" `isPrefixOf` nName target) then mapM_ say txt else lb (ircPrivmsg (G.nick msg) (unlines txt))
 
-getAnswer :: G.Message a => a -> String -> SeenMap -> ClockTime -> ([String], Bool)
-getAnswer msg rest seenFM now
-    | null nick' =
-        let people  = map fst $ filter isActive $ M.toList seenFM
-            isActive (_nick,state) = case state of
-                (Present (Just (ct,_td)) _cs) -> recent ct
-                _ -> False
-            recent t = diffClockTimes now t < gap_minutes
-            gap_minutes = TimeDiff 900 -- 15 minutes
-         in (["Lately, I have seen " ++ (if null people then "nobody"
-                 else listToStr "and" (map upAndShow people)) ++ "."], False)
+replySummary :: ClockTime -> M.Map a UserStatus -> (a -> String) -> ([[Char]], Bool)
+replySummary now seenFM upAndShow = (["Lately, I have seen " ++ (if null people then "nobody" else listToStr "and" (map upAndShow people)) ++ "."], False)
+  where people  = map fst $ filter isActive $ M.toList seenFM
+        isActive (_nick, state) = case state of
+          (Present (Just (ct, _td)) _cs)  -> recent ct
+          _                               -> False
+        recent t = diffClockTimes now t < gap_minutes
+        gap_minutes = TimeDiff 900 -- 15 minutes
 
-    | pnick == G.lambdabotName msg =
-        case M.lookup (packNick pnick) seenFM of
-            Just (Present _ cs) ->
-                (["Yes, I'm here. I'm in " ++ listToStr "and" (map upAndShow cs)], True)
-            _ -> error "I'm here, but not here. And very confused!"
+replyImHere :: Nick -> M.Map P.ByteString UserStatus -> (Channel -> String) -> ([[Char]], Bool)
+replyImHere pnick seenFM upAndShow  = imHere
+  where imHere = case M.lookup (packNick pnick) seenFM of
+          Just (Present _ cs) -> (["Yes, I'm here. I'm in " ++ listToStr "and" (map upAndShow cs)], True)
+          _                   -> error "I'm here, but not here. And very confused!"
 
-    | head (nName pnick) == '#' =
-        let people  = map fst $ filter inChan $ M.toList seenFM
-            inChan (_nick,state) = case state of
-                (Present (Just _) cs)
-                    -> packNick pnick `elem` cs
-                _   -> False
-         in (["In "++nick'++" I can see "
-            ++ (if null people then "nobody"    -- todo, how far back does this go?
-               else listToStr "and" (map upAndShow people)) ++ "."], False)
+replyCurrent :: [Char] -> Nick -> M.Map a UserStatus -> (a -> String) -> ([[Char]], Bool)
+replyCurrent nick' pnick seenFM upAndShow = (["In "++nick'++" I can see " ++ (if null people then "nobody" else listToStr "and" (map upAndShow people)) ++ "."], False)
+  where people = map fst $ filter inChan $ M.toList seenFM
+        inChan (_nick, state) = case state of
+          (Present (Just _) cs) -> packNick pnick `elem` cs
+          _                     -> False
 
-    | otherwise        = (return $ concat (case M.lookup (packNick pnick) seenFM of
-        Just (Present mct cs)            -> nickPresent mct (map upAndShow cs)
-        Just (NotPresent ct td chans)    -> nickNotPresent ct td (map upAndShow chans)
-        Just (WasPresent ct sw _ chans)  -> nickWasPresent ct sw (map upAndShow chans)
-        Just (NewNick newnick)           -> nickIsNew newnick
-        _ -> ["I haven't seen ", nick, "."]), True)
-    where
-        -- I guess the only way out of this spagetty hell are printf-style responses.
-        upAndShow = fmtNick (G.server msg) . unpackNick
-        nickPresent mct cs =
-            [ if you then "You are" else nick ++ " is"
-            , " in ", listToStr "and" cs, "."
-            , case mct of
-                Nothing          -> concat [" I don't know when ", nick, " last spoke."]
-                Just (ct,missed) -> prettyMissed (Stopped missed)
-                       (concat [" I last heard ", nick, " speak ",
-                                lastSpoke {-, ", but "-}])
-                       (" Last spoke " ++ lastSpoke)
-                    where lastSpoke = clockDifference ct
-            ]
-        nickNotPresent ct missed chans =
-            [ "I saw ", nick, " leaving ", listToStr "and" chans, " "
-            , clockDifference ct, prettyMissed missed ", and " ""
-            ]
-        nickWasPresent ct sw chans =
-            [ "Last time I saw ", nick, " was when I left "
-            , listToStr "and" chans , " ", clockDifference ct
-            , prettyMissed sw ", and " ""
-            ]
-        nickIsNew newnick =
-            [ if you then "You have" else nick++" has"
-            , " changed nick to ", us, "."
-            ] ++ fst (getAnswer msg us seenFM now)
-            where
-                us = upAndShow $ findFunc newnick
+replySpecific :: (G.Message p, Monad m) => p -> [Char] -> Nick -> M.Map P.ByteString UserStatus -> (Channel -> String) -> ClockTime -> (m [Char], Bool)
+replySpecific msg nick' pnick seenFM upAndShow now = (return $ concat (case M.lookup (packNick pnick) seenFM of
+  Just (Present maybeClockTime channels)    -> nickPresent maybeClockTime (map upAndShow channels)
+  Just (NotPresent clockTime td channels)   -> nickNotPresent clockTime td (map upAndShow channels)
+  Just (WasPresent clockTime sw _ channels) -> nickWasPresent clockTime sw (map upAndShow channels)
+  Just (NewNick newnick)                    -> nickIsNew newnick
+  _ -> ["I haven't seen ", nick, "."]), True)
+  where nickPresent maybeClockTime cs = [ if you then "You are" else nick ++ " is", " in ", listToStr "and" cs, ".", case maybeClockTime of
+          Nothing                   -> concat [" I don't know when ", nick, " last spoke."]
+          Just (clockTime, missed)  -> prettyMissed (Stopped missed) (concat [" I last heard ", nick, " speak ", lastSpoke {-, ", but "-}]) (" Last spoke " ++ lastSpoke)
+            where lastSpoke = clockDifference clockTime ]
+        
+        nickNotPresent clockTime missed chans = [ "I saw ", nick, " leaving ", listToStr "and" chans, " ", clockDifference clockTime, prettyMissed missed ", and " "" ]
+        
+        nickWasPresent clockTime sw chans = [ "Last time I saw ", nick, " was when I left ", listToStr "and" chans , " ", clockDifference clockTime, prettyMissed sw ", and " "" ]
+
+        nickIsNew newnick = [ if you then "You have" else nick++" has", " changed nick to ", us, "." ] ++ fst (getAnswer msg us seenFM now)
+          where us = upAndShow $ findFunc newnick
                 findFunc pstr = case M.lookup pstr seenFM of
-                    Just (NewNick pstr') -> findFunc pstr'
-                    Just _               -> pstr
-                    Nothing              -> error "SeenModule.nickIsNew: Nothing"
-
-        nick' = takeWhile (not . isSpace) rest
-        you   = pnick == lcNick (G.nick msg)
-        nick  = if you then "you" else nick'
-        pnick = lcNick $ parseNick (G.server msg) nick'
+                  Just (NewNick pstr') -> findFunc pstr'
+                  Just _               -> pstr
+                  Nothing              -> error "SeenModule.nickIsNew: Nothing"
         clockDifference past
             | all (==' ') diff = "just now"
             | otherwise        = diff ++ " ago"
             where diff = timeDiffPretty . diffClockTimes now $ past
+        you   = pnick == lcNick (G.nick msg)
+        nick  = if you then "you" else nick'
 
         prettyMissed (Stopped _) _ifMissed _     = "." -- ifMissed ++ "."
         prettyMissed _           _ _ifNotMissed  = "." -- ifNotMissed ++ "."
 
-{-
-        prettyMissed (Stopped missed) ifMissed _
-            | missedPretty <- timeDiffPretty missed
-            , any (/=' ') missedPretty
-            = concat [ifMissed, "I have missed ", missedPretty, " since then."]
+        {-
+                prettyMissed (Stopped missed) ifMissed _
+                    | missedPretty <- timeDiffPretty missed
+                    , any (/=' ') missedPretty
+                    = concat [ifMissed, "I have missed ", missedPretty, " since then."]
+        
+                prettyMissed _ _ ifNotMissed = ifNotMissed ++ "."
+        -}
 
-        prettyMissed _ _ ifNotMissed = ifNotMissed ++ "."
--}
+getAnswer :: G.Message a => a -> String -> SeenMap -> ClockTime -> ([String], Bool)
+getAnswer msg rest seenFM now
+  | null nick'                    = replySummary now seenFM upAndShow
+  | pnick == G.lambdabotName msg  = replyImHere pnick seenFM upAndShow
+  | head (nName pnick) == '#'     = replyCurrent nick' pnick seenFM upAndShow
+  | otherwise                     = replySpecific msg nick' pnick seenFM upAndShow now
+  where upAndShow = fmtNick (G.server msg) . unpackNick
+        nick' = takeWhile (not . isSpace) rest
+        pnick = lcNick $ parseNick (G.server msg) nick'
 
 -- | extract channels from message as packed, lower cased, strings.
 msgChans :: G.Message a => a -> [Channel]
@@ -279,10 +245,8 @@ nickCB msg _ nick fm = case M.lookup nick fm of
 
 -- | when the bot joins a channel
 joinChanCB :: IrcMessage -> ClockTime -> PackedNick -> SeenMap -> Either String SeenMap
-joinChanCB msg now _nick fm
-    = Right $! fmap (updateNP now chan) (foldl insertNick fm chanUsers)
-    where
-        l = ircMsgParams msg
+joinChanCB msg now _nick fm = Right $! fmap (updateNP now chan) (foldl insertNick fm chanUsers)
+  where l = ircMsgParams msg
         chan = packNick $ lcNick $ parseNick (G.server msg) $ l !! 2
         chanUsers = map (packNick . lcNick . parseNick (G.server msg)) $ words (drop 1 (l !! 3)) -- remove ':'
         unUserMode nick = Nick (nTag nick) (dropWhile (`elem` "@+") $ nName nick)
@@ -293,12 +257,9 @@ joinChanCB msg now _nick fm
 
 -- | when somebody speaks, update their clocktime
 msgCB :: IrcMessage -> ClockTime -> PackedNick -> SeenMap -> Either String SeenMap
-msgCB _ ct nick fm =
-    case M.lookup nick fm of
-        Just (Present _ xs) -> Right $!
-            M.insert nick (Present (Just (ct, noTimeDiff)) xs) fm
-        _ -> Left "someone who isn't here msg us"
-
+msgCB _ clockTime nick fm = case M.lookup nick fm of
+  Just (Present _ xs) -> Right $! M.insert nick (Present (Just (clockTime, noTimeDiff)) xs) fm
+  _                   -> Left "someone who isn't here msg us"
 
 -- | Callbacks are only allowed to use a limited knowledge of the world.
 -- 'withSeenFM' is (up to trivial isomorphism) a monad morphism from the
@@ -307,27 +268,17 @@ msgCB _ ct nick fm =
 -- to the
 --   'ReaderT IRC.Message (Seen IRC)'
 -- monad.
-withSeenFM :: G.Message a
-           => (a -> ClockTime -> PackedNick -> SeenMap -> Either String SeenMap)
-           -> (a -> Seen ())
-
+withSeenFM :: G.Message a => (a -> ClockTime -> PackedNick -> SeenMap -> Either String SeenMap) -> (a -> Seen ())
 withSeenFM f msg = do
     let chan = packNick . lcNick . head . G.channels $! msg
-        nick = packNick . lcNick . G.nick $ msg
-
-    withMS $ \(maxUsers,state) writer -> do
-        ct <- io getClockTime
-        case f msg ct nick state of
-            Left _         -> return ()
-            Right newstate -> do
-                let curUsers = length $!
-                        [ () | (_,Present _ chans) <- M.toList state
-                        , chan `elem` chans ]
-
-                    newMax = case M.lookup chan maxUsers of
-                        Nothing -> M.insert chan curUsers maxUsers
-                        Just  n -> if n < curUsers
-                            then M.insert chan curUsers maxUsers
-                            else maxUsers
-
-                newMax `seq` newstate `seq` writer (newMax, newstate)
+    let nick = packNick . lcNick . G.nick $ msg
+    withMS $ \(maxUsers, state) writer -> do
+      ct <- io getClockTime
+      case f msg ct nick state of
+        Left _         -> return ()
+        Right newstate -> do
+          let curUsers = length $! [ () | (_, Present _ chans) <- M.toList state, chan `elem` chans ]
+          let newMax  = case M.lookup chan maxUsers of
+                          Nothing -> M.insert chan curUsers maxUsers
+                          Just  n -> if n < curUsers then M.insert chan curUsers maxUsers else maxUsers
+          newMax `seq` newstate `seq` writer (newMax, newstate)

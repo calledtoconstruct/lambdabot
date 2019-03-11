@@ -18,18 +18,17 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 02111-1307, USA. -}
 
 -- | Serialisation
-module Lambdabot.Util.Serial
-    ( Serial(..)
-    
-    , stdSerial
-    , mapSerial
-    , mapPackedSerial
-    , assocListPackedSerial
-    , mapListPackedSerial
-    , readM
-    , Packable(..) {- instances of Packable -}
-    , readOnly
-    ) where
+module Lambdabot.Util.Serial (
+    Serial(..),
+    stdSerial,
+    mapSerial,
+    mapPackedSerial,
+    assocListPackedSerial,
+    mapListPackedSerial,
+    readM,
+    Packable(..), {- instances of Packable -}
+    readOnly
+) where
 
 import Data.Maybe               (mapMaybe)
 
@@ -49,9 +48,9 @@ import Codec.Compression.GZip
 -- elimination for persistent state on a per-module basis.
 --
 data Serial s = Serial {
-        serialize   :: s -> Maybe ByteString,
-        deserialize :: ByteString -> Maybe s
-     }
+    serialize   :: s -> Maybe ByteString,
+    deserialize :: ByteString -> Maybe s
+}
 
 gzip   :: ByteString -> ByteString
 gzip   = P.concat . toChunks . compress . fromChunks . (:[])
@@ -76,9 +75,9 @@ stdSerial = Serial (Just. P.pack.show) (readM.P.unpack)
 --
 mapSerial :: (Ord k, Show k, Show v, Read k, Read v) => Serial (Map k v)
 mapSerial = Serial {
-        serialize   = Just . P.pack . unlines . map show . M.toList,
-        deserialize = Just . M.fromList . mapMaybe (readM . P.unpack) . P.lines
-   }
+    serialize = Just . P.pack . unlines . map show . M.toList,
+    deserialize = Just . M.fromList . mapMaybe (readM . P.unpack) . P.lines
+}
 
 ------------------------------------------------------------------------
 
@@ -86,57 +85,51 @@ mapSerial = Serial {
 -- this allocates a 20-30 M on startup...
 readM :: (Monad m, Read a) => String -> m a
 readM s = case [x | (x,t) <- {-# SCC "Serial.readM.reads" #-} reads s    -- bad!
-               , ("","")  <- lex t] of
-        [x] -> return x
-        []  -> fail "Serial.readM: no parse"
-        _   -> fail "Serial.readM: ambiguous parse"
+        , ("","")  <- lex t] of
+    [x] -> return x
+    []  -> fail "Serial.readM: no parse"
+    _   -> fail "Serial.readM: ambiguous parse"
 
 class Packable t where
-        readPacked :: ByteString -> t
-        showPacked :: t -> ByteString
+    readPacked :: ByteString -> t
+    showPacked :: t -> ByteString
 
 -- | An instance for Map Packed [Packed]
 -- uses gzip compression
 instance Packable (Map ByteString [ByteString]) where
-        readPacked ps = M.fromList (readKV ( P.lines . gunzip $ ps))
-             where
-                readKV :: [ByteString] -> [(ByteString,[ByteString])]
-                readKV []       =  []
-                readKV (k:rest) = let (vs, rest') = break (== P.empty) rest
-                                  in  (k,vs) : readKV (drop 1 rest')
+    readPacked ps = M.fromList (readKV ( P.lines . gunzip $ ps))
+        where readKV :: [ByteString] -> [(ByteString,[ByteString])]
+              readKV []       =  []
+              readKV (k:rest) = let (vs, rest') = break (== P.empty) rest
+                                in  (k,vs) : readKV (drop 1 rest')
 
-        showPacked m = gzip
-                     . P.unlines
-                     . concatMap (\(k,vs) -> k : vs ++ [P.empty]) $ M.toList m
+    showPacked m = gzip . P.unlines . concatMap (\(k,vs) -> k : vs ++ [P.empty]) $ M.toList m
 
 -- assumes single line second strings
 instance Packable (Map ByteString ByteString) where
-        readPacked ps = M.fromList (readKV (P.lines . gunzip $ ps))
-                where
-                  readKV :: [ByteString] -> [(ByteString,ByteString)]
-                  readKV []         = []
-                  readKV (k:v:rest) = (k,v) : readKV rest
-                  readKV _      = error "Serial.readPacked: parse failed"
+    readPacked ps = M.fromList (readKV (P.lines . gunzip $ ps))
+        where readKV :: [ByteString] -> [(ByteString,ByteString)]
+              readKV []         = []
+              readKV (k:v:rest) = (k,v) : readKV rest
+              readKV _      = error "Serial.readPacked: parse failed"
 
-        showPacked m  = gzip. P.unlines . concatMap (\(k,v) -> [k,v]) $ M.toList m
+    showPacked m  = gzip. P.unlines . concatMap (\(k,v) -> [k,v]) $ M.toList m
 
 instance Packable ([(ByteString,ByteString)]) where
-        readPacked ps = readKV (P.lines . gunzip $ ps)
-                where
-                  readKV :: [ByteString] -> [(ByteString,ByteString)]
-                  readKV []         = []
-                  readKV (k:v:rest) = (k,v) : readKV rest
-                  readKV _          = error "Serial.readPacked: parse failed"
+    readPacked ps = readKV (P.lines . gunzip $ ps)
+        where readKV :: [ByteString] -> [(ByteString,ByteString)]
+              readKV []         = []
+              readKV (k:v:rest) = (k,v) : readKV rest
+              readKV _          = error "Serial.readPacked: parse failed"
 
-        showPacked = gzip . P.unlines . concatMap (\(k,v) -> [k,v])
+    showPacked = gzip . P.unlines . concatMap (\(k,v) -> [k,v])
 
 instance Packable (M.Map P.ByteString (Bool, [(String, Int)])) where
     readPacked = M.fromList . readKV . P.lines
-        where
-          readKV :: [P.ByteString] -> [(P.ByteString,(Bool, [(String, Int)]))]
-          readKV []         = []
-          readKV (k:v:rest) = (k, (read . P.unpack) v) : readKV rest
-          readKV _          = error "Vote.readPacked: parse failed"
+        where readKV :: [P.ByteString] -> [(P.ByteString,(Bool, [(String, Int)]))]
+              readKV []         = []
+              readKV (k:v:rest) = (k, (read . P.unpack) v) : readKV rest
+              readKV _          = error "Vote.readPacked: parse failed"
 
     showPacked m = P.unlines . concatMap (\(k,v) -> [k,P.pack . show $ v]) $ M.toList m
 

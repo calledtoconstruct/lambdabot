@@ -7,7 +7,6 @@ import Lambdabot.Plugin
 import qualified Lambdabot.Plugin.Reference.Dict.DictLookup as Dict
 import Lambdabot.Util
 
-import Control.Monad
 import Data.List
 
 type Dict = ModuleT () LB

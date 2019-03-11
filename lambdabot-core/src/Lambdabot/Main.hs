@@ -36,7 +36,7 @@ import System.Exit
 import System.Log.Formatter
 import qualified System.Log.Logger as L
 import System.Log.Handler.Simple
-import Network (withSocketsDo)
+import Network.Socket
 
 lambdabotVersion :: Version
 lambdabotVersion = version
@@ -99,10 +99,7 @@ type Modules = [(String, Some Module)]
 
 modules :: [String] -> Q Exp
 modules xs = [| $(listE $ map instalify (nub xs)) |]
-    where
-        instalify x =
-            let module' = varE $ mkName (x ++ "Plugin")
-             in [| (x, This $module') |]
+  where instalify x = let module' = varE $ mkName (x ++ "Plugin") in [| (x, This $module') |]
 
 withModules :: Modules -> LB a -> LB a
 withModules []      = id

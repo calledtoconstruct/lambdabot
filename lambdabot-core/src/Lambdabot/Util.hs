@@ -34,23 +34,14 @@ import Lambdabot.Config.Core
 
 ------------------------------------------------------------------------
 
--- | Break a String into it's first word, and the rest of the string. Example:
---
--- > split_first_word "A fine day" ===> ("A", "fine day)
-splitFirstWord :: String -- ^ String to be broken
-                 -> (String, String)
+splitFirstWord :: String -> (String, String)
 splitFirstWord xs = (w, dropWhile isSpace xs')
   where (w, xs') = break isSpace xs
 
--- | Truncate a string to the specified length, putting ellipses at the
--- end if necessary.
 limitStr :: Int -> String -> String
 limitStr n s = let (b, t) = splitAt n s in
            if null t then b else take (n-3) b ++ "..."
 
--- | Form a list of terms using a single conjunction. Example:
---
--- > listToStr "and" ["a", "b", "c"] ===> "a, b and c"
 listToStr :: String -> [String] -> String
 listToStr _    []           = []
 listToStr conj (item:items) =

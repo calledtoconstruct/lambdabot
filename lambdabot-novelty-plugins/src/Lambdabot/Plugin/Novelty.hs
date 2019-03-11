@@ -1,18 +1,17 @@
-module Lambdabot.Plugin.Novelty 
-    ( bfPlugin
-    , dicePlugin
-    , elitePlugin
-    , filterPlugin
-    , numberwangPlugin
-    , quotePlugin
-    , slapPlugin
-    , unlambdaPlugin
-    , vixenPlugin
-    
-    , noveltyPlugins
-    
-    , module Lambdabot.Config.Novelty
-    ) where
+
+module Lambdabot.Plugin.Novelty (
+  bfPlugin,
+  dicePlugin,
+  elitePlugin,
+  filterPlugin,
+  numberwangPlugin,
+  quotePlugin,
+  slapPlugin,
+  unlambdaPlugin,
+  -- vixenPlugin,
+  noveltyPlugins,
+  module Lambdabot.Config.Novelty
+) where
 
 import Lambdabot.Config.Novelty
 import Lambdabot.Plugin.Novelty.BF
@@ -23,7 +22,7 @@ import Lambdabot.Plugin.Novelty.Numberwang
 import Lambdabot.Plugin.Novelty.Quote
 import Lambdabot.Plugin.Novelty.Slap
 import Lambdabot.Plugin.Novelty.Unlambda
-import Lambdabot.Plugin.Novelty.Vixen
+-- import Lambdabot.Plugin.Novelty.Vixen
 
 noveltyPlugins :: [String]
-noveltyPlugins = ["bf", "dice", "elite", "filter", "numberwang", "quote", "slap", "unlambda", "vixen"]
+noveltyPlugins = ["bf", "dice", "elite", "filter", "numberwang", "quote", "slap", "unlambda"] -- , "vixen"]

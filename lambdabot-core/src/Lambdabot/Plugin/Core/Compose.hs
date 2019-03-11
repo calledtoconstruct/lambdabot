@@ -4,7 +4,9 @@
 
 -- Another progressive plugin. Compose two (for now) plugins transparently
 -- A sort of mini interpreter. Could do with some more thinking.
-module Lambdabot.Plugin.Core.Compose (composePlugin) where
+module Lambdabot.Plugin.Core.Compose (
+    composePlugin
+) where
 
 import Lambdabot.Command
 import Lambdabot.Module
@@ -21,38 +23,36 @@ import Data.List.Split
 type Compose = ModuleT () LB
 
 composePlugin :: Module ()
-composePlugin = newModule
-    { moduleCmds = return
-        [ (command "@")
-            { aliases = ["?"]
-            , help = do
-                c <- getCmdName
-                let cc = c++c
-                mapM_ say
-                    [ cc++" [args]."
-                    , cc++" executes plugin invocations in its arguments, parentheses can be used."
-                    , " The commands are right associative."
-                    , " For example:    "++cc++" "++c++"pl "++c++"undo code"
-                    , " is the same as: "++cc++" ("++c++"pl ("++c++"undo code))"
-                    ]
-            , process = evalBracket
-            }
-        , (command ".")
-            { aliases = ["compose"]
-            , help = mapM_ say
-                [ ". <cmd1> <cmd2> [args]."
-                , ". [or compose] is the composition of two plugins"
-                , " The following semantics are used: . f g xs == g xs >>= f"
-                ]
-            , process = \args -> case splitOn " " args of
-                (f:g:xs) -> do
-                    f' <- lookupP f
-                    g' <- lookupP g
-                    lb (compose f' g' (concat $ intersperse " " xs)) >>= mapM_ say
-                _ -> say "Not enough arguments to @."
-            }
-        ]
+composePlugin = newModule {
+  moduleCmds = return [
+    (command "@") {
+      aliases = ["?"],
+      help = do
+        c <- getCmdName
+        let cc = c++c
+        mapM_ say [
+          cc++" [args].",
+          cc++" executes plugin invocations in its arguments, parentheses can be used.",
+          " The commands are right associative.",
+          " For example:    "++cc++" "++c++"pl "++c++"undo code",
+          " is the same as: "++cc++" ("++c++"pl ("++c++"undo code))" ],
+      process = evalBracket
+    }, (command ".") {
+      aliases = ["compose"],
+      help = mapM_ say [
+        ". <cmd1> <cmd2> [args].",
+        ". [or compose] is the composition of two plugins",
+        " The following semantics are used: . f g xs == g xs >>= f"
+      ],
+      process = \args -> case splitOn " " args of
+        (f:g:xs) -> do
+          f' <- lookupP f
+          g' <- lookupP g
+          lb (compose f' g' (concat $ intersperse " " xs)) >>= mapM_ say
+        _ -> say "Not enough arguments to @."
     }
+  ]
+}
 
 -- | Compose two plugin functions
 compose :: (String -> LB [String]) -> (String -> LB [String]) -> (String -> LB [String])
@@ -78,30 +78,27 @@ lookupP cmd = withMsg $ \a -> do
 evalBracket :: String -> Cmd Compose ()
 evalBracket args = do
     cmdPrefixes <- getConfig commandPrefixes
-
     let conf = cmdPrefixes
     xs <- mapM evalExpr (fst (parseBracket 0 True args conf))
     mapM_ (say . addSpace) (concat' xs)
- where concat' ([x]:[y]:xs) = concat' ([x++y]:xs)
-       concat' xs           = concat xs
+    where concat' ([x]:[y]:xs) = concat' ([x++y]:xs)
+          concat' xs           = concat xs
 
-       addSpace :: String -> String
-       addSpace (' ':xs) = ' ':xs
-       addSpace xs       = ' ':xs
+addSpace :: String -> String
+addSpace (' ':xs) = ' ':xs
+addSpace xs       = ' ':xs
 
 evalExpr :: Expr -> Cmd Compose [String]
 evalExpr (Arg s) = return [s]
 evalExpr (Cmd c args) = do
-     args' <- mapM evalExpr args
-     let arg = concat $ concat $ map (intersperse " ") args'
-     cmd <- lookupP c
-     lift (lift (cmd arg))
+    args' <- mapM evalExpr args
+    let arg = concat $ concat $ map (intersperse " ") args'
+    cmd <- lookupP c
+    lift (lift (cmd arg))
 
 ------------------------------------------------------------------------
 
-data Expr = Cmd String [Expr]
-          | Arg String
-    deriving Show
+data Expr = Cmd String [Expr] | Arg String deriving Show
 
 -- TODO: rewrite this using parsec or something
 -- | Parse a command invocation that can contain parentheses
@@ -125,35 +122,30 @@ parseBracket n c (x:xs) cfg | x `elem` "\"'" && (c || x /= '\'')
                             = let (str, ys) = parseString x xs
                                   (rest,zs) = parseBracket n True ys cfg
                               in  (addArg (x:str) rest, zs)
-parseBracket n c (x:xs) cfg = first (addArg [x])
-                            $ parseBracket n (not (isAlphaNum x) && (c || x /= '\'')) xs cfg
+parseBracket n c (x:xs) cfg = first (addArg [x]) $ parseBracket n (not (isAlphaNum x) && (c || x /= '\'')) xs cfg
 
 parseCommand, parseInlineCommand :: Int -> String -> [String] -> ([Expr],String)
 parseCommand n xs conf = (Cmd cmd args:rest, ws)
-    where
-        (cmd, ys) = break (`elem` " )") xs
-        (args,zs) = parseBracket 1 True (dropWhile (==' ') ys) conf
-        (rest,ws) = parseBracket n True zs conf
+    where (cmd, ys) = break (`elem` " )") xs 
+          (args,zs) = parseBracket 1 True (dropWhile (==' ') ys) conf
+          (rest,ws) = parseBracket n True zs conf
 
 parseInlineCommand n xs conf = (Cmd cmd rest:[], zs)
-  where
-    (cmd, ys) = break (`elem` " )") xs
-    (rest,zs) = parseBracket n True (dropWhile (==' ') ys) conf
+  where (cmd, ys) = break (`elem` " )") xs
+        (rest,zs) = parseBracket n True (dropWhile (==' ') ys) conf
 
 parseString :: Char -> String -> (String, String)
 parseString _     []          = ([],[])
 parseString delim ('\\':x:xs) = first (\ys -> '\\':x:ys) (parseString delim xs)
 parseString delim (x:xs)
-  | delim == x                = ([x],xs)
-  | otherwise                 = first (x:) (parseString delim xs)
+    | delim == x                = ([x],xs)
+    | otherwise                 = first (x:) (parseString delim xs)
 
 
 -- | Does xs start with a command prefix?
 isCommand :: String -> [String] -> Maybe String
 isCommand xs = msum . map dropPrefix
- where dropPrefix p
-          | p `isPrefixOf` xs = Just $ drop (length p) xs
-          | otherwise         = Nothing
+    where dropPrefix p | p `isPrefixOf` xs = Just $ drop (length p) xs | otherwise         = Nothing
 
 addArg :: String -> [Expr] -> [Expr]
 addArg s (Arg a:es) = Arg (s++a):es

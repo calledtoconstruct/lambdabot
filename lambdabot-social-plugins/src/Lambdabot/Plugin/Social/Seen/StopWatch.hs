@@ -1,3 +1,4 @@
+
 module Lambdabot.Plugin.Social.Seen.StopWatch where
 
 import Lambdabot.Compat.AltTime

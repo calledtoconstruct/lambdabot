@@ -1,24 +1,19 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell #-}
--- | The guts of lambdabot.
---
--- The LB/Lambdabot monad
--- Generic server connection,disconnection
--- The module typeclass, type and operations on modules
-module Lambdabot.Bot
-    ( ircLoadModule
-    , ircUnloadModule
-    , checkPrivs
-    , checkIgnore
-    
-    , ircCodepage
-    , ircGetChannels
-    , ircQuit
-    , ircReconnect
-    , ircPrivmsg
-    , ircPrivmsg'
-    ) where
+
+module Lambdabot.Bot (
+    ircLoadModule,
+    ircUnloadModule,
+    checkPrivs,
+    checkIgnore,
+    ircCodepage,
+    ircGetChannels,
+    ircQuit,
+    ircReconnect,
+    ircPrivmsg,
+    ircPrivmsg'
+) where
 
 import Lambdabot.ChanName
 import Lambdabot.Config
@@ -48,8 +43,8 @@ ircLoadModule :: String -> Module st -> LB ()
 ircLoadModule mName m = do
     infoM ("Loading module " ++ show mName)
     
-    savedState <- readGlobalState m mName
-    mState     <- maybe (moduleDefState m) return savedState
+    savedState  <- readGlobalState m mName
+    mState      <- maybe (moduleDefState m) return savedState
     
     mInfo       <- registerModule mName m mState
     
@@ -90,8 +85,7 @@ checkPrivs msg = gets (S.member (nick msg) . ircPrivilegedUsers)
 -- | Checks whether the given user is being ignored.
 --   Privileged users can't be ignored.
 checkIgnore :: IrcMessage -> LB Bool
-checkIgnore msg = liftM2 (&&) (liftM not (checkPrivs msg))
-                  (gets (S.member (nick msg) . ircIgnoredUsers))
+checkIgnore msg = liftM2 (&&) (liftM not (checkPrivs msg)) (gets (S.member (nick msg) . ircIgnoredUsers))
 
 ------------------------------------------------------------------------
 -- Some generic server operations
@@ -123,10 +117,7 @@ ircReconnect svr msg = do
     liftIO $ threadDelay 1000
 
 -- | Send a message to a channel\/user, applying all output filters
-ircPrivmsg :: Nick      -- ^ The channel\/user.
-           -> String        -- ^ The message.
-           -> LB ()
-
+ircPrivmsg :: Nick -> String -> LB ()
 ircPrivmsg who msg = do
     sendlines <- applyOutputFilters who msg
     w <- getConfig textWidth

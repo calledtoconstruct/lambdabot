@@ -1,5 +1,7 @@
 -- | Provide help for plugins
-module Lambdabot.Plugin.Core.Help (helpPlugin) where
+module Lambdabot.Plugin.Core.Help (
+    helpPlugin
+) where
 
 import Lambdabot.Command
 import Lambdabot.Message (Message)
@@ -11,40 +13,33 @@ import Lambdabot.Util
 import Control.Monad.Reader
 
 helpPlugin :: Module ()
-helpPlugin = newModule
-    { moduleCmds = return
-        [ (command "help")
-            { help = say "help <command>. Ask for help for <command>. Try 'list' for all commands"
-            , process = \args -> withMsg $ \msg -> do
+helpPlugin = newModule {
+    moduleCmds = return [
+        (command "help") {
+            help = say "help <command>. Ask for help for <command>. Try 'list' for all commands",
+            process = \args -> withMsg $ \msg -> do
                 tgt <- getTarget
                 lb (doHelp msg tgt args) >>= mapM_ say
-            }
-        ]
-    }
+        }
+    ]
+}
 
-moduleHelp :: (Monad m, Message a) =>
-              Command m -> a -> Nick -> String -> m [String]
-moduleHelp theCmd msg tgt cmd =
-    execCmd (help theCmd) msg tgt cmd
+moduleHelp :: (Monad m, Message a) => Command m -> a -> Nick -> String -> m [String]
+moduleHelp theCmd msg tgt cmd = execCmd (help theCmd) msg tgt cmd
 
---
 -- If a target is a command, find the associated help, otherwise if it's
 -- a module, return a list of commands that module implements.
---
 doHelp :: Message t => t -> Nick -> [Char] -> LB [[Char]]
 doHelp msg tgt [] = doHelp msg tgt "help"
-doHelp msg tgt rest =
-    withCommand arg                  -- see if it is a command
-        (inModuleNamed arg           -- else maybe it's a module name
-            (doHelp msg tgt "help")             -- else give up
-            (do -- its a module
+doHelp msg tgt rest = withCommand arg (
+    inModuleNamed arg (
+        doHelp msg tgt "help") (
+            do
                 cmds <- moduleCmds =<< asks theModule
                 let ss = cmds >>= cmdNames
-                let s | null ss   = arg ++ " is a module."
-                      | otherwise = arg ++ " provides: " ++ showClean ss
-                return [s]))
-
-        -- so it's a valid command, try to find its help
-        (\theCmd -> moduleHelp theCmd msg tgt arg)
-
+                let s | null ss   = arg ++ " is a module." | otherwise = arg ++ " provides: " ++ showClean ss
+                return [s]
+        )
+    )
+    (\theCmd -> moduleHelp theCmd msg tgt arg)
     where (arg:_) = words rest

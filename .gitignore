@@ -34,3 +34,10 @@ cabal.config
 ###########
 
 \#*#
+
+
+
+
+*.nix
+State
+.vscode

@@ -1,15 +1,14 @@
-module Lambdabot.Plugin.Core
-    ( basePlugin
-    , systemPlugin
-    , offlineRCPlugin
-    , composePlugin
-    , helpPlugin
-    , morePlugin
-    , versionPlugin
-    
-    , corePlugins
-    , module Lambdabot.Config.Core
-    ) where
+module Lambdabot.Plugin.Core (
+    basePlugin,
+    systemPlugin,
+    offlineRCPlugin,
+    composePlugin,
+    helpPlugin,
+    morePlugin,
+    versionPlugin,
+    corePlugins,
+    module Lambdabot.Config.Core
+) where
 
 import Lambdabot.Config.Core
 import Lambdabot.Plugin.Core.Base

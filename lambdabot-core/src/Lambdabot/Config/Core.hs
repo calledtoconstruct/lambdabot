@@ -49,7 +49,7 @@ config "textWidth"          [t| Int                     |] [| 200 :: Int    |]
 config "replaceRootLogger"  [t| Bool                    |] [| True                        |]
 config "lbRootLoggerPath"   [t| [String]                |] [| []                          |]
 config "consoleLogHandle"   [t| Handle                  |] [| stderr                      |]
-config "consoleLogLevel"    [t| Priority                |] [| NOTICE                      |]
+config "consoleLogLevel"    [t| Priority                |] [| DEBUG                       |]
 config "consoleLogFormat"   [t| String                  |] [| "[$prio] $loggername: $msg" |]
 
 --------------------------------------------

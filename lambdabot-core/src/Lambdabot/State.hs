@@ -129,10 +129,7 @@ readPS = accessPS (liftIO . readMVar) (\_ -> return Nothing)
 
 -- | Reads private state, executes one of the actions success and failure
 -- which take an MVar and an action producing a @Nothing@ MVar, respectively.
-accessPS :: (MonadLBState m, LBState m ~ GlobalPrivate g p)
-  => (MVar (Maybe p) -> m a) -> (m (MVar (Maybe p)) -> m a)
-  -> Nick
-  -> m a
+accessPS :: (MonadLBState m, LBState m ~ GlobalPrivate g p) => (MVar (Maybe p) -> m a) -> (m (MVar (Maybe p)) -> m a) -> Nick -> m a
 accessPS success failure who = withMS $ \state writer ->
   case lookup who $ private state of
     Just mvar -> do
@@ -147,24 +144,20 @@ accessPS success failure who = withMS $ \state writer ->
       return mvar
 
 -- | Writes global state. Locks everything
-withGS :: (MonadLBState m, LBState m ~ GlobalPrivate g p)
-  => (g -> (g -> m ()) -> m ()) -> m ()
+withGS :: (MonadLBState m, LBState m ~ GlobalPrivate g p) => (g -> (g -> m ()) -> m ()) -> m ()
 withGS f = withMS $ \state writer ->
   f (global state) $ \g -> writer $ state { global = g }
 
 -- | Reads global state.
-readGS :: (MonadLBState m, LBState m ~ GlobalPrivate g p)
-  => m g
+readGS :: (MonadLBState m, LBState m ~ GlobalPrivate g p) => m g
 readGS = fmap global readMS
 
 
 -- The old interface, as we don't wanna be too fancy right now.
-writePS :: (MonadLBState m, LBState m ~ GlobalPrivate g p)
-  => Nick -> Maybe p -> m ()
+writePS :: (MonadLBState m, LBState m ~ GlobalPrivate g p) => Nick -> Maybe p -> m ()
 writePS who x = withPS who (\_ writer -> writer x)
 
-writeGS :: (MonadLBState m, LBState m ~ GlobalPrivate g p)
-  => g -> m ()
+writeGS :: (MonadLBState m, LBState m ~ GlobalPrivate g p) => g -> m ()
 writeGS g = withGS (\_ writer -> writer g)
 
 -- ---------------------------------------------------------------------

@@ -8,7 +8,6 @@ module Lambdabot.Util.Browser
     ) where
 
 import Codec.Binary.UTF8.String
-import Control.Applicative
 import Control.Monad.Trans
 import Lambdabot.Config
 import Lambdabot.Config.Reference

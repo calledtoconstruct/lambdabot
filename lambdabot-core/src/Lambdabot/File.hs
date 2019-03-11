@@ -8,13 +8,13 @@
 -- directory. When reading a state file, and the file exists in the data
 -- directory but nowhere else, then it is picked up from the data directory.
 
-module Lambdabot.File
-    ( stateDir
-    , findLBFileForReading
-    , findLBFileForWriting
-    , findOrCreateLBFile
-    , findLBFile -- deprecated
-    , outputDir
+module Lambdabot.File (
+    stateDir,
+    findLBFileForReading,
+    findLBFileForWriting,
+    findOrCreateLBFile,
+    findLBFile, -- deprecated
+    outputDir
     ) where
 
 import Lambdabot.Config

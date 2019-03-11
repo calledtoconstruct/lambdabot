@@ -1,10 +1,12 @@
+
 {-# LANGUAGE Trustworthy #-}
-module Lambdabot.Plugin.Haskell.Eval.Trusted
-    ( module Math.OEIS
-    , module Test.QuickCheck.Safe
-    , module Lambdabot.Plugin.Haskell.Check.ShowQ
-    , module Lambdabot.Plugin.Haskell.Eval.Trusted
-    ) where
+
+module Lambdabot.Plugin.Haskell.Eval.Trusted (
+  module Math.OEIS,
+  module Test.QuickCheck.Safe,
+  module Lambdabot.Plugin.Haskell.Check.ShowQ,
+  module Lambdabot.Plugin.Haskell.Eval.Trusted
+) where
 
 import Math.OEIS
 import Lambdabot.Plugin.Haskell.Check.ShowQ

@@ -45,7 +45,9 @@
 >                  hack away!
 -}
 
-module Lambdabot.Plugin.Social.Tell (tellPlugin) where
+module Lambdabot.Plugin.Social.Tell (
+  tellPlugin
+) where
 
 import Lambdabot.Compat.AltTime
 import Lambdabot.Compat.FreenodeNick
@@ -59,115 +61,114 @@ import Text.Printf (printf)
 
 -- | Was it @tell or @ask that was the original command?
 data NoteType    = Tell | Ask deriving (Show, Eq, Read)
+
 -- | The Note datatype. Fields self-explanatory.
-data Note        = Note { noteSender   :: FreenodeNick,
-                          noteContents :: String,
-                          noteTime     :: ClockTime,
-                          noteType     :: NoteType }
-                   deriving (Eq, Show, Read)
+data Note        = Note {
+  noteSender   :: FreenodeNick,
+  noteContents :: String,
+  noteTime     :: ClockTime,
+  noteType     :: NoteType
+} deriving (Eq, Show, Read)
+
 -- | The state. A map of (times we last told this nick they've got messages, the
 --   messages themselves, the auto-reply)
 type NoticeEntry = (Maybe ClockTime, [Note], Maybe String)
+
 type NoticeBoard = M.Map FreenodeNick NoticeEntry
 
 type Tell = ModuleT NoticeBoard LB
 
 tellPlugin :: Module NoticeBoard
-tellPlugin = newModule
-    { moduleCmds = return
-        [ (command "tell")
-            { help = say "tell <nick> <message>. When <nick> shows activity, tell them <message>."
-            , process = doTell Tell . words
-            }
-        , (command "ask")
-            { help = say "ask <nick> <message>. When <nick> shows activity, ask them <message>."
-            , process = doTell Ask . words
-            }
-        , (command "messages")
-            { help = say "messages. Check your messages, responding in private."
-            , process = const (doMessages False)
-            }
-        , (command "messages-loud")
-            { help = say "messages. Check your messages, responding in public."
-            , process = const (doMessages True)
-            }
-        , (command "messages?")
-            { help = say "messages?. Tells you whether you have any messages"
-            , process = const $ do
-                sender <- getSender
-                ms <- getMessages sender
-                case ms of
-                    Just _      -> doRemind sender say
-                    Nothing     -> say "Sorry, no messages today."
-            }
-        , (command "clear-messages")
-            { help = say "clear-messages. Clears your messages."
-            , process = const $ do
-                sender <- getSender
-                clearMessages sender
-                say "Messages cleared."
-            }
-        , (command "auto-reply")
-            { help = say "auto-reply. Lets lambdabot auto-reply if someone sends you a message"
-            , process = doAutoReply
-            }
-        , (command "auto-reply?")
-            { help = say "auto-reply?. Tells you your auto-reply status"
-            , process = const $ do
-                sender <- getSender
-                a <- getAutoReply sender
-                case a of
-                    Just s      -> say $ "Your auto-reply is \"" ++ s ++ "\"."
-                    Nothing     -> say "You do not have an auto-reply message set."
-            }
-        , (command "clear-auto-reply")
-            { help = say "clear-auto-reply. Clears your auto-reply message."
-            , process = const $ do
-                sender <- getSender
-                clearAutoReply sender
-                say "Auto-reply message cleared."
-            }
-        , (command "print-notices")
-            { privileged = True
-            , help = say "print-notices. Print the current map of notes."
-            , process = const ((say . show) =<< readMS)
-            }
-        , (command "purge-notices")
-            { privileged = True
-            , help = say $
-                "purge-notices [<nick> [<nick> [<nick> ...]]]]. "
-                ++ "Clear all notes for specified nicks, or all notices if you don't "
-                ++ "specify a nick."
-            , process = \args -> do
-                users <- mapM readNick (words args)
-                if null users
-                    then writeMS M.empty
-                    else mapM_ clearMessages users
-                say "Messages purged."
-            }
-        ]
-    , moduleDefState  = return M.empty
-    , moduleSerialize = Just mapSerial
+tellPlugin = newModule {
+  moduleCmds = return [
+    (command "tell") {
+      help = say "tell <nick> <message>. When <nick> shows activity, tell them <message>.",
+      process = doTell Tell . words
+    },
+    (command "ask") {
+      help = say "ask <nick> <message>. When <nick> shows activity, ask them <message>.",
+      process = doTell Ask . words
+    },
+    (command "messages") {
+      help = say "messages. Check your messages, responding in private.",
+      process = const (doMessages False)
+    },
+    (command "messages-loud") {
+      help = say "messages. Check your messages, responding in public.",
+      process = const (doMessages True)
+    },
+    (command "messages?") {
+      help = say "messages?. Tells you whether you have any messages",
+      process = const $ do
+        sender <- getSender
+        ms <- getMessages sender
+        case ms of
+          Just _      -> doRemind sender say
+          Nothing     -> say "Sorry, no messages today."
+    },
+    (command "clear-messages") {
+      help = say "clear-messages. Clears your messages.",
+      process = const $ do
+        sender <- getSender
+        clearMessages sender
+        say "Messages cleared."
+    },
+    (command "auto-reply") {
+      help = say "auto-reply. Lets lambdabot auto-reply if someone sends you a message",
+        process = doAutoReply
+    },
+    (command "auto-reply?") {
+      help = say "auto-reply?. Tells you your auto-reply status",
+      process = const $ do
+        sender <- getSender
+        a <- getAutoReply sender
+        case a of
+          Just s      -> say $ "Your auto-reply is \"" ++ s ++ "\"."
+          Nothing     -> say "You do not have an auto-reply message set."
+    },
+    (command "clear-auto-reply") {
+      help = say "clear-auto-reply. Clears your auto-reply message.",
+      process = const $ do
+        sender <- getSender
+        clearAutoReply sender
+        say "Auto-reply message cleared."
+    },
+    (command "print-notices") {
+      privileged = True,
+      help = say "print-notices. Print the current map of notes.",
+      process = const ((say . show) =<< readMS)
+    },
+    (command "purge-notices") {
+      privileged = True,
+      help = say $ "purge-notices [<nick> [<nick> [<nick> ...]]]]. " ++ "Clear all notes for specified nicks, or all notices if you don't " ++ "specify a nick.",
+        process = \args -> do
+          users <- mapM readNick (words args)
+          if null users then writeMS M.empty else mapM_ clearMessages users
+          say "Messages purged."
+    }
+  ],
+  moduleDefState  = return M.empty,
+  moduleSerialize = Just mapSerial,
     -- Hook onto contextual. Grab nicks of incoming messages, and tell them
     -- if they have any messages, if it's less than a day since we last did so.
-    , contextual = const $ do
-        sender <- getSender
-        remp <- needToRemind sender
-        if remp
-            then doRemind sender (lb . ircPrivmsg sender)
-            else return ()
-    }
+  contextual = const $ do
+    sender <- getSender
+    remp <- needToRemind sender
+    if remp then doRemind sender (lb . ircPrivmsg sender) else return ()
+}
 
 -- | Take a note and the current time, then display it
 showNote :: ClockTime -> Note -> Cmd Tell String
 showNote time note = do
-    sender <- showNick (getFreenodeNick (noteSender note))
-    let diff    = time `diffClockTimes` noteTime note
-        ago     = case timeDiffPretty diff of
-                    [] -> "less than a minute"
-                    pr -> pr
-        action  = case noteType note of Tell -> "said"; Ask -> "asked"
-    return $ printf "%s %s %s ago: %s" sender action ago (noteContents note)
+  sender <- showNick (getFreenodeNick (noteSender note))
+  let diff    = time `diffClockTimes` noteTime note
+  let ago     = case timeDiffPretty diff of
+                  [] -> "less than a minute"
+                  pr -> pr
+  let action  = case noteType note of
+                  Tell -> "said"
+                  Ask -> "asked"
+  return $ printf "%s %s %s ago: %s" sender action ago (noteContents note)
 
 -- | Is it less than a day since we last reminded this nick they've got messages?
 needToRemind :: Nick -> Cmd Tell Bool
@@ -185,10 +186,12 @@ needToRemind n = do
 writeDown :: Nick -> Nick -> String -> NoteType -> Cmd Tell ()
 writeDown to from what ntype = do
   time <- io getClockTime
-  let note = Note { noteSender   = FreenodeNick from,
-                    noteContents = what,
-                    noteTime     = time,
-                    noteType     = ntype }
+  let note = Note {
+    noteSender   = FreenodeNick from,
+    noteContents = what,
+    noteTime     = time,
+    noteType     = ntype
+  }
   modEntry to $ \(_, ns, a) -> (Nothing, ns ++ [note], a)
 
 -- | Return a user's notes, or Nothing if they don't have any
@@ -233,26 +236,24 @@ modEntry sender f = modifyMS $ M.alter (cleanup . f . fromMaybe empty) (Freenode
 
 -- | Give a user their messages
 doMessages :: Bool -> Cmd Tell ()
-doMessages loud = do
-    sender <- getSender
-    msgs <- getMessages sender
+doMessages outLoud = do
+  sender <- getSender
+  let replyVia = if outLoud then say else lb . ircPrivmsg sender
+  maybeMessages <- getMessages sender
+  case maybeMessages of
+    Nothing -> replyVia "You don't have any messages"
+    Just messages -> showMessages replyVia sender messages
 
-    let tellNote = if loud
-            then say
-            else lb . ircPrivmsg sender
+showMessages :: (String -> Cmd Tell ()) -> Nick -> [Note] -> Cmd Tell ()
+showMessages _ sender [] = clearMessages sender
+showMessages replyVia sender (message : messages) = do
+  time <- io getClockTime
+  -- Note that 'showNote' may block and thus run into a timeout.
+  -- Hence we update the list of pending messages after each message.
+  showNote time message >>= replyVia
+  setMessages sender messages
+  showMessages replyVia sender messages
 
-    let loop [] = clearMessages sender
-        loop (msg : msgs) = do
-            time <- io getClockTime
-            -- Note that 'showNote' may block and thus run into a timeout.
-            -- Hence we update the list of pending messages after each message.
-            showNote time msg >>= tellNote
-            setMessages sender msgs
-            loop msgs
-
-    case msgs of
-        Nothing -> say "You don't have any messages"
-        Just msgs -> loop msgs
 
 verb :: NoteType -> String
 verb Ask = "ask"
@@ -262,45 +263,44 @@ verb Tell= "tell"
 doTell :: NoteType -> [String] -> Cmd Tell ()
 doTell ntype []         = say ("Who should I " ++ verb ntype ++ "?")
 doTell ntype (who':args) = do
-    let who     = dropFromEnd (== ':') who'
-    recipient   <- readNick who
-    sender      <- getSender
-    me          <- getLambdabotName
-    let rest = unwords args
-        (record, res)
-            | sender    == recipient   = (False, "You can " ++ verb ntype ++ " yourself!")
-            | recipient == me          = (False, "Nice try ;)")
-            | null args                = (False, "What should I " ++ verb ntype ++ " " ++ who ++ "?")
-            | otherwise                = (True,  "Consider it noted.")
-    when record $ do
-        autoReply <- getAutoReply recipient
-        case autoReply of
-            Nothing -> return ()
-            Just s -> say $ who ++ " lets you know: " ++ s
-        writeDown recipient sender rest ntype
-    say res
+  let who     = dropFromEnd (== ':') who'
+  recipient   <- readNick who
+  sender      <- getSender
+  me          <- getLambdabotName
+  let rest = unwords args
+  let (record, res)
+        | sender    == recipient   = (False, "You can " ++ verb ntype ++ " yourself!")
+        | recipient == me          = (False, "Nice try ;)")
+        | null args                = (False, "What should I " ++ verb ntype ++ " " ++ who ++ "?")
+        | otherwise                = (True,  "Consider it noted.")
+  when record $ do
+    autoReply <- getAutoReply recipient
+    case autoReply of
+      Nothing -> return ()
+      Just s -> say $ who ++ " lets you know: " ++ s
+    writeDown recipient sender rest ntype
+  say res
 
 -- | Execute a @auto-reply
 doAutoReply :: String -> Cmd Tell ()
 doAutoReply "" = say "No auto-reply message given. Did you mean @clear-auto-reply?"
 doAutoReply msg = do
-    sender      <- getSender
-    setAutoReply sender msg
-    say "Auto-Reply messages noted. You can check the status with auto-reply? and clear it with clear-auto-reply."
+  sender      <- getSender
+  setAutoReply sender msg
+  say "Auto-Reply messages noted. You can check the status with auto-reply? and clear it with clear-auto-reply."
 
 -- | Remind a user that they have messages.
 doRemind :: Nick -> (String -> Cmd Tell ()) -> Cmd Tell ()
 doRemind sender remind = do
-    ms  <- getMessages sender
-    now <- io getClockTime
-    modEntry sender $ \(_,ns,a) -> (Just now, ns, a)
-    case ms of
-        Just msgs -> do
-            me <- showNick =<< getLambdabotName
-            let n = length msgs
-                (messages, pronoun)
-                    | n > 1     = ("messages", "them")
-                    | otherwise = ("message", "it")
-            remind $ printf "You have %d new %s. '/msg %s @messages' to read %s."
-                        n messages me pronoun
-        Nothing -> return ()
+  ms  <- getMessages sender
+  now <- io getClockTime
+  modEntry sender $ \(_,ns,a) -> (Just now, ns, a)
+  case ms of
+    Just msgs -> do
+      me <- showNick =<< getLambdabotName
+      let n = length msgs
+      let (messages, pronoun)
+            | n > 1     = ("messages", "them")
+            | otherwise = ("message", "it")
+      remind $ printf "You have %d new %s. '/msg %s @messages' to read %s." n messages me pronoun
+    Nothing -> return ()

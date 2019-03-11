@@ -9,12 +9,12 @@
 -- SignalCaughts, which can then be caught by a normal catchError
 
 -- Here's where we do that.
-module Lambdabot.Util.Signals
-    ( Signal
-    , SignalException(..)
-    , ircSignalMessage
-    , withIrcSignalCatch
-    ) where
+module Lambdabot.Util.Signals (
+    Signal,
+    SignalException(..),
+    ircSignalMessage,
+    withIrcSignalCatch
+) where
 
 import Data.Typeable
 import Control.Exception (Exception)

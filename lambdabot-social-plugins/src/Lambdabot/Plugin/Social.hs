@@ -1,12 +1,12 @@
-module Lambdabot.Plugin.Social
-    ( activityPlugin
-    , karmaPlugin
-    , pollPlugin
-    , seenPlugin
-    , tellPlugin
-    
-    , socialPlugins
-    ) where
+
+module Lambdabot.Plugin.Social (
+  activityPlugin,
+  karmaPlugin,
+  pollPlugin,
+  seenPlugin,
+  tellPlugin,
+  socialPlugins
+) where
 
 import Lambdabot.Plugin.Social.Activity
 import Lambdabot.Plugin.Social.Karma

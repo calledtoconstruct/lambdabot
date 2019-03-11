@@ -4,7 +4,7 @@
 module Main where
 
 import Lambdabot.Main
-import Lambdabot.Plugin.Haskell
+-- import Lambdabot.Plugin.Haskell
 import Modules      (modulesInfo)
 import qualified Paths_lambdabot as P
 
@@ -18,29 +18,27 @@ import System.Environment
 import System.Exit
 import System.IO
 
+strs = return . (:[])
+
+flagsOptionHelp               = Option "h?" ["help"]  (NoArg (usage []))                      "Print this help message"
+flagsOptionEval               = Option "e"  []        (arg "<command>" onStartupCmds   strs)  "Run a lambdabot command instead of a REPL"
+flagsOptionVersion            = Option "V"  ["version"] (NoArg version)                       "Print the version of lambdabot"
+flagsOptionNice               = Option "n"  ["nice"]  (NoArg noinsult)                        "Be nice (disable insulting error messages)"
+  where noinsult = return (enableInsults ==> False)
+
+flagsOptionLogLevel           = Option "l"  []        (arg "<level>"   consoleLogLevel level) "Set the logging level"
+  where level str = case reads (map toUpper str) of
+                      (lv, []):_ -> return lv
+                      _          -> usage [ "Unknown log level.", "Valid levels are: " ++ show [DEBUG, INFO, NOTICE, WARNING, ERROR, CRITICAL, ALERT, EMERGENCY] ]
+
+-- flagsOptionTrustPackage       = Option "t"  ["trust"] (arg "<package>" trustedPackages strs)  "Trust the specified packages when evaluating code"
+-- flagsOptionLanguageExtensions = Option "X"  []        (arg "<extension>" languageExts strs)   "Set a GHC language extension for @run"
+
+arg :: String -> Config t -> (String -> IO t) -> ArgDescr (IO (DSum Config Identity))
+arg descr key fn = ReqArg (fmap (key ==>) . fn) descr
+
 flags :: [OptDescr (IO (DSum Config Identity))]
-flags = 
-    [ Option "h?" ["help"]  (NoArg (usage []))                      "Print this help message"
-    , Option "e"  []        (arg "<command>" onStartupCmds   strs)  "Run a lambdabot command instead of a REPL"
-    , Option "l"  []        (arg "<level>"   consoleLogLevel level) "Set the logging level"
-    , Option "t"  ["trust"] (arg "<package>" trustedPackages strs)  "Trust the specified packages when evaluating code"
-    , Option "V"  ["version"] (NoArg version)                       "Print the version of lambdabot"
-    , Option "X"  []        (arg "<extension>" languageExts strs)   "Set a GHC language extension for @run"
-    , Option "n"  ["nice"]  (NoArg noinsult)                        "Be nice (disable insulting error messages)"
-    ] where 
-        arg :: String -> Config t -> (String -> IO t) -> ArgDescr (IO (DSum Config Identity))
-        arg descr key fn = ReqArg (fmap (key ==>) . fn) descr
-        
-        strs = return . (:[])
-        
-        level str = case reads (map toUpper str) of
-            (lv, []):_ -> return lv
-            _          -> usage
-                [ "Unknown log level."
-                , "Valid levels are: " ++ show [DEBUG, INFO, NOTICE, WARNING, ERROR, CRITICAL, ALERT, EMERGENCY]
-                ]
-        
-        noinsult = return (enableInsults ==> False)
+flags = [ flagsOptionHelp, flagsOptionEval, flagsOptionLogLevel, {- flagsOptionTrustPackage, flagsOptionLanguageExtensions, -} flagsOptionVersion, flagsOptionNice ]
 
 versionString :: String
 versionString = ("lambdabot version " ++ showVersion P.version)

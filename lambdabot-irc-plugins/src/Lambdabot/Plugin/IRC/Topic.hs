@@ -3,7 +3,9 @@
 --   The advantage of having the bot maintain the topic is that we get an
 --   authoritative source for the current topic, when the IRC server decides
 --   to delete it due to Network Splits.
-module Lambdabot.Plugin.IRC.Topic (topicPlugin) where
+module Lambdabot.Plugin.IRC.Topic (
+  topicPlugin
+) where
 
 import Lambdabot.IRC
 import Lambdabot.Monad
@@ -17,63 +19,45 @@ import Control.Monad.State (gets)
 type Topic = ModuleT () LB
 
 type TopicAction = Nick -> String -> Cmd Topic ()
-data TopicCommand = TopicCommand
-    { _commandAliases    :: [String]
-    , _commandHelp       :: String
-    , _invokeCommand     :: TopicAction
-    }
+data TopicCommand = TopicCommand {
+  _commandAliases    :: [String],
+  _commandHelp       :: String,
+  _invokeCommand     :: TopicAction
+}
 
 commands :: [TopicCommand]
-commands =
-    [ TopicCommand ["set-topic"]
-      "Set the topic of the channel, without using all that listy stuff"
-      (installTopic)
-    , TopicCommand ["get-topic"]
-      "Recite the topic of the channel"
-      (reciteTopic)
-
-    , TopicCommand ["unshift-topic", "queue-topic"]
-      "Add a new topic item to the front of the topic list"
-      (alterListTopic (:))
-    , TopicCommand ["shift-topic"]
-      "Remove a topic item from the front of the topic list"
-      (alterListTopic (const tail))
-
-    , TopicCommand ["push-topic"]
-      "Add a new topic item to the end of the topic stack"
-      (alterListTopic (\arg -> (++ [arg])))
-    , TopicCommand ["pop-topic", "dequeue-topic"]
-      "Pop an item from the end of the topic stack"
-      (alterListTopic (const init))
-
-    , TopicCommand ["clear-topic"]
-      "Empty the topic stack"
-      (alterListTopic (\_ _ -> []))
-    ]
+commands = [
+    TopicCommand ["set-topic"] "Set the topic of the channel, without using all that listy stuff" (installTopic),
+    TopicCommand ["get-topic"] "Recite the topic of the channel" (reciteTopic),
+    TopicCommand ["unshift-topic", "queue-topic"] "Add a new topic item to the front of the topic list" (alterListTopic (:)),
+    TopicCommand ["shift-topic"] "Remove a topic item from the front of the topic list" (alterListTopic (const tail)),
+    TopicCommand ["push-topic"] "Add a new topic item to the end of the topic stack" (alterListTopic (\arg -> (++ [arg]))),
+    TopicCommand ["pop-topic", "dequeue-topic"] "Pop an item from the end of the topic stack" (alterListTopic (const init)),
+    TopicCommand ["clear-topic"] "Empty the topic stack" (alterListTopic (\_ _ -> []))
+  ]
 
 topicPlugin :: Module ()
-topicPlugin = newModule
-    { moduleCmds = return
-        [ (command name)
-            { help = say helpStr
-            , aliases = aliases'
-            , process = \args -> do
-                tgt <- getTarget
-                (chan, rest) <- case splitFirstWord args of
-                        (c@('#':_), r)  -> do
-                            c' <- readNick c
-                            return (Just c', r)
-                        _               -> case nName tgt of
-                            ('#':_)         -> return (Just tgt, args)
-                            _               -> return (Nothing, args)
-
-                case chan of
-                    Just chan' -> invoke chan' rest
-                    Nothing    -> say "What channel?"
-            }
-        | TopicCommand (name:aliases') helpStr invoke <- commands
-        ]
+topicPlugin = newModule {
+  moduleCmds = return [
+    (command name) {
+      help = say helpStr,
+      aliases = aliases',
+      process = \args -> do
+        tgt <- getTarget
+        (chan, rest) <- case splitFirstWord args of
+          (c@('#':_), r)  -> do
+            c' <- readNick c
+            return (Just c', r)
+          _               -> case nName tgt of
+            ('#':_)         -> return (Just tgt, args)
+            _               -> return (Nothing, args)
+        case chan of
+          Just chan' -> invoke chan' rest
+          Nothing    -> say "What channel?"
     }
+    | TopicCommand (name:aliases') helpStr invoke <- commands
+    ]
+}
 
 ------------------------------------------------------------------------
 -- Topic action implementations

@@ -1,7 +1,7 @@
--- | Offline mode / RC file / -e support module.  Handles spooling lists
--- of commands (from haskeline, files, or the command line) into the vchat
--- layer.
-module Lambdabot.Plugin.Core.OfflineRC ( offlineRCPlugin ) where
+
+module Lambdabot.Plugin.Core.OfflineRC (
+    offlineRCPlugin
+) where
 
 import Lambdabot.Config.Core
 import Lambdabot.IRC
@@ -26,45 +26,42 @@ import Codec.Binary.UTF8.String
 -- unregister the server (-> allow the bot to quit) when it is not
 -- being used.
 type OfflineRCState = Integer
+
 type OfflineRC = ModuleT OfflineRCState LB
 
 offlineRCPlugin :: Module OfflineRCState
-offlineRCPlugin = newModule
-    { moduleDefState = return 0
-    , moduleInit = do
-        lb . modify $ \s -> s
-            { ircPrivilegedUsers = S.insert (Nick "offlinerc" "null") (ircPrivilegedUsers s)
-            }
+offlineRCPlugin = newModule {
+    moduleDefState = return 0,
+    moduleInit = do
+        lb . modify $ \s -> s {
+            ircPrivilegedUsers = S.insert (Nick "offlinerc" "null") (ircPrivilegedUsers s)
+        }
         -- note: moduleInit is invoked with exceptions masked
         void . forkUnmasked $ do
             waitForInit
             lockRC
             cmds <- getConfig onStartupCmds
-            mapM_ feed cmds `finally` unlockRC
-
-    , moduleCmds = return
-        [ (command "offline")
-            { privileged = True
-            , help = say "offline. Start a repl"
-            , process = const . lift $ do
-                lockRC
-                histFile <- lb $ findLBFileForWriting "offlinerc"
-                let settings = defaultSettings { historyFile = Just histFile }
-                _ <- fork (runInputT settings replLoop `finally` unlockRC)
-                return ()
-            }
-        , (command "rc")
-            { privileged = True
-            , help = say "rc name. Read a file of commands (asynchronously). TODO: better name."
-            , process = \fn -> lift $ do
-                txt <- io $ readFile fn
-                io $ evaluate $ foldr seq () txt
-                lockRC
-                _ <- fork (mapM_ feed (lines txt) `finally` unlockRC)
-                return ()
-            }
-        ]
-    }
+            mapM_ feed cmds `finally` unlockRC,
+    moduleCmds = return [ (command "offline") {
+        privileged = True,
+        help = say "offline. Start a repl",
+        process = const . lift $ do
+            lockRC
+            histFile <- lb $ findLBFileForWriting "offlinerc"
+            let settings = defaultSettings { historyFile = Just histFile }
+            _ <- fork (runInputT settings replLoop `finally` unlockRC)
+            return ()
+    }, (command "rc") {
+        privileged = True,
+        help = say "rc name. Read a file of commands (asynchronously). TODO: better name.",
+        process = \fn -> lift $ do
+            txt <- io $ readFile fn
+            io $ evaluate $ foldr seq () txt
+            lockRC
+            _ <- fork (mapM_ feed (lines txt) `finally` unlockRC)
+            return ()
+    } ]
+}
 
 feed :: String -> OfflineRC ()
 feed msg = do
@@ -74,21 +71,22 @@ feed msg = do
             '!':xs -> xs
             _      -> cmdPrefix ++ dropWhile (== ' ') msg
     -- note that `msg'` is unicode, but lambdabot wants utf-8 lists of bytes
-    lb . void . timeout (15 * 1000 * 1000) . received $
-              IrcMessage { ircMsgServer = "offlinerc"
-                         , ircMsgLBName = "offline"
-                         , ircMsgPrefix = "null!n=user@null"
-                         , ircMsgCommand = "PRIVMSG"
-                         , ircMsgParams = ["offline", ":" ++ encodeString msg' ] }
+    lb . void . timeout (15 * 1000 * 1000) . received $ IrcMessage {
+        ircMsgServer = "offlinerc",
+        ircMsgLBName = "offline",
+        ircMsgPrefix = "null!n=user@null",
+        ircMsgCommand = "PRIVMSG",
+        ircMsgParams = ["offline", ":" ++ encodeString msg' ]
+    }
 
 handleMsg :: IrcMessage -> OfflineRC ()
 handleMsg msg = liftIO $ do
-    let str = case (tail . ircMsgParams) msg of
-            []    -> []
-            (x:_) -> tail x
+  let str = case (tail . ircMsgParams) msg of
+              []    -> []
+              (x:_) -> tail x
     -- str contains utf-8 list of bytes; convert to unicode
-    hPutStrLn stdout (decodeString str)
-    hFlush stdout
+  hPutStrLn stdout (decodeString str)
+  hFlush stdout
 
 replLoop :: InputT OfflineRC ()
 replLoop = do
@@ -107,8 +105,9 @@ lockRC = do
     withMS $ \ cur writ -> do
         when (cur == 0) $ do
             registerServer "offlinerc" handleMsg
-            lift $ modify $ \state' ->
-                state' { ircPersists = M.insert "offlinerc" True $ ircPersists state' }
+            lift $ modify $ \state' -> state' {
+                ircPersists = M.insert "offlinerc" True $ ircPersists state'
+            }
         writ (cur + 1)
 
 unlockRC :: OfflineRC ()
