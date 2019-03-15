@@ -8,6 +8,7 @@ import Lambdabot.Main
 -- add a string in the list below
 -- import Lambdabot.Plugin.Haskell
 import Lambdabot.Plugin.IRC
+import Lambdabot.Plugin.Twitch
 import Lambdabot.Plugin.Misc
 import Lambdabot.Plugin.Novelty
 import Lambdabot.Plugin.Reference
@@ -16,6 +17,7 @@ import Lambdabot.Plugin.Social
 modulesInfo :: Modules
 modulesInfo = $(modules $ corePlugins
     -- ++ haskellPlugins
+    ++ ["twitch"] -- twitchPlugins
     ++ ["irc", "localtime", "topic"] -- ircPlugins
     ++ ["dummy", "fresh", "todo"] -- miscPlugins
     ++ ["bf", "dice", "elite", "filter", "quote", "slap", "unlambda"] -- , "vixen"] -- noveltyPlugins

@@ -8,7 +8,7 @@ import Lambdabot.Main
 import Modules      (modulesInfo)
 import qualified Paths_lambdabot as P
 
-import Control.Applicative
+import Control.Applicative()
 import Control.Monad
 import Control.Monad.Identity
 import Data.Char
@@ -18,14 +18,23 @@ import System.Environment
 import System.Exit
 import System.IO
 
+strs :: a -> IO [a]
 strs = return . (:[])
 
+flagsOptionHelp :: OptDescr (IO (DSum Config Identity))
 flagsOptionHelp               = Option "h?" ["help"]  (NoArg (usage []))                      "Print this help message"
+
+flagsOptionEval :: OptDescr (IO (DSum Config Identity))
 flagsOptionEval               = Option "e"  []        (arg "<command>" onStartupCmds   strs)  "Run a lambdabot command instead of a REPL"
+
+flagsOptionVersion :: OptDescr (IO (DSum Config Identity))
 flagsOptionVersion            = Option "V"  ["version"] (NoArg version)                       "Print the version of lambdabot"
+
+flagsOptionNice :: OptDescr (IO (DSum Config Identity))
 flagsOptionNice               = Option "n"  ["nice"]  (NoArg noinsult)                        "Be nice (disable insulting error messages)"
   where noinsult = return (enableInsults ==> False)
 
+flagsOptionLogLevel :: OptDescr (IO (DSum Config Identity))
 flagsOptionLogLevel           = Option "l"  []        (arg "<level>"   consoleLogLevel level) "Set the logging level"
   where level str = case reads (map toUpper str) of
                       (lv, []):_ -> return lv
@@ -75,7 +84,7 @@ main = do
 
 -- special online target for ghci use
 online :: [String] -> IO ()
-online strs = do
+online startUpCommands = do
     dir <- P.getDataDir
     void $ lambdabotMain modulesInfo
-        [dataDir ==> dir, lbVersion ==> P.version, onStartupCmds ==> strs]
+        [dataDir ==> dir, lbVersion ==> P.version, onStartupCmds ==> startUpCommands]

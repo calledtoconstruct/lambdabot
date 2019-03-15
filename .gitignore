@@ -41,3 +41,4 @@ cabal.config
 *.nix
 State
 .vscode
+twitch.rc

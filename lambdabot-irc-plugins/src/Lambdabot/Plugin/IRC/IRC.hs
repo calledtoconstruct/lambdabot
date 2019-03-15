@@ -1,4 +1,6 @@
 
+{-# OPTIONS_GHC -fno-warn-overlapping-patterns -Wmissing-signatures #-}
+
 module Lambdabot.Plugin.IRC.IRC (
   ircPlugin
 ) where
@@ -17,6 +19,7 @@ import Control.Monad
 import Control.Monad.Trans
 import Control.Monad.State
 import qualified Data.ByteString.Char8 as P
+import Data.IORef
 import Data.List
 import Data.List.Split
 import qualified Data.Map as M
@@ -76,20 +79,17 @@ ircPlugin = newModule {
 --   on the outgoing stream socket.
 encodeMessage :: IrcMessage -> String -> String
 encodeMessage msg = encodePrefix (ircMsgPrefix msg) . encodeCommand (ircMsgCommand msg) . encodeParams (ircMsgParams msg)
-  where
-    encodePrefix [] = id
-    encodePrefix prefix = showChar ':' . showString' prefix . showChar ' '
+  where encodePrefix [] = id
+        encodePrefix prefix = showChar ':' . showString' prefix . showChar ' '
+        encodeCommand cmd = showString cmd
+        encodeParams [] = id
+        encodeParams (p:ps) = showChar ' ' . showString' p . encodeParams ps
 
-    encodeCommand cmd = showString cmd
-
-    encodeParams [] = id
-    encodeParams (p:ps) = showChar ' ' . showString' p . encodeParams ps
-
-    -- IrcMessage is supposed to contain strings that are lists of bytes, but
-    -- if a plugin messes up the encoding then we may end up with arbitrary
-    -- Unicode codepoints. This is dangerous (\x10a would produce a newline!),
-    -- so we sanitize the message here.
-    showString' = showString . map (\c -> if c > '\xFF' then '?' else c)
+        -- IrcMessage is supposed to contain strings that are lists of bytes, but
+        -- if a plugin messes up the encoding then we may end up with arbitrary
+        -- Unicode codepoints. This is dangerous (\x10a would produce a newline!),
+        -- so we sanitize the message here.
+        showString' = showString . map (\c -> if c > '\xFF' then '?' else c)
 
 -- | 'decodeMessage' Takes an input line from the IRC protocol stream
 --   and decodes it into a message.  TODO: this has too many parameters.
@@ -105,22 +105,22 @@ decodeMessage svr lbn line =
       ircMsgCommand = cmd,
       ircMsgParams = params
     }
-  where
-    decodePrefix k (':':cs) = decodePrefix' k cs
-      where decodePrefix' j ""       = j "" ""
-            decodePrefix' j (' ':ds) = j "" ds
-            decodePrefix' j (c:ds)   = decodePrefix' (j . (c:)) ds
+  where decodePrefix k (':':cs) = decodePrefix' k cs
 
-    decodePrefix k cs = k "" cs
+        decodePrefix k cs = k "" cs
 
-    decodeCmd k []       = k "" ""
-    decodeCmd k (' ':cs) = k "" cs
-    decodeCmd k (c:cs)   = decodeCmd (k . (c:)) cs
+        decodeCmd k []       = k "" ""
+        decodeCmd k (' ':cs) = k "" cs
+        decodeCmd k (c:cs)   = decodeCmd (k . (c:)) cs
 
-    decodeParams :: String -> [String]
-    decodeParams xs = decodeParams' [] [] xs
-      where
-        decodeParams' param params []
+decodePrefix' j ""       = j "" ""
+decodePrefix' j (' ':ds) = j "" ds
+decodePrefix' j (c:ds)   = decodePrefix' (j . (c:)) ds
+
+
+decodeParams :: String -> [String]
+decodeParams xs = decodeParams' [] [] xs
+  where decodeParams' param params []
           | null param = reverse params
           | otherwise  = reverse (reverse param : params)
         decodeParams' param params (' ' : cs)
@@ -157,6 +157,7 @@ online tag hostn portnum nickn ui = do
         sem1    <- io $ SSem.new 0
         sem2    <- io $ SSem.new 4 -- one extra token stays in the MVar
         sendmv  <- io newEmptyMVar
+        pongref <- io $ newIORef False
         io . void . fork . forever $ do
             SSem.wait sem1
             threadDelay 2000000
@@ -166,22 +167,15 @@ online tag hostn portnum nickn ui = do
             putMVar sendmv ()
             SSem.signal sem1
         fin <- io $ SSem.new 0
-        E.catch
-            (registerServer tag (io . sendMsg sock sendmv fin))
-            (\err@SomeException{} -> io (hClose sock) >> E.throwIO err)
+        E.catch (registerServer tag (io . sendMsg sock sendmv fin)) (\err@SomeException{} -> io (hClose sock) >> E.throwIO err)
         lb $ ircSignOn hostn (Nick tag nickn) pwd ui
         ready <- io $ SSem.new 0
         lb $ void $ forkFinally
-            (E.catch
-                (readerLoop tag nickn sock ready)
-                -- (readerLoop tag nickn pongref sock ready)
-                (\e@SomeException{} -> errorM (show e)))
+            (E.catch (readerLoop tag nickn pongref sock ready) (\e@SomeException{} -> errorM (show e)))
             (const $ io $ SSem.signal fin)
-        -- void $ forkFinally
-        --     (E.catch
-        --         (pingPongDelay >> pingPongLoop tag hostn pongref sock)
-        --         (\e@SomeException{} -> errorM (show e)))
-        --     (const $ io $ SSem.signal fin)
+        void $ forkFinally
+            (E.catch (pingPongDelay >> pingPongLoop tag hostn pongref sock) (\e@SomeException{} -> errorM (show e)))
+            (const $ io $ SSem.signal fin)
         void $ fork $ do
             io $ SSem.wait fin
             unregisterServer tag
@@ -190,19 +184,14 @@ online tag hostn portnum nickn ui = do
             delay <- getConfig reconnectDelay
             let retry = do
                 continue <- lift $ gets $ \st -> (M.member tag $ ircPersists st) && not (M.member tag $ ircServerMap st)
-                if continue
-                    then do
-                        E.catch online'
-                            (\e@SomeException{} -> do
-                                errorM (show e)
-                                io $ threadDelay delay
-                                retry
-                            )
-                    else do
-                        chans <- lift $ gets ircChannels
-                        forM_ (M.keys chans) $ \chan ->
-                            when (nTag (getCN chan) == tag) $
-                            lift $ modify $ \state' -> state' { ircChannels = M.delete chan $ ircChannels state' }
+                if continue then do
+                  E.catch online' (\e@SomeException{} -> do
+                    errorM (show e)
+                    io $ threadDelay delay
+                    retry)
+                  else do
+                    chans <- lift $ gets ircChannels
+                    forM_ (M.keys chans) $ \chan -> when (nTag (getCN chan) == tag) $ lift $ modify $ \state' -> state' { ircChannels = M.delete chan $ ircChannels state' }
 
             retry
         watch <- io $ fork $ do
@@ -214,23 +203,21 @@ online tag hostn portnum nickn ui = do
 
     online'
 
--- pingPongDelay :: IRC ()
--- pingPongDelay = io $ threadDelay 120000000
+pingPongDelay :: IRC ()
+pingPongDelay = io $ threadDelay 120000000
 
--- pingPongLoop :: String -> String -> IORef Bool -> Handle -> IRC ()
--- pingPongLoop tag hostn pongref sock = do
---     io $ writeIORef pongref False
---     io $ P.hPut sock $ P.pack $ "PING " ++ hostn ++ "\r\n"
---     pingPongDelay
---     pong <- io $ readIORef pongref
---     if pong
---         then pingPongLoop tag hostn pongref sock
---         else errorM "Ping timeout."
+pingPongLoop :: String -> String -> IORef Bool -> Handle -> IRC ()
+pingPongLoop tag hostn pongref sock = do
+    io $ writeIORef pongref False
+    io $ P.hPut sock $ P.pack $ "PING " ++ hostn ++ "\r\n"
+    pingPongDelay
+    pong <- io $ readIORef pongref
+    if pong
+        then pingPongLoop tag hostn pongref sock
+        else errorM "Ping timeout."
 
--- readerLoop :: String -> String -> IORef Bool -> Handle -> SSem.SSem -> LB ()
--- readerLoop tag nickn pongref sock ready = forever $ do
-readerLoop :: String -> String -> Handle -> SSem.SSem -> LB ()
-readerLoop tag nickn sock ready = forever $ do
+readerLoop :: String -> String -> IORef Bool -> Handle -> SSem.SSem -> LB ()
+readerLoop tag nickn pongref sock ready = forever $ do
     line <- io $ hGetLine sock
     let line' = filter (`notElem` "\r\n") line
     debugM $ "Received from " ++ tag ++ " :: " ++ nickn ++ " >> " ++ line'
@@ -240,15 +227,15 @@ readerLoop tag nickn sock ready = forever $ do
             let msg = decodeMessage tag nickn line'
             when (ircMsgCommand msg == "001") $ io $ SSem.signal ready
             received msg
-    -- if "PING " `isPrefixOf` line'
-    --     then io $ P.hPut sock $ P.pack $ "PONG " ++ drop 5 line' ++ "\r\n"
-    --     else void . fork . void . timeout 15000000 $ do
-    --         let msg = decodeMessage tag nickn line'
-    --         if ircMsgCommand msg == "PONG"
-    --             then io $ writeIORef pongref True
-    --             else do
-    --                 when (ircMsgCommand msg == "001") $ io $ SSem.signal ready
-    --                 received msg
+    if "PING " `isPrefixOf` line'
+        then io $ P.hPut sock $ P.pack $ "PONG " ++ drop 5 line' ++ "\r\n"
+        else void . fork . void . timeout 15000000 $ do
+            let msg = decodeMessage tag nickn line'
+            if ircMsgCommand msg == "PONG"
+                then io $ writeIORef pongref True
+                else do
+                    when (ircMsgCommand msg == "001") $ io $ SSem.signal ready
+                    received msg
                 
 sendMsg :: Handle -> MVar () -> SSem.SSem -> IrcMessage -> IO ()
 sendMsg sock mv fin msg =

@@ -34,8 +34,9 @@ extra-source-files:     scripts/ghci.sh
                         Changelog
                         README.md
 
-data-files:             scripts/online.rc,
+data-files:             scripts/online.rc.sample,
                         scripts/passwd.rc.sample,
+                        scripts/twitch.rc,
                         State/haddock,
                         State/Pristine.hs.706,
                         State/Pristine.hs.708,
@@ -55,8 +56,9 @@ executable lambdabot
   ghc-options:          -Wall -threaded
   build-depends:        base                         >= 3 && < 5,
                         lambdabot-core               >= 5.1.0.1 && < 5.2,
-                        lambdabot-haskell-plugins    >= 5.1.0.1 && < 5.2,
+                        -- lambdabot-haskell-plugins    >= 5.1.0.1 && < 5.2,
                         lambdabot-irc-plugins        >= 5.1.0.1 && < 5.2,
+                        lambdabot-twitch-plugins     >= 5.1.0.1 && < 5.2,
                         lambdabot-misc-plugins       >= 5.1.0.1 && < 5.2,
                         lambdabot-novelty-plugins    >= 5.1.0.1 && < 5.2,
                         lambdabot-reference-plugins  >= 5.1.0.1 && < 5.2,

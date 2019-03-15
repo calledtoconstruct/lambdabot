@@ -115,7 +115,7 @@ tellPlugin = newModule {
     },
     (command "auto-reply") {
       help = say "auto-reply. Lets lambdabot auto-reply if someone sends you a message",
-        process = doAutoReply
+      process = doAutoReply
     },
     (command "auto-reply?") {
       help = say "auto-reply?. Tells you your auto-reply status",
@@ -141,10 +141,10 @@ tellPlugin = newModule {
     (command "purge-notices") {
       privileged = True,
       help = say $ "purge-notices [<nick> [<nick> [<nick> ...]]]]. " ++ "Clear all notes for specified nicks, or all notices if you don't " ++ "specify a nick.",
-        process = \args -> do
-          users <- mapM readNick (words args)
-          if null users then writeMS M.empty else mapM_ clearMessages users
-          say "Messages purged."
+      process = \args -> do
+        users <- mapM readNick (words args)
+        if null users then writeMS M.empty else mapM_ clearMessages users
+        say "Messages purged."
     }
   ],
   moduleDefState  = return M.empty,

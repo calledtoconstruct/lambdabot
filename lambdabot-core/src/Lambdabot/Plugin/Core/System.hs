@@ -52,14 +52,14 @@ systemPlugin = newModule {
       process = doList
     },
     (command "echo") {
-      help = say "echo <msg>. echo irc protocol string",
+      help = say "echo <msg>. I can hear an echo!",
       process = doEcho
     },
     (command "uptime") {
       help = say "uptime. Show uptime",
       process = \_ -> do
         (uptime, maxUptime) <- lift getUptime
-        say ("uptime: " ++ timeDiffPretty uptime ++ ", longest uptime: " ++ timeDiffPretty maxUptime)
+        say ("I have been awake for " ++ timeDiffPretty uptime ++ ", longest uptime: " ++ timeDiffPretty maxUptime)
     },
     (command "listall") {
       privileged = True,
@@ -145,9 +145,7 @@ doList m  = say =<< lb (listModule m)
 
 doEcho :: String -> Cmd System ()
 doEcho rest = do
-  rawMsg <- withMsg (return . show)
-  target <- showNick =<< getTarget
-  say (concat ["echo; msg:", rawMsg, " target:" , target, " rest:", show rest])
+  say (concat ["uhh...", show rest])
 
 doAdmin :: String -> Cmd System ()
 doAdmin = toggleNick $ \op nck s -> s { ircPrivilegedUsers = op nck (ircPrivilegedUsers s) }

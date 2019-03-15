@@ -1,26 +1,19 @@
-name:                   lambdabot-irc-plugins
+name:                   lambdabot-twitch-plugins
 version:                5.1.0.4
 
 license:                GPL
 license-file:           LICENSE
 
-author:                 Don Stewart
-maintainer:             James Cook <mokus@deepbondi.net>
+author:                 Joseph Woolley
+maintainer:             
 
 category:               Development, Web
-synopsis:               IRC plugins for lambdabot.
+synopsis:               Twitch plugins for lambdabot.
 description:            Lambdabot is an IRC bot written over several years by
                         those on the #haskell IRC channel.
                         .
                         Provided plugins:
                         .
-                        [irc] Lets lambdabot connect to IRC.
-                        .
-                        [localtime] Check user's local time.
-                        .
-                        [log] Log IRC channels.
-                        .
-                        [topic] Modify channel topics.
 
 homepage:               https://wiki.haskell.org/Lambdabot
 
@@ -36,13 +29,10 @@ library
   hs-source-dirs:       src
   ghc-options:          -Wall -Wmissing-signatures -funbox-strict-fields
 
-  exposed-modules:      Lambdabot.Plugin.IRC
+  exposed-modules:      Lambdabot.Plugin.Twitch
 
-  other-modules:        Lambdabot.Config.IRC
-                        Lambdabot.Plugin.IRC.IRC
-                        Lambdabot.Plugin.IRC.Localtime
-                        Lambdabot.Plugin.IRC.Log
-                        Lambdabot.Plugin.IRC.Topic
+  other-modules:        Lambdabot.Config.Twitch
+                        Lambdabot.Plugin.Twitch.Twitch
 
   build-depends:        base                    >= 4.4 && < 5,
                         bytestring              >= 0.9,

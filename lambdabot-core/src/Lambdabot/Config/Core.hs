@@ -31,7 +31,7 @@ import Data.Version
 -------------------------------------
 -- Core configuration variables
 
-config "commandPrefixes"    [t| [String]                |] [| ["@", "?"]    |]
+config "commandPrefixes"    [t| [String]                |] [| ["?"]         |]
 config "disabledCommands"   [t| [String]                |] [| []            |]
 config "editDistanceLimit"  [t| Int                     |] [| 3 :: Int      |]
 config "enableInsults"      [t| Bool                    |] [| True          |]

@@ -12,6 +12,8 @@ cd ../lambdabot-misc-plugins
 cabal install --force-reinstalls
 cd ../lambdabot-irc-plugins
 cabal install --force-reinstalls
+cd ../lambdabot-twitch-plugins
+cabal install --force-reinstalls
 cd ../lambdabot-haskell-plugins
 cabal install --force-reinstalls
 cd ../lambdabot
