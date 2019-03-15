@@ -67,7 +67,7 @@ doCmd :: Integer -> String -> Cmd Karma ()
 doCmd dk rest = do
     sender <- getSender
     case words rest of
-      []       -> say "usage @karma(+|-) nick"
+      []       -> say "usage ?karma(+|-) nick"
       (nick:_) -> do
           nick' <- readNick nick
           changeKarma dk sender nick' >>= say

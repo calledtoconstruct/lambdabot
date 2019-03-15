@@ -38,7 +38,7 @@ todoPlugin = newModule
 -- | Print todo list
 getTodo :: String -> Cmd Todo ()
 getTodo [] = readMS >>= sayTodo
-getTodo _  = say "@todo has no args, try @todo-add or @list todo"
+getTodo _  = say "?todo has no args, try ?todo-add or ?list todo"
 
 -- | Pretty print todo list
 sayTodo :: [(P.ByteString, P.ByteString)] -> Cmd Todo ()
@@ -70,4 +70,4 @@ delTodo rest
                 let (a,_) = ls !! n
                 return ("Removed: " ++ P.unpack a))
 
-    | otherwise = say "Syntax error. @todo <n>, where n :: Int"
+    | otherwise = say "Syntax error. ?todo <n>, where n :: Int"

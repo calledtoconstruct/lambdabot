@@ -89,7 +89,7 @@ pollPlugin = newModule {
 }
 
 process_ :: [Char] -> [Char] -> Cmd Vote ()
-process_ cmd [] = say ("Missing argument. Check @help " ++ cmd ++ " for info.")
+process_ cmd [] = say ("Missing argument. Check ?help " ++ cmd ++ " for info.")
 process_ cmd dat = do
   result <- withMS $ \fm writer -> processCommand fm writer cmd (words dat)
   say result
@@ -105,32 +105,32 @@ processCommand fm writer cmd dat = case cmd of
     -- show candidates
     "poll-show"    -> return $ case length dat of
                         1 -> showPoll fm (head dat)
-                        _ -> "usage: @poll-show <poll>"
+                        _ -> "usage: ?poll-show <poll>"
 
     -- declare a new poll
     "poll-add"     -> case length dat of
                         1 -> addPoll fm writer (head dat)
-                        _ -> return "usage: @poll-add <poll>   with \"ThisTopic\" style names"
+                        _ -> return "usage: ?poll-add <poll>   with \"ThisTopic\" style names"
 
     "choice-add"   -> case length dat of
                         2 -> addChoice fm writer (head dat) (last dat)
-                        _ -> return "usage: @choice-add <poll> <choice>"
+                        _ -> return "usage: ?choice-add <poll> <choice>"
 
     "vote"          -> case length dat of
                         2 -> vote fm writer (head dat) (last dat)
-                        _ -> return "usage: @vote <poll> <choice>"
+                        _ -> return "usage: ?vote <poll> <choice>"
 
     "poll-result"   -> return $ case length dat of
                         1 -> showResult fm (head dat)
-                        _ -> "usage: @poll-result <poll>"
+                        _ -> "usage: ?poll-result <poll>"
 
     "poll-close"    -> case length dat of
                         1 -> closePoll fm writer (head dat)
-                        _ -> return "usage: @poll-close <poll>"
+                        _ -> return "usage: ?poll-close <poll>"
 
     "poll-remove"   -> case length dat of
                         1 -> removePoll fm writer (head dat)
-                        _ -> return "usage: @poll-remove <poll>"
+                        _ -> return "usage: ?poll-remove <poll>"
 
     _ -> return "Unknown command."
 
@@ -141,7 +141,7 @@ listPolls fm = show $ map fst (M.toList fm)
 
 showPoll :: VoteState -> String -> String
 showPoll fm poll  = case M.lookup (P.pack poll) fm of
-  Nothing -> "No such poll: " ++ show poll ++ " Use @poll-list to see the available polls."
+  Nothing -> "No such poll: " ++ show poll ++ " Use ?poll-list to see the available polls."
   Just p  -> show $ map fst (snd p)
 
 addPoll :: VoteState -> VoteWriter -> String -> Cmd Vote String

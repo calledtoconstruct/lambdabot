@@ -12,25 +12,24 @@ import Data.List
 type Dict = ModuleT () LB
 
 dictPlugin :: Module ()
-dictPlugin = newModule
-    { moduleCmds = return $
-        [ (command "dict-help")
-            { help = getHelp []
-            , process = getHelp . words
-            }
-        ] ++
-        [ (command name)
-            { help = getHelp [name]
-            , process = \args -> case parseTerms args of
-                [] -> getHelp [name]
-                [s]  -> doLookup s >>= sayResult
-                _ -> say "Sorry, look up one word at a time please."
-            }
-        | (name, (srv, db, _)) <- dictTable
-        , let doLookup  = io . Dict.simpleDictLookup srv db
-              sayResult = say . either ("Error: " ++) id
-        ]
+dictPlugin = newModule {
+  moduleCmds = return $ [
+    (command "dict-help") {
+      help = getHelp [],
+      process = getHelp . words
     }
+  ] ++ [
+    (command name) {
+      help = getHelp [name],
+      process = \args -> case parseTerms args of
+        [] -> getHelp [name]
+        [s]  -> doLookup s >>= sayResult
+        _ -> say "Sorry, look up one word at a time please."
+    } | (name, (srv, db, _)) <- dictTable,
+    let doLookup  = io . Dict.simpleDictLookup srv db
+        sayResult = say . either ("Error: " ++) id
+  ]
+}
 
 -- | Configuration.
 
@@ -40,13 +39,13 @@ dictTable =
     [ ("all-dicts", (dict_org, "*"       ,     "Query all databases on dict.org"))
     , ("bouvier"  , (dict_org, "bouvier",      "Bouvier's Law Dictionary"))
     , ("cide"     , (dict_org, "gcide",        "The Collaborative International Dictionary of English"))
-    , ("devils"   , (dict_org, "devil",        "The Devil's Dictionary"))
-    , ("easton"   , (dict_org, "easton",       "Easton's 1897 Bible Dictionary"))
+    -- , ("devils"   , (dict_org, "devil",        "The Devil's Dictionary"))
+    -- , ("easton"   , (dict_org, "easton",       "Easton's 1897 Bible Dictionary"))
     , ("elements" , (dict_org, "elements",     "Elements database"))
     , ("foldoc"   , (dict_org, "foldoc",       "The Free On-line Dictionary of Computing"))
     , ("gazetteer", (dict_org, "gaz2k-places", "U.S. Gazetteer (2000)"))
-    , ("hitchcock", (dict_org, "hitchcock",    "Hitchcock's Bible Names Dictionary (late 1800's)"))
-    , ("jargon"   , (dict_org, "jargon",       "Jargon File"))
+    -- , ("hitchcock", (dict_org, "hitchcock",    "Hitchcock's Bible Names Dictionary (late 1800's)"))
+    -- , ("jargon"   , (dict_org, "jargon",       "Jargon File"))
     , ("thesaurus", (dict_org, "moby-thes",    "Moby Thesaurus II"))
     , ("vera"     , (dict_org, "vera",         "V.E.R.A.: Virtual Entity of Relevant Acronyms"))
     , ("wn"       , (dict_org, "wn",           "WordNet (r) 1.7"))
@@ -68,7 +67,7 @@ getHelp []    = do
     getHelp dictNames
 
 getHelp dicts = mapM_ (say . gH) dicts
-    where
+  where
     gH dict | Just (_, _, descr) <- lookup dict dictTable
             = pad dict ++ " " ++ descr
 

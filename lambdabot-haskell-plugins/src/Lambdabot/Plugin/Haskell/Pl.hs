@@ -75,7 +75,7 @@ optimizeTopLevel (to, d) = do
         then writePS target Nothing
         else do
             writePS target $ Just (min (2*to) maxTimeout, eDecl)
-            say "optimization suspended, use @pl-resume to continue."
+            say "optimization suspended, use ?pl-resume to continue."
 
 ------------------------------------------------------------------------
 

@@ -89,7 +89,7 @@ parseInstance cls = fmap (strip isSpace) . eitherToMaybe
 getInstances :: String -> ClassName -> [Instance]
 getInstances s cls
     | not classFound -- can't trust those dodgy folk in #haskell
-    = ["Couldn't find class `"++cls++"'. Try @instances-importing"]
+    = ["Couldn't find class `"++cls++"'. Try ?instances-importing"]
 
    | otherwise = sort $ mapMaybe doParse (tail splut)
 

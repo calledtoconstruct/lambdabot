@@ -47,7 +47,7 @@ evalPlugin = newModule
                     then do
                         resetL_hs
                         say "Undefined."
-                    else say "There's currently no way to undefine just one thing.  Say @undefine (with no extra words) to undefine everything."
+                    else say "There's currently no way to undefine just one thing.  Say ?undefine (with no extra words) to undefine everything."
             }
         ]
 

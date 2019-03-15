@@ -226,7 +226,7 @@ doMsg msg cmd rest towhere = do
 
 docmd :: IrcMessage -> Nick -> [Char] -> String -> Base ()
 docmd msg towhere rest cmd' = withPS towhere $ \_ _ -> do
-  withCommand cmd' (ircPrivmsg towhere "Unknown command, try @list") (\theCmd -> do
+  withCommand cmd' (ircPrivmsg towhere "Unknown command, try ?list") (\theCmd -> do
     name'   <- asks moduleName
     hasPrivs <- lb (checkPrivs msg)
     

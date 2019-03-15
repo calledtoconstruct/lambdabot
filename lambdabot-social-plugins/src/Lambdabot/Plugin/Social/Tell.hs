@@ -283,7 +283,7 @@ doTell ntype (who':args) = do
 
 -- | Execute a @auto-reply
 doAutoReply :: String -> Cmd Tell ()
-doAutoReply "" = say "No auto-reply message given. Did you mean @clear-auto-reply?"
+doAutoReply "" = say "No auto-reply message given. Did you mean ?clear-auto-reply?"
 doAutoReply msg = do
   sender      <- getSender
   setAutoReply sender msg
@@ -302,5 +302,5 @@ doRemind sender remind = do
       let (messages, pronoun)
             | n > 1     = ("messages", "them")
             | otherwise = ("message", "it")
-      remind $ printf "You have %d new %s. '/msg %s @messages' to read %s." n messages me pronoun
+      remind $ printf "You have %d new %s. '/msg %s ?messages' to read %s." n messages me pronoun
     Nothing -> return ()

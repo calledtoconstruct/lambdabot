@@ -19,7 +19,7 @@ morePlugin = newModule {
     moduleDefState = return $ mkGlobalPrivate 20 (),
     moduleInit = registerOutputFilter moreFilter,
     moduleCmds = return [ (command "more") {
-        help = say "@more. Return more output from the bot buffer.",
+        help = say "?more. Return more output from the bot buffer.",
         process = \_ -> do
             target <- getTarget
             morestate <- readPS target
@@ -35,5 +35,5 @@ moreFilter target msglines = do
                                 [] -> ([],msglines)
                                 _  -> (drop maxLines msglines, take maxLines msglines)
   writePS target $ if null morelines then Nothing else Just morelines
-  return $ thislines ++ if null morelines then [] else ['[':shows (length morelines) " @more lines]"]
+  return $ thislines ++ if null morelines then [] else ['[':shows (length morelines) " ?more lines]"]
   where maxLines = 5 -- arbitrary, really

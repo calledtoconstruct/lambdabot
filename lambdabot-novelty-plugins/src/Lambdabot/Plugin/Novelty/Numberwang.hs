@@ -26,7 +26,7 @@ numberwangPlugin = newModule
     { moduleDefState = sample (State <$> cmdDist <*> conDist)
     , moduleCmds = return
         [ (command "numberwang")
-            { help = say "@numberwang <number>: Determines if it is Numberwang."
+            { help = say "?numberwang <number>: Determines if it is Numberwang."
             , process = doNumberwang True . length . words
             }
         ]

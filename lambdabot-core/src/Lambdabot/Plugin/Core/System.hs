@@ -140,7 +140,7 @@ systemPlugin = newModule {
 ------------------------------------------------------------------------
 
 doList :: String -> Cmd System ()
-doList "" = say "What module?  Try @listmodules for some ideas."
+doList "" = say "What module?  Try ?listmodules for some ideas."
 doList m  = say =<< lb (listModule m)
 
 doEcho :: String -> Cmd System ()
