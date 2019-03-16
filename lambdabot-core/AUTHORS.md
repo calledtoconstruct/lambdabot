@@ -55,7 +55,7 @@ The following people have made contributions to the Lambdabot project.  There ar
 
   - Code/Documentation cleanups
 
-* Thomas Jäger <TheHunter2000@web.de> aka TheHunter on #haskell
+* Thomas Jï¿½ger <TheHunter2000@web.de> aka TheHunter on #haskell
 
   - PlModule
   - General hacking/refactoring.
@@ -156,3 +156,8 @@ The following people have made contributions to the Lambdabot project.  There ar
 * Jan Stolarek <jan.stolarek@p.lodz.pl> aka killy9999 on #haskell
 
   - More stuff, mostly code cleanup.
+
+* Joseph Woolley
+
+  - Twitch plugin based on the IRC plugin
+  - Suggestions plugin

@@ -9,6 +9,7 @@ import Lambdabot.Main
 -- import Lambdabot.Plugin.Haskell
 import Lambdabot.Plugin.IRC
 import Lambdabot.Plugin.Twitch
+import Lambdabot.Plugin.Suggest
 import Lambdabot.Plugin.Misc
 import Lambdabot.Plugin.Novelty
 import Lambdabot.Plugin.Reference
@@ -18,6 +19,7 @@ modulesInfo :: Modules
 modulesInfo = $(modules $ corePlugins
     -- ++ haskellPlugins
     ++ ["twitch"] -- twitchPlugins
+    ++ ["suggest"] -- suggestPlugins
     ++ ["irc", "localtime", "topic"] -- ircPlugins
     ++ ["dummy", "fresh", "todo"] -- miscPlugins
     ++ ["bf", "dice", "elite", "filter", "quote", "slap", "unlambda"] -- , "vixen"] -- noveltyPlugins

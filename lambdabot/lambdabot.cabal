@@ -59,6 +59,7 @@ executable lambdabot
                         -- lambdabot-haskell-plugins    >= 5.1.0.1 && < 5.2,
                         lambdabot-irc-plugins        >= 5.1.0.1 && < 5.2,
                         lambdabot-twitch-plugins     >= 5.1.0.1 && < 5.2,
+                        lambdabot-suggest-plugins    >= 5.1.0.1 && < 5.2,
                         lambdabot-misc-plugins       >= 5.1.0.1 && < 5.2,
                         lambdabot-novelty-plugins    >= 5.1.0.1 && < 5.2,
                         lambdabot-reference-plugins  >= 5.1.0.1 && < 5.2,
