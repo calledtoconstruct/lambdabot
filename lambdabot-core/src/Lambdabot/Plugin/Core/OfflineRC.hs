@@ -1,15 +1,19 @@
 
+{-# OPTIONS_GHC -Wmissing-signatures #-}
+
 module Lambdabot.Plugin.Core.OfflineRC (
     offlineRCPlugin
 ) where
 
 import Lambdabot.Config.Core
 import Lambdabot.IRC
+import Lambdabot.Logging
 import Lambdabot.Monad
 import Lambdabot.Plugin
 import Lambdabot.Util
 
 import Control.Concurrent.Lifted
+import qualified Control.Concurrent.SSem as SSem
 import Control.Exception.Lifted ( evaluate, finally )
 import Control.Monad( void, when )
 import Control.Monad.State( gets, modify )
@@ -31,37 +35,57 @@ type OfflineRC = ModuleT OfflineRCState LB
 
 offlineRCPlugin :: Module OfflineRCState
 offlineRCPlugin = newModule {
-    moduleDefState = return 0,
-    moduleInit = do
-        lb . modify $ \s -> s {
-            ircPrivilegedUsers = S.insert (Nick "offlinerc" "null") (ircPrivilegedUsers s)
-        }
-        -- note: moduleInit is invoked with exceptions masked
-        void . forkUnmasked $ do
-            waitForInit
-            lockRC
-            cmds <- getConfig onStartupCmds
-            mapM_ feed cmds `finally` unlockRC,
-    moduleCmds = return [ (command "offline") {
-        privileged = True,
-        help = say "offline. Start a repl",
-        process = const . lift $ do
-            lockRC
-            histFile <- lb $ findLBFileForWriting "offlinerc"
-            let settings = defaultSettings { historyFile = Just histFile }
-            _ <- fork (runInputT settings replLoop `finally` unlockRC)
-            return ()
-    }, (command "rc") {
-        privileged = True,
-        help = say "rc name. Read a file of commands (asynchronously). TODO: better name.",
-        process = \fn -> lift $ do
-            txt <- io $ readFile fn
-            io $ evaluate $ foldr seq () txt
-            lockRC
-            _ <- fork (mapM_ feed (lines txt) `finally` unlockRC)
-            return ()
-    } ]
+  moduleDefState = return 0,
+  moduleInit = do
+    lb . modify $ \s -> s {
+      ircPrivilegedUsers = S.insert (Nick "offlinerc" "null") (ircPrivilegedUsers s)
+    }
+    -- note: moduleInit is invoked with exceptions masked
+    void . forkUnmasked $ do
+      waitForInit
+      lockRC
+      cmds <- getConfig onStartupCmds
+      mapM_ feed cmds `finally` unlockRC,
+  moduleExit = do
+    void . forkUnmasked $ do
+      lockRC
+      cmds <- getConfig onShutdownCmds
+      mapM_ feed cmds `finally` unlockRC,
+  moduleCmds = return [
+    (command "offline") {
+      privileged = True,
+      help = say "offline. Start a repl",
+      process = const . lift $ do
+        lockRC
+        histFile <- lb $ findLBFileForWriting "offlinerc"
+        let settings = defaultSettings { historyFile = Just histFile }
+        _ <- fork (runInputT settings replLoop `finally` unlockRC)
+        return ()
+    },
+    (command "shutdown") {
+      privileged = True,
+      help = say "shutdown, have the bot shutdown",
+      process = \_ -> do
+        runScript "scripts/shutdown.rc"
+        lift $ unregisterServer "offlinerc"
+        lift $ stopRC
+    },
+    (command "rc") {
+      privileged = True,
+      help = say "rc name. Read a file of commands (asynchronously). TODO: better name.",
+      process = \fileName -> runScript fileName
+    }
+  ]
 }
+
+runScript :: String -> Cmd OfflineRC ()
+runScript fileName = lift $ do
+  txt <- io $ readFile fileName
+  io $ evaluate $ foldr seq () txt
+  let linesOfText = lines txt
+  lockRC
+  _ <- fork $ finally (mapM_ feed linesOfText) unlockRC
+  return ()
 
 feed :: String -> OfflineRC ()
 feed msg = do
@@ -99,6 +123,14 @@ replLoop = do
                 lift $ feed s'
             continue <- lift $ lift $ gets (M.member "offlinerc" . ircPersists)
             when continue replLoop
+
+stopRC :: OfflineRC ()
+stopRC = do
+  withMS $ \ cur writ -> do
+    lift $ modify $ \state' -> state' {
+      ircPersists = M.insert "offlinerc" True $ ircPersists state'
+    }
+    writ (cur + 1)
 
 lockRC :: OfflineRC ()
 lockRC = do

@@ -41,4 +41,7 @@ cabal.config
 *.nix
 State
 .vscode
+shutdown.rc
+onstartup.rc
+onshutdown.rc
 twitch.rc

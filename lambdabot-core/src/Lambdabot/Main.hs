@@ -1,18 +1,17 @@
+
 {-# LANGUAGE TemplateHaskell #-}
-module Lambdabot.Main
-    ( lambdabotVersion
-    
-    , Config
-    , DSum(..)
-    , (==>)
-    , lambdabotMain
 
-    , Modules
-    , modules
-
-    , module Lambdabot.Plugin.Core
-    , Priority(..)
-    ) where
+module Lambdabot.Main (
+  lambdabotVersion,
+  Config,
+  DSum(..),
+  (==>),
+  lambdabotMain,
+  Modules,
+  modules,
+  module Lambdabot.Plugin.Core,
+  Priority(..)
+) where
 
 import Lambdabot.Bot
 import Lambdabot.Config
@@ -43,21 +42,20 @@ lambdabotVersion = version
 
 setupLogging :: LB ()
 setupLogging = do
-    stream <- getConfig consoleLogHandle
-    level  <- getConfig consoleLogLevel
-    format <- getConfig consoleLogFormat
-    
-    unformattedHandler <- io (streamHandler stream level)
-    let consoleHandler = unformattedHandler
-            { formatter = simpleLogFormatter format }
-    
-    setRoot <- getConfig replaceRootLogger
-    
-    io $ if setRoot
-        then L.updateGlobalLogger L.rootLoggerName
-            (L.setLevel level . L.setHandlers [consoleHandler])
-        else L.updateGlobalLogger "Lambdabot"
-            (L.setLevel level . L.addHandler consoleHandler)
+  stream <- getConfig consoleLogHandle
+  level  <- getConfig consoleLogLevel
+  format <- getConfig consoleLogFormat
+  
+  unformattedHandler <- io (streamHandler stream level)
+  let consoleHandler = unformattedHandler {
+    formatter = simpleLogFormatter format
+  }
+  
+  setRoot <- getConfig replaceRootLogger
+  
+  io $ if setRoot
+    then L.updateGlobalLogger L.rootLoggerName (L.setLevel level . L.setHandlers [consoleHandler])
+    else L.updateGlobalLogger "Lambdabot" (L.setLevel level . L.addHandler consoleHandler)
 
 -- | The Lambdabot entry point.
 -- Initialise plugins, connect, and run the bot in the LB monad
@@ -67,31 +65,35 @@ setupLogging = do
 -- with in the mainLoop or further down.
 lambdabotMain :: Modules -> [DSum Config Identity] -> IO ExitCode
 lambdabotMain initialise cfg = withSocketsDo . withIrcSignalCatch $ do
-    rost <- initRoState cfg
-    rwst <- newIORef initRwState
-    runLB (lambdabotRun initialise) (rost, rwst)
-        `E.catch` \e -> do
-            -- clean up and go home
-            case fromException e of
-                Just code -> return code
-                Nothing   -> do
-                    errorM (show e)
-                    return (ExitFailure 1)
+  rost <- initRoState cfg
+  rwst <- newIORef initRwState
+  let runMainLoop = runLB (lambdabotRun initialise) (rost, rwst)
+  E.catch runMainLoop showExceptionAndExit
+
+showExceptionAndExit :: SomeException -> IO ExitCode
+showExceptionAndExit exception = do
+  -- clean up and go home
+  case fromException exception of
+    Just code -> return code
+    Nothing   -> do
+      errorM (show exception)
+      return (ExitFailure 1)
+
+showExceptionAndContinue :: SomeException -> LB ()
+showExceptionAndContinue exception = errorM $ show exception
 
 lambdabotRun :: Modules -> LB ExitCode
 lambdabotRun ms = do
-    setupLogging
-    infoM "Initialising plugins"
-    withModules ms $ do
-        infoM "Done loading plugins"
-        reportInitDone
-        
-        waitForQuit `E.catch`
-            (\e@SomeException{} -> errorM (show e)) -- catch anything, print informative message, and clean up
-    
-    -- clean up any dynamically loaded modules
-    mapM_ ircUnloadModule =<< listModules
-    return ExitSuccess
+  setupLogging
+  infoM "Initialising plugins"
+  withModules ms $ do
+    infoM "Done loading plugins"
+    reportInitDone    
+    E.catch waitForQuit showExceptionAndContinue
+  
+  -- clean up any dynamically loaded modules
+  mapM_ ircUnloadModule =<< listModules
+  return ExitSuccess
 
 ------------------------------------------------------------------------
 
@@ -102,7 +104,7 @@ modules xs = [| $(listE $ map instalify (nub xs)) |]
   where instalify x = let module' = varE $ mkName (x ++ "Plugin") in [| (x, This $module') |]
 
 withModules :: Modules -> LB a -> LB a
-withModules []      = id
+withModules []                = id
 withModules ((n, This m):ms)  = withModule n m . withModules ms
 
 withModule :: String -> Module st -> LB a -> LB a

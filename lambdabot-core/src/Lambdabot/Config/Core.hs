@@ -1,25 +1,28 @@
+
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# OPTIONS_GHC -fno-warn-overlapping-patterns #-}
-module Lambdabot.Config.Core
-    ( commandPrefixes
-    , disabledCommands
-    , editDistanceLimit
-    , enableInsults
-    , onStartupCmds
-    , outputDir
-    , dataDir
-    , lbVersion
-    , textWidth
-    , uncaughtExceptionHandler
-    
-    , replaceRootLogger
-    , lbRootLoggerPath
-    , consoleLogHandle
-    , consoleLogLevel
-    , consoleLogFormat
-    ) where
+
+module Lambdabot.Config.Core (
+  commandPrefixes,
+  disabledCommands,
+  editDistanceLimit,
+  enableInsults,
+  onStartupCmds,
+  onShutdownCmds,
+  outputDir,
+  dataDir,
+  lbVersion,
+  textWidth,
+  uncaughtExceptionHandler,
+  
+  replaceRootLogger,
+  lbRootLoggerPath,
+  consoleLogHandle,
+  consoleLogLevel,
+  consoleLogFormat
+) where
 
 import Lambdabot.Config
 import Lambdabot.Logging
@@ -35,7 +38,8 @@ config "commandPrefixes"    [t| [String]                |] [| ["?"]         |]
 config "disabledCommands"   [t| [String]                |] [| []            |]
 config "editDistanceLimit"  [t| Int                     |] [| 3 :: Int      |]
 config "enableInsults"      [t| Bool                    |] [| True          |]
-configWithMerge [| (++) |] "onStartupCmds" [t| [String] |] [| ["offline"]   |]
+configWithMerge [| (++) |] "onStartupCmds"  [t| [String] |] [| ["rc scripts/onstartup.rc"]  |]
+configWithMerge [| (++) |] "onShutdownCmds" [t| [String] |] [| ["rc scripts/onshutdown.rc"] |]
 config "outputDir"          [t| FilePath                |] [| "State/"      |]
 -- the dataDir variable will be filled by lambdabot's executable
 config "dataDir"            [t| FilePath                |] [| "."           |]
