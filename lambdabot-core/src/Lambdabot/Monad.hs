@@ -288,16 +288,19 @@ registerServer sName sendf = do
 -- TODO: fix race condition
 unregisterServer :: String -> ModuleT mod LB ()
 unregisterServer tag = lb $ do
-    s <- get
-    let svrs = ircServerMap s
-    case M.lookup tag svrs of
-        Just _ -> do
-            let svrs' = M.delete tag svrs
-            put (s { ircServerMap = svrs' })
-            when (M.null svrs') $ do
-                quitMVar <- askLB ircQuitMVar
-                io $ putMVar quitMVar ()
-        Nothing -> fail $ "attempted to delete nonexistent servers named " ++ tag
+  warningM $ "unregistering server " ++ tag
+  s <- get
+  let svrs = ircServerMap s
+  case M.lookup tag svrs of
+    Just _ -> do
+      let svrs' = M.delete tag svrs
+      put (s { ircServerMap = svrs' })
+      warningM "server unregistered"
+      when (M.null svrs') $ do
+        warningM "all servers unregistered"
+        quitMVar <- askLB ircQuitMVar
+        io $ putMVar quitMVar ()
+    Nothing -> fail $ "attempted to delete nonexistent servers named " ++ tag
 
 withUEHandler :: LB () -> LB ()
 withUEHandler f = do

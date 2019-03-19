@@ -211,6 +211,9 @@ goOnline hostn portnum tag nickn psw ui = do
   io $ SSem.wait ready
   killThread watch
 
+-- goodbye :: Nick -> IrcMessage
+-- goodbye loc = mkMessage (nTag loc)  "Goodbye all!"  [nName loc]
+
 online :: String -> String -> PortID -> String -> String -> IRC ()
 online tag hostn portnum nickn ui = do
   pwd <- password `fmap` readMS

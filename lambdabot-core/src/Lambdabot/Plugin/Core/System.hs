@@ -13,6 +13,7 @@ import Lambdabot.Plugin
 import Lambdabot.Util
 import Lambdabot.Logging
 
+import Data.Monoid
 import Control.Monad.Reader
 import Control.Monad.State (gets, modify)
 import qualified Data.Map as M
@@ -97,6 +98,16 @@ systemPlugin = newModule {
       process = \rest -> do
         let (server, cp) = splitFirstWord rest
         lb $ ircCodepage server cp
+    },
+    (command "shutdown") {
+      privileged = True,
+      help = say "shutdown, have the bot exit",
+      process = const $ do
+        serverMap <- lb (gets ircServerMap)
+        let serverNames = M.keys serverMap
+        let collection = (\serverName -> lb $ ircQuit serverName "requested") <$> serverNames
+        let (first: rest) = collection
+        foldr (>>) first rest
     },
     (command "quit") {
       privileged = True,
