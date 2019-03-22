@@ -1,3 +1,4 @@
+
 {-# LANGUAGE FlexibleInstances #-}
 
 {- Copyright (c) 2004-5 Thomas Jaeger, Don Stewart
@@ -19,15 +20,17 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 
 -- | Serialisation
 module Lambdabot.Util.Serial (
-    Serial(..),
-    stdSerial,
-    mapSerial,
-    mapPackedSerial,
-    assocListPackedSerial,
-    mapListPackedSerial,
-    readM,
-    Packable(..), {- instances of Packable -}
-    readOnly
+  Serial(..),
+  stdSerial,
+  mapSerial,
+  mapPackedSerial,
+  assocListPackedSerial,
+  mapListPackedSerial,
+  readM,
+  Packable(..), {- instances of Packable -}
+  readOnly,
+  AssociativeCompletionState,
+  completionStateAssociativeListPackedSerial
 ) where
 
 import Data.Maybe               (mapMaybe)
@@ -48,8 +51,8 @@ import Codec.Compression.GZip
 -- elimination for persistent state on a per-module basis.
 --
 data Serial s = Serial {
-    serialize   :: s -> Maybe ByteString,
-    deserialize :: ByteString -> Maybe s
+  serialize   :: s -> Maybe ByteString,
+  deserialize :: ByteString -> Maybe s
 }
 
 gzip   :: ByteString -> ByteString
@@ -75,8 +78,8 @@ stdSerial = Serial (Just. P.pack.show) (readM.P.unpack)
 --
 mapSerial :: (Ord k, Show k, Show v, Read k, Read v) => Serial (Map k v)
 mapSerial = Serial {
-    serialize = Just . P.pack . unlines . map show . M.toList,
-    deserialize = Just . M.fromList . mapMaybe (readM . P.unpack) . P.lines
+  serialize = Just . P.pack . unlines . map show . M.toList,
+  deserialize = Just . M.fromList . mapMaybe (readM . P.unpack) . P.lines
 }
 
 ------------------------------------------------------------------------
@@ -86,52 +89,52 @@ mapSerial = Serial {
 readM :: (Monad m, Read a) => String -> m a
 readM s = case [x | (x,t) <- {-# SCC "Serial.readM.reads" #-} reads s    -- bad!
         , ("","")  <- lex t] of
-    [x] -> return x
-    []  -> fail "Serial.readM: no parse"
-    _   -> fail "Serial.readM: ambiguous parse"
+  [x] -> return x
+  []  -> fail "Serial.readM: no parse"
+  _   -> fail "Serial.readM: ambiguous parse"
 
 class Packable t where
-    readPacked :: ByteString -> t
-    showPacked :: t -> ByteString
+  readPacked :: ByteString -> t
+  showPacked :: t -> ByteString
 
 -- | An instance for Map Packed [Packed]
 -- uses gzip compression
 instance Packable (Map ByteString [ByteString]) where
-    readPacked ps = M.fromList (readKV ( P.lines . gunzip $ ps))
-        where readKV :: [ByteString] -> [(ByteString,[ByteString])]
-              readKV []       =  []
-              readKV (k:rest) = let (vs, rest') = break (== P.empty) rest
-                                in  (k,vs) : readKV (drop 1 rest')
+  readPacked ps = M.fromList (readKV (P.lines . gunzip $ ps))
+    where readKV :: [ByteString] -> [(ByteString,[ByteString])]
+          readKV []       =  []
+          readKV (k:rest) = let (vs, rest') = break (== P.empty) rest in (k, vs) : readKV (drop 1 rest')
 
-    showPacked m = gzip . P.unlines . concatMap (\(k,vs) -> k : vs ++ [P.empty]) $ M.toList m
+  showPacked m = gzip . P.unlines . concatMap (\(k,vs) -> k : vs ++ [P.empty]) $ M.toList m
 
 -- assumes single line second strings
 instance Packable (Map ByteString ByteString) where
-    readPacked ps = M.fromList (readKV (P.lines . gunzip $ ps))
-        where readKV :: [ByteString] -> [(ByteString,ByteString)]
-              readKV []         = []
-              readKV (k:v:rest) = (k,v) : readKV rest
-              readKV _      = error "Serial.readPacked: parse failed"
+  readPacked ps = M.fromList $ readPackedEntry (splitAt 2) (\(k: v: _) -> (k, v)) (P.lines . gunzip $ ps)
+  showPacked m  = gzip. P.unlines . concatMap (\(k, v) -> [k, v]) $ M.toList m
 
-    showPacked m  = gzip. P.unlines . concatMap (\(k,v) -> [k,v]) $ M.toList m
+instance Packable ( [ (ByteString, ByteString) ] ) where
+  readPacked ps = readPackedEntry (splitAt 2) (\(k: v: _) -> (k, v)) (P.lines . gunzip $ ps)
+  showPacked = gzip . P.unlines . concatMap (\(k,v) -> [k,v])
 
-instance Packable ([(ByteString,ByteString)]) where
-    readPacked ps = readKV (P.lines . gunzip $ ps)
-        where readKV :: [ByteString] -> [(ByteString,ByteString)]
-              readKV []         = []
-              readKV (k:v:rest) = (k,v) : readKV rest
-              readKV _          = error "Serial.readPacked: parse failed"
+instance Packable (M.Map ByteString (Bool, [(String, Int)])) where
+  readPacked = M.fromList . (readPackedEntry (splitAt 2) (\(k: v: _) -> (k, read . P.unpack $ v))) . P.lines
+  showPacked m = P.unlines . concatMap (\(k, v) -> [k, P.pack . show $ v]) $ M.toList m
 
-    showPacked = gzip . P.unlines . concatMap (\(k,v) -> [k,v])
+data CompletionState = Complete | Incomplete
+type AssociativeCompletionState = (ByteString, ByteString, Bool)
 
-instance Packable (M.Map P.ByteString (Bool, [(String, Int)])) where
-    readPacked = M.fromList . readKV . P.lines
-        where readKV :: [P.ByteString] -> [(P.ByteString,(Bool, [(String, Int)]))]
-              readKV []         = []
-              readKV (k:v:rest) = (k, (read . P.unpack) v) : readKV rest
-              readKV _          = error "Vote.readPacked: parse failed"
+instance Packable ([AssociativeCompletionState]) where
+  readPacked ps = readPackedEntry (splitAt 3) buildAssociativeCompletionState (P.lines . gunzip $ ps)
+  showPacked = gzip . P.unlines . concatMap (\(k, v, s) -> [k, v, P.pack . show $ s])
 
-    showPacked m = P.unlines . concatMap (\(k,v) -> [k,P.pack . show $ v]) $ M.toList m
+buildAssociativeCompletionState :: [ByteString] -> AssociativeCompletionState
+buildAssociativeCompletionState (k: v: s: _) = (k, v, read . P.unpack $ s)
+
+readPackedEntry :: ([ByteString] -> ([ByteString], [ByteString])) -> ([ByteString] -> a) -> [ByteString] -> [a]
+readPackedEntry e f []               = []
+readPackedEntry e f list             = (f params): readPackedEntry e f rest
+  where (params, rest) = e list
+readPackedEntry e f _                = error "Serial.readPacked: parse failed"
 
 -- And for packed string maps
 mapPackedSerial :: Serial (Map ByteString ByteString)
@@ -142,7 +145,10 @@ mapListPackedSerial :: Serial (Map ByteString [ByteString])
 mapListPackedSerial = Serial (Just . showPacked) (Just . readPacked)
 
 -- And for association list
-assocListPackedSerial :: Serial ([(ByteString,ByteString)])
+assocListPackedSerial :: Serial ( [ (ByteString, ByteString) ] )
 assocListPackedSerial = Serial (Just . showPacked) (Just . readPacked)
+
+completionStateAssociativeListPackedSerial :: Serial ( [ AssociativeCompletionState ] )
+completionStateAssociativeListPackedSerial = Serial (Just . showPacked) (Just . readPacked)
 
 ------------------------------------------------------------------------
