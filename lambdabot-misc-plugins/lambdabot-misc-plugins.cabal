@@ -43,6 +43,7 @@ flag network-uri
 library
   hs-source-dirs:       src
   ghc-options:          -Wall
+                        -Wmissing-signatures
                         -funbox-strict-fields
 
   exposed-modules:      Lambdabot.Plugin.Misc
