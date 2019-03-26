@@ -8,4 +8,4 @@ import Lambdabot.Config.Suggest
 import Lambdabot.Plugin.Suggest.Suggest
 
 suggestPlugins :: [String]
-suggestPlugins = ["suggest", "suggestions"]
+suggestPlugins = ["suggest", "suggestions", "remove-suggestion"]
