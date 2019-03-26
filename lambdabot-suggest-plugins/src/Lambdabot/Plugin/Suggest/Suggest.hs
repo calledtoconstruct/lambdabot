@@ -41,5 +41,5 @@ addSuggestion rest
     say =<< randomSuccessMsg
 
 listSuggestions :: Cmd Suggest ()
-listSuggestions = withMS (\suggestions _ -> say $ concat $ ["\""] ++ (intersperse "\", \"" suggestions) ++ ["\""])
+listSuggestions = withMS (\suggestions _ -> mapM_ say suggestions)
 
