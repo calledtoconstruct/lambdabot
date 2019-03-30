@@ -29,8 +29,7 @@ module Lambdabot.Util.Serial (
   readM,
   Packable(..), {- instances of Packable -}
   readOnly,
-  AssociativeCompletionState,
-  completionStateAssociativeListPackedSerial
+  readPackedEntry
 ) where
 
 import Data.Maybe               (mapMaybe)
@@ -41,7 +40,7 @@ import qualified Data.Map as M
 import qualified Data.ByteString.Char8 as P
 import Data.ByteString.Char8 (ByteString)
 
-import Data.ByteString.Lazy (fromChunks,toChunks)
+import Data.ByteString.Lazy (fromChunks, toChunks)
 
 import Codec.Compression.GZip
 
@@ -120,21 +119,11 @@ instance Packable (M.Map ByteString (Bool, [(String, Int)])) where
   readPacked = M.fromList . (readPackedEntry (splitAt 2) (\(k: v: _) -> (k, read . P.unpack $ v))) . P.lines
   showPacked m = P.unlines . concatMap (\(k, v) -> [k, P.pack . show $ v]) $ M.toList m
 
-data CompletionState = Complete | Incomplete
-type AssociativeCompletionState = (ByteString, ByteString, Bool)
-
-instance Packable ([AssociativeCompletionState]) where
-  readPacked ps = readPackedEntry (splitAt 3) buildAssociativeCompletionState (P.lines . gunzip $ ps)
-  showPacked = gzip . P.unlines . concatMap (\(k, v, s) -> [k, v, P.pack . show $ s])
-
-buildAssociativeCompletionState :: [ByteString] -> AssociativeCompletionState
-buildAssociativeCompletionState (k: v: s: _) = (k, v, read . P.unpack $ s)
-
 readPackedEntry :: ([ByteString] -> ([ByteString], [ByteString])) -> ([ByteString] -> a) -> [ByteString] -> [a]
-readPackedEntry e f []               = []
+readPackedEntry _ _ []               = []
 readPackedEntry e f list             = (f params): readPackedEntry e f rest
   where (params, rest) = e list
-readPackedEntry e f _                = error "Serial.readPacked: parse failed"
+readPackedEntry _ _ _                = error "Serial.readPacked: parse failed"
 
 -- And for packed string maps
 mapPackedSerial :: Serial (Map ByteString ByteString)
@@ -147,8 +136,5 @@ mapListPackedSerial = Serial (Just . showPacked) (Just . readPacked)
 -- And for association list
 assocListPackedSerial :: Serial ( [ (ByteString, ByteString) ] )
 assocListPackedSerial = Serial (Just . showPacked) (Just . readPacked)
-
-completionStateAssociativeListPackedSerial :: Serial ( [ AssociativeCompletionState ] )
-completionStateAssociativeListPackedSerial = Serial (Just . showPacked) (Just . readPacked)
 
 ------------------------------------------------------------------------

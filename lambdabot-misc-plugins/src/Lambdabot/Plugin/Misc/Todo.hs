@@ -1,6 +1,7 @@
 
 {-# OPTIONS_GHC -fno-warn-overlapping-patterns -Wmissing-signatures #-}
 {-# LANGUAGE PatternGuards #-}
+{-# LANGUAGE FlexibleInstances #-}
 
 -- (c) 2005 Samuel Bronson
 
@@ -13,6 +14,27 @@ import Lambdabot.Plugin
 import Control.Monad
 import Data.Maybe
 import qualified Data.ByteString.Char8 as P
+import Data.ByteString.Lazy (fromChunks, toChunks)
+import Codec.Compression.GZip
+
+gzip   :: P.ByteString -> P.ByteString
+gzip   = P.concat . toChunks . compress . fromChunks . (:[])
+
+gunzip :: P.ByteString -> P.ByteString
+gunzip = P.concat . toChunks . decompress . fromChunks . (:[])
+
+data CompletionState = Complete | Incomplete
+type AssociativeCompletionState = (P.ByteString, P.ByteString, Bool)
+
+instance Packable (TodoState) where
+  readPacked ps = readPackedEntry (splitAt 3) buildAssociativeCompletionState (P.lines . gunzip $ ps)
+  showPacked = gzip . P.unlines . concatMap (\(k, v, s) -> [k, v, P.pack . show $ s])
+
+buildAssociativeCompletionState :: [P.ByteString] -> AssociativeCompletionState
+buildAssociativeCompletionState (k: v: s: _) = (k, v, read . P.unpack $ s)
+
+completionStateAssociativeListPackedSerial :: Serial ( [ AssociativeCompletionState ] )
+completionStateAssociativeListPackedSerial = Serial (Just . showPacked) (Just . readPacked)
 
 type TodoState = [AssociativeCompletionState]
 type Todo = ModuleT TodoState LB
