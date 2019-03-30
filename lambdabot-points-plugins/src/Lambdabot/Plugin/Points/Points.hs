@@ -23,17 +23,32 @@ pointsPlugin = newModule {
   moduleDefState  = return [],
   moduleInit      = modifyMS (filter (not . null)),
   moduleCmds      = return [
-    (command "suggest") {
-      help = say "suggest <suggestion> - Add a suggestion to the list.",
-      process = addSuggestion . strip isSpace
+    (command "points") {
+      help = say "points - Shows how many points you have.",
+      process = \_ -> say "Coming soon!"
     },
-    (command "suggestions") {
-      help = say "suggestions - List the current suggestions.",
-      process = const $ listSuggestions
+    (command "leaderboard") {
+      help = say "leaderboard - List the top ten from the leaderboard.",
+      process = \_ -> say "Coming soon!"
     },
-    (command "remove-suggestion") {
-      help = say "suggestions - List the current suggestions.",
-      process = removeSuggestion . strip isSpace
+    (command "give-points") {
+      help = say "give-points [who] [number] - Give some of your points to someone.",
+      process = \_ -> say "Coming soon!"
+    },
+    (command "leaderboard-all") {
+      privileged = True,
+      help = say "leaderboard-all - List the entire leaderboard.",
+      process = \_ -> say "Coming soon!"
+    },
+    (command "gift-points") {
+      privileged = True,
+      help = say "gift-points [who] [number] - Gift some points to someone.",
+      process = \_ -> say "Coming soon!"
+    },
+    (command "charge-points") {
+      privileged = True,
+      help = say "charge-points [who] [number] - Subtract some points from someone.",
+      process = \_ -> say "Coming soon!"
     }
   ]
 }

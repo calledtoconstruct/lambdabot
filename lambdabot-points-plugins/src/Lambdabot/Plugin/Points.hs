@@ -8,4 +8,4 @@ import Lambdabot.Config.Points
 import Lambdabot.Plugin.Points.Points
 
 pointsPlugins :: [String]
-pointsPlugins = ["suggest", "suggestions", "remove-suggestion"]
+pointsPlugins = ["points", "leaderboard", "give-points"]
