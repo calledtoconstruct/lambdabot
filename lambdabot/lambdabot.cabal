@@ -52,6 +52,7 @@ executable lambdabot
   hs-source-dirs:       src
   main-is:              Main.hs
   other-modules:        Modules
+                        Paths_lambdabot
 
   ghc-options:          -Wall -threaded
   build-depends:        base                         >= 3 && < 5,
@@ -59,6 +60,7 @@ executable lambdabot
                         -- lambdabot-haskell-plugins    >= 5.1.0.1 && < 5.2,
                         lambdabot-irc-plugins        >= 5.1.0.1 && < 5.2,
                         lambdabot-twitch-plugins     >= 5.1.0.1 && < 5.2,
+                        lambdabot-points-plugins    >= 5.1.0.1 && < 5.2,
                         lambdabot-suggest-plugins    >= 5.1.0.1 && < 5.2,
                         lambdabot-misc-plugins       >= 5.1.0.1 && < 5.2,
                         lambdabot-novelty-plugins    >= 5.1.0.1 && < 5.2,

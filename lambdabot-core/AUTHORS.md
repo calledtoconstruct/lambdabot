@@ -161,3 +161,4 @@ The following people have made contributions to the Lambdabot project.  There ar
 
   - Twitch plugin based on the IRC plugin
   - Suggestions plugin
+  - Points plugin
