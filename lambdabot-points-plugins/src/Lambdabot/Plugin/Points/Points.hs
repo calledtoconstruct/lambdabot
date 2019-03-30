@@ -2,6 +2,7 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE PatternGuards #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
 
 module Lambdabot.Plugin.Points.Points (
   pointsPlugin
@@ -10,14 +11,38 @@ module Lambdabot.Plugin.Points.Points (
 import Lambdabot.Plugin
 import Lambdabot.Util
 
+import qualified Data.ByteString.Char8 as P
 import Control.Monad
 import Data.Char
 import Data.Maybe
+import Data.List.Split
+import Data.ByteString.Lazy (fromChunks, toChunks)
+import Codec.Compression.GZip
 
-type Suggestions  = [String]
-type Suggest      = ModuleT Suggestions LB
+gzip   :: P.ByteString -> P.ByteString
+gzip   = P.concat . toChunks . compress . fromChunks . (:[])
 
-pointsPlugin :: Module (Suggestions)
+gunzip :: P.ByteString -> P.ByteString
+gunzip = P.concat . toChunks . decompress . fromChunks . (:[])
+
+type PointRecord = (P.ByteString, Int)
+
+type PointsState = [PointRecord]
+type Points = ModuleT PointsState LB
+type PointsStateTransform = (PointsState -> PointsState)
+type PointsStateTransformResult = (Maybe PointsState, String)
+
+instance Packable (PointsState) where
+  readPacked ps = readPackedEntry (splitAt 2) buildPointRecord (P.lines . gunzip $ ps)
+  showPacked = gzip . P.unlines . concatMap (\(who, points) -> [who, P.pack . show $ points])
+
+buildPointRecord :: [P.ByteString] -> PointRecord
+buildPointRecord (who: points: _) = (who, read . P.unpack $ points)
+
+pointsStatePackedSerial :: Serial (PointsState)
+pointsStatePackedSerial = Serial (Just . showPacked) (Just . readPacked)
+
+pointsPlugin :: Module (PointsState)
 pointsPlugin = newModule {
   moduleSerialize = Just stdSerial,
   moduleDefState  = return [],
@@ -25,68 +50,42 @@ pointsPlugin = newModule {
   moduleCmds      = return [
     (command "points") {
       help = say "points - Shows how many points you have.",
-      process = \_ -> say "Coming soon!"
+      process = \rest -> example rest
     },
     (command "leaderboard") {
       help = say "leaderboard - List the top ten from the leaderboard.",
-      process = \_ -> say "Coming soon!"
+      process = \rest -> example rest
     },
     (command "give-points") {
       help = say "give-points [who] [number] - Give some of your points to someone.",
-      process = \_ -> say "Coming soon!"
+      process = \rest -> example rest
     },
     (command "leaderboard-all") {
       privileged = True,
       help = say "leaderboard-all - List the entire leaderboard.",
-      process = \_ -> say "Coming soon!"
+      process = \rest -> example rest
     },
     (command "gift-points") {
       privileged = True,
       help = say "gift-points [who] [number] - Gift some points to someone.",
-      process = \_ -> say "Coming soon!"
+      process = \rest -> example rest
     },
     (command "charge-points") {
       privileged = True,
       help = say "charge-points [who] [number] - Subtract some points from someone.",
-      process = \_ -> say "Coming soon!"
+      process = \rest -> example rest
     }
   ]
 }
 
-addSuggestion :: String -> Cmd Suggest ()
-addSuggestion rest
-  | null rest = say "Incorrect arguments to quote"
-  | otherwise = do
-    withMS $ \bs writer -> writer $ bs ++ rest : []
-    say =<< randomSuccessMsg
+example :: String -> Cmd Points ()
+example rest = case splitOn " " rest of
+  who: points: [] -> do
+    withMS $ \pointsState writer -> do
+      let (nextState, message) = insertOrAddPoints pointsState who points
+      when (isJust nextState) $ writer $ fromJust nextState
+      say message
+  _ -> say "Too few arguments, please include who and how many points"
 
-listSuggestions :: Cmd Suggest ()
-listSuggestions = withMS (\suggestions _ -> mapM_ say $ formatSuggestions suggestions)
-
-formatSuggestions :: [String] -> [String]
-formatSuggestions suggestions = map formatSuggestion indexedSuggestions
-  where indexedSuggestions = zip [1..] suggestions
-
-formatSuggestion :: (Int, String) -> String
-formatSuggestion (index, suggestion) = show index ++ ". " ++ suggestion
-
-removeSuggestion :: String -> Cmd Suggest ()
-removeSuggestion rest
-  | null rest = say "Provide index of suggestion to remove."
-  | otherwise = do
-    let index = read rest
-    withMS (\suggestions write -> do
-      let updated' = removeSuggestion' suggestions index
-      case updated' of
-        Just updated -> do
-          write updated
-          say =<< randomSuccessMsg
-        Nothing -> say "Index out of range.")
-
-removeSuggestion' :: [String] -> Int -> Maybe [String]
-removeSuggestion' suggestions index
-  | 0 < index && index < (1 + length suggestions) = Just $ remove suggestions index
-  | otherwise = Nothing
-
-remove :: [String] -> Int -> [String]
-remove suggestions index = map snd . filter ((/= index) . fst) . zip [1..] $ suggestions
+insertOrAddPoints :: PointsState -> String -> String -> (Maybe PointsState, String)
+insertOrAddPoints list who points = (Just list, "Didn't really do anything useful.")
