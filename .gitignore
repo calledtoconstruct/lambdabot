@@ -44,4 +44,3 @@ State
 shutdown.rc
 onstartup.rc
 onshutdown.rc
-twitch.rc
