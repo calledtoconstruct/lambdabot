@@ -257,9 +257,12 @@ joinChanCB msg now _nick fm = Right $! fmap (updateNP now chan) (foldl insertNic
 
 -- | when somebody speaks, update their clocktime
 msgCB :: IrcMessage -> ClockTime -> PackedNick -> SeenMap -> Either String SeenMap
-msgCB _ clockTime nick fm = case M.lookup nick fm of
-  Just (Present _ xs) -> Right $! M.insert nick (Present (Just (clockTime, noTimeDiff)) xs) fm
-  _                   -> Left "someone who isn't here msg us"
+msgCB msg clockTime nick fm = do
+  let channel = packNick . lcNick . head . G.channels $! msg
+  let presence = M.lookup nick fm
+  case presence of
+    Just (Present _ xs) -> Right $! M.insert nick (Present (Just (clockTime, noTimeDiff)) xs) fm
+    _                   -> Right $! M.insert nick (Present (Just (clockTime, noTimeDiff)) [channel]) fm
 
 -- | Callbacks are only allowed to use a limited knowledge of the world.
 -- 'withSeenFM' is (up to trivial isomorphism) a monad morphism from the
@@ -270,15 +273,18 @@ msgCB _ clockTime nick fm = case M.lookup nick fm of
 -- monad.
 withSeenFM :: G.Message a => (a -> ClockTime -> PackedNick -> SeenMap -> Either String SeenMap) -> (a -> Seen ())
 withSeenFM f msg = do
-    let chan = packNick . lcNick . head . G.channels $! msg
-    let nick = packNick . lcNick . G.nick $ msg
+    let channel = lcNick . head . G.channels $! msg
+    let nickname = lcNick . G.nick $ msg
+    noticeM $ "Received call back " ++ (nTag channel) ++ " <> " ++ (nName channel) ++ " <> " ++ (nTag nickname) ++ " <> " ++ (nName nickname)
+    let packedChannel = packNick channel
+    let packedNickname = packNick nickname
     withMS $ \(maxUsers, state) writer -> do
-      ct <- io getClockTime
-      case f msg ct nick state of
+      clockTime <- io getClockTime
+      case f msg clockTime packedNickname state of
         Left _         -> return ()
         Right newstate -> do
-          let curUsers = length $! [ () | (_, Present _ chans) <- M.toList state, chan `elem` chans ]
-          let newMax  = case M.lookup chan maxUsers of
-                          Nothing -> M.insert chan curUsers maxUsers
-                          Just  n -> if n < curUsers then M.insert chan curUsers maxUsers else maxUsers
+          let curUsers = length $! [ () | (_, Present _ chans) <- M.toList state, packedChannel `elem` chans ]
+          let newMax  = case M.lookup packedChannel maxUsers of
+                          Nothing -> M.insert packedChannel curUsers maxUsers
+                          Just  n -> if n < curUsers then M.insert packedChannel curUsers maxUsers else maxUsers
           newMax `seq` newstate `seq` writer (newMax, newstate)

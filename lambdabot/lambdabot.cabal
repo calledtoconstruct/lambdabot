@@ -36,7 +36,6 @@ extra-source-files:     scripts/ghci.sh
 
 data-files:             scripts/online.rc.sample,
                         scripts/passwd.rc.sample,
-                        scripts/twitch.rc,
                         State/haddock,
                         State/Pristine.hs.706,
                         State/Pristine.hs.708,
