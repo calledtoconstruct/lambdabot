@@ -12,11 +12,10 @@ import Lambdabot.Plugin
 import Lambdabot.Compat.PackedNick (packNick, unpackNick)
 
 import qualified Data.ByteString.Char8 as P
-import Control.Monad
-import Data.Maybe
 import Data.List.Split
 import Data.ByteString.Lazy (fromChunks, toChunks)
 import Codec.Compression.GZip
+import Text.Read (readMaybe)
 
 gzip   :: P.ByteString -> P.ByteString
 gzip   = P.concat . toChunks . compress . fromChunks . (:[])
@@ -57,7 +56,7 @@ pointsPlugin = newModule {
     },
     (command "give-points") {
       help = say "give-points [who] [number] - Give some of your points to someone.",
-      process = \rest -> showPoints rest
+      process = \rest -> givePoints rest
     },
     (command "leaderboard-all") {
       privileged = True,
@@ -93,15 +92,40 @@ showPoints rest = case splitOn " " rest of
       case found of
         Just (_, score) -> say $ who ++ " has " ++ show score ++ " points."
         Nothing         -> say $ who ++ " has 0 points."
+  _ -> say "Invalid number of arguments, please provide who to show or no arguments."
 
 giftPoints :: String -> Cmd Points ()
 giftPoints rest = case splitOn " " rest of
-  who: points: [] -> do
-    withMS $ \pointsState writer -> do
-      let (nextState, message) = insertOrAddPoints pointsState who points
-      when (isJust nextState) $ writer $ fromJust nextState
-      say message
+  receiver: pointsString: [] -> do
+    case readMaybe pointsString of
+      Just points -> do
+        withMS $ \initialState writer -> do
+          let (finalState, newPoints) = insertOrAddPoints initialState receiver points
+          writer finalState
+          let pointsToShow = show newPoints
+          say $ receiver ++ " has been gifted " ++ pointsString ++ " points and now has " ++ pointsToShow
+      Nothing     -> say "Invalid number of points, please provide who and how many points."
   _ -> say "Too few arguments, please include who and how many points"
+
+givePoints :: String -> Cmd Points()
+givePoints rest = do
+  sender <- fmap packNick getSender
+  giver <- showNick $ unpackNick sender
+  case splitOn " " rest of
+    receiver: pointsString: [] -> do
+      case readMaybe pointsString of
+        Just points -> do
+          withMS $ \initialState writer -> do
+            let (addState, receiverPoints) = insertOrAddPoints initialState receiver points
+            let subtractState = updatePoints addState giver $ 0 - points
+            case subtractState of
+              Right message   -> say message
+              Left (finalState, _) -> do
+                writer finalState
+                let pointsToShow = show receiverPoints
+                say $ giver ++ " gave " ++ pointsString ++ " points to " ++ receiver ++ " who now has " ++ pointsToShow ++ " points."
+        Nothing     -> say "Invalid number of points, please provide who and how many points."
+    _ -> say "Too few arguments, please include who and how many points"
 
 find :: PointsState -> String -> (Maybe PointRecord, PointsState)
 find (current: rest) who
@@ -111,10 +135,18 @@ find (current: rest) who
     (found, current: list)
 find [] _ = (Nothing, [])
 
-insertOrAddPoints :: PointsState -> String -> String -> (Maybe PointsState, String)
-insertOrAddPoints list who pointsString = do
-  let points = read pointsString
+insertOrAddPoints :: PointsState -> String -> Int -> (PointsState, Int)
+insertOrAddPoints list who points = do
   let (found, others) = find list who
   case found of
-    Just (name, score)  -> (Just $ (name, score + points): others, "Updated.")
-    Nothing             -> (Just $ (P.pack who, points): list, "Added.")
+    Just (name, score)  -> ((name, score + points): others, score + points)
+    Nothing             -> ((P.pack who, points): list, points)
+
+updatePoints :: PointsState -> String -> Int -> Either (PointsState, Int) String
+updatePoints list who points = do
+  let (found, others) = find list who
+  case found of
+    Just (name, score)  -> do
+      let finalScore = score + points
+      if 0 <= finalScore then Left ((name, finalScore): others, finalScore) else Right "Not enough points!"
+    Nothing             -> Right "Not enough points!"
