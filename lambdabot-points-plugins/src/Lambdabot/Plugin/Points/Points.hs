@@ -59,11 +59,12 @@ pointsPlugin = newModule {
       help = say "give-points [who] [number] - Give some of your points to someone.",
       process = \rest -> givePoints rest
     },
-    (command "leaderboard-all") {
-      privileged = True,
-      help = say "leaderboard-all - List the entire leaderboard.",
-      process = \rest -> showPoints rest
-    },
+    -- Implement this as offline only command.
+    -- (command "leaderboard-all") {
+    --   privileged = True,
+    --   help = say "leaderboard-all - List the entire leaderboard.",
+    --   process = \rest -> showPoints rest
+    -- },
     (command "gift-points") {
       privileged = True,
       help = say "gift-points [who] [number] - Gift some points to someone.",
@@ -72,10 +73,45 @@ pointsPlugin = newModule {
     (command "charge-points") {
       privileged = True,
       help = say "charge-points [who] [number] - Subtract some points from someone.",
-      process = \rest -> showPoints rest
+      process = \rest -> chargePoints rest
     }
   ]
 }
+
+incorrectArgumentsForWhoAndHowManyPoints :: String
+incorrectArgumentsForWhoAndHowManyPoints = "Incorrect number of arguments, please provide who and how many points."
+
+giftPoints :: String -> Cmd Points ()
+giftPoints [] = say incorrectArgumentsForWhoAndHowManyPoints
+giftPoints rest = case splitOn " " rest of
+  receiver: pointsString: [] -> do
+    case readMaybe pointsString of
+      Just points -> do
+        let absolutePoints = abs points
+        withMS $ \initialState writer -> do
+          let (finalState, total) = insertOrAddPoints initialState receiver absolutePoints
+          writer finalState
+          say $ receiver ++ " has been gifted " ++ show absolutePoints ++ " points and now has " ++ show total
+      Nothing     -> say "Invalid number of points, please provide who and how many points."
+  _ -> say incorrectArgumentsForWhoAndHowManyPoints
+
+chargePoints :: String -> Cmd Points ()
+chargePoints rest = case splitOn " " rest of
+  giver: pointsString: [] -> do
+    sender <- fmap packNick getSender
+    who <- showNick $ unpackNick sender
+    case readMaybe pointsString of
+      Just points -> do
+        let absolutePoints = negate $ abs points
+        withMS $ \initialState writer -> do
+          let nextState = updatePoints initialState giver absolutePoints
+          case nextState of
+            Right _                   -> say $ who ++ ", " ++ giver ++ " does not have " ++ show absolutePoints ++ "."
+            Left (finalState, total)  -> do
+              writer finalState
+              say $ giver ++ " has been charged " ++ show (abs absolutePoints) ++ " points and now has " ++ show total
+      Nothing     -> say "Invalid number of points, please provide who and how many points."
+  _ -> say incorrectArgumentsForWhoAndHowManyPoints
 
 showLeaderboard :: String -> Cmd Points ()
 showLeaderboard _ = do
@@ -94,8 +130,8 @@ formatPointRecord (rank, (name, points)) = do
 showPoints :: String -> Cmd Points ()
 showPoints []   = do
   sender <- fmap packNick getSender
+  who <- showNick $ unpackNick sender
   withMS $ \pointsState _ -> do
-    who <- showNick $ unpackNick sender
     let (found, _) = find pointsState who
     case found of
       Just (_, score) -> say $ who ++ ", You have " ++ show score ++ " points."
@@ -109,18 +145,6 @@ showPoints rest = case splitOn " " rest of
         Nothing         -> say $ who ++ " has 0 points."
   _ -> say "Invalid number of arguments, please provide who to show or no arguments."
 
-giftPoints :: String -> Cmd Points ()
-giftPoints rest = case splitOn " " rest of
-  receiver: pointsString: [] -> do
-    case readMaybe pointsString of
-      Just points -> do
-        withMS $ \initialState writer -> do
-          let (finalState, newPoints) = insertOrAddPoints initialState receiver points
-          writer finalState
-          say $ receiver ++ " has been gifted " ++ pointsString ++ " points and now has " ++ show newPoints
-      Nothing     -> say "Invalid number of points, please provide who and how many points."
-  _ -> say "Too few arguments, please include who and how many points"
-
 givePoints :: String -> Cmd Points()
 givePoints rest = do
   sender <- fmap packNick getSender
@@ -132,10 +156,10 @@ givePoints rest = do
           let positivePoints = abs points
           withMS $ \initialState writer -> do
             let (addState, receiverPoints) = insertOrAddPoints initialState receiver positivePoints
-            let subtractState = updatePoints addState giver $ 0 - positivePoints
+            let subtractState = updatePoints addState giver $ negate positivePoints
             case subtractState of
-              Right message   -> say message
-              Left (finalState, _) -> do
+              Right _               -> say $ giver ++ ", You do not have enough to give " ++ show positivePoints ++ " points!"
+              Left (finalState, _)  -> do
                 writer finalState
                 say $ giver ++ " gave " ++ show positivePoints ++ " points to " ++ receiver ++ " who now has " ++ show receiverPoints ++ " points."
         Nothing     -> say "Invalid number of points, please provide who and how many points."
@@ -156,7 +180,7 @@ insertOrAddPoints list who points = do
     Just (name, score)  -> ((name, score + points): others, score + points)
     Nothing             -> ((P.pack who, points): list, points)
 
-updatePoints :: PointsState -> String -> Int -> Either (PointsState, Int) String
+updatePoints :: PointsState -> String -> Int -> Either (PointsState, Int) ()
 updatePoints list who points = do
   let (found, others) = find list who
   case found of
@@ -164,4 +188,4 @@ updatePoints list who points = do
       let finalScore = score + points
       if 0 <= finalScore then Left ((name, finalScore): others, finalScore) else notEnoughPointsMessage
     Nothing             -> notEnoughPointsMessage
-  where notEnoughPointsMessage = Right $ who ++ ", You do not have enough to give " ++ show (abs points) ++ " points!"
+  where notEnoughPointsMessage = Right ()
