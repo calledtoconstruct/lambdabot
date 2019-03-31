@@ -12,7 +12,8 @@ import Lambdabot.Plugin
 import Lambdabot.Compat.PackedNick (packNick, unpackNick)
 
 import qualified Data.ByteString.Char8 as P
-import Data.List.Split
+import Data.List (sortOn)
+import Data.List.Split -- (splitOn)
 import Data.ByteString.Lazy (fromChunks, toChunks)
 import Codec.Compression.GZip
 import Text.Read (readMaybe)
@@ -52,7 +53,7 @@ pointsPlugin = newModule {
     },
     (command "leaderboard") {
       help = say "leaderboard - List the top ten from the leaderboard.",
-      process = \rest -> showPoints rest
+      process = \rest -> showLeaderboard rest
     },
     (command "give-points") {
       help = say "give-points [who] [number] - Give some of your points to someone.",
@@ -76,6 +77,20 @@ pointsPlugin = newModule {
   ]
 }
 
+showLeaderboard :: String -> Cmd Points ()
+showLeaderboard _ = do
+  withMS $ \pointsState _ -> do
+    let orderedList = reverse $ sortOn snd pointsState
+    let topTen = take 10 orderedList
+    let topTenList = map formatPointRecord $ zip [1..] topTen
+    let messages = return $ "Top-ten Leaderboard": topTenList
+    (mapM_ say) =<< messages
+
+formatPointRecord :: (Int, PointRecord) -> String
+formatPointRecord (rank, (name, points)) = do
+  let who = P.unpack name
+  show rank ++ ". " ++ who ++ " with " ++ show points ++ " points."
+
 showPoints :: String -> Cmd Points ()
 showPoints []   = do
   sender <- fmap packNick getSender
@@ -83,8 +98,8 @@ showPoints []   = do
     who <- showNick $ unpackNick sender
     let (found, _) = find pointsState who
     case found of
-      Just (_, score) -> say $ "You have " ++ show score ++ " points."
-      Nothing         -> say "You have 0 points."
+      Just (_, score) -> say $ who ++ ", You have " ++ show score ++ " points."
+      Nothing         -> say $ who ++ ", You have 0 points."
 showPoints rest = case splitOn " " rest of
   who: [] -> do
     withMS $ \pointsState _ -> do
@@ -102,8 +117,7 @@ giftPoints rest = case splitOn " " rest of
         withMS $ \initialState writer -> do
           let (finalState, newPoints) = insertOrAddPoints initialState receiver points
           writer finalState
-          let pointsToShow = show newPoints
-          say $ receiver ++ " has been gifted " ++ pointsString ++ " points and now has " ++ pointsToShow
+          say $ receiver ++ " has been gifted " ++ pointsString ++ " points and now has " ++ show newPoints
       Nothing     -> say "Invalid number of points, please provide who and how many points."
   _ -> say "Too few arguments, please include who and how many points"
 
@@ -115,15 +129,15 @@ givePoints rest = do
     receiver: pointsString: [] -> do
       case readMaybe pointsString of
         Just points -> do
+          let positivePoints = abs points
           withMS $ \initialState writer -> do
-            let (addState, receiverPoints) = insertOrAddPoints initialState receiver points
-            let subtractState = updatePoints addState giver $ 0 - points
+            let (addState, receiverPoints) = insertOrAddPoints initialState receiver positivePoints
+            let subtractState = updatePoints addState giver $ 0 - positivePoints
             case subtractState of
               Right message   -> say message
               Left (finalState, _) -> do
                 writer finalState
-                let pointsToShow = show receiverPoints
-                say $ giver ++ " gave " ++ pointsString ++ " points to " ++ receiver ++ " who now has " ++ pointsToShow ++ " points."
+                say $ giver ++ " gave " ++ show positivePoints ++ " points to " ++ receiver ++ " who now has " ++ show receiverPoints ++ " points."
         Nothing     -> say "Invalid number of points, please provide who and how many points."
     _ -> say "Too few arguments, please include who and how many points"
 
@@ -148,5 +162,6 @@ updatePoints list who points = do
   case found of
     Just (name, score)  -> do
       let finalScore = score + points
-      if 0 <= finalScore then Left ((name, finalScore): others, finalScore) else Right "Not enough points!"
-    Nothing             -> Right "Not enough points!"
+      if 0 <= finalScore then Left ((name, finalScore): others, finalScore) else notEnoughPointsMessage
+    Nothing             -> notEnoughPointsMessage
+  where notEnoughPointsMessage = Right $ who ++ ", You do not have enough to give " ++ show (abs points) ++ " points!"
