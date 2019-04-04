@@ -1,17 +1,18 @@
-module Lambdabot.Plugin.Reference
-    ( dictPlugin
-    , metarPlugin
-    , oeisPlugin
-    , searchPlugin
-    , spellPlugin
-    , tickerPlugin
-    , urlPlugin
-    , wherePlugin
+
+module Lambdabot.Plugin.Reference (
+    dictPlugin,
+    metarPlugin,
+    oeisPlugin,
+    searchPlugin,
+    spellPlugin,
+    tickerPlugin,
+    urlPlugin,
+    wherePlugin,
     
-    , referencePlugins
+    referencePlugins,
     
-    , module Lambdabot.Config.Reference
-    ) where
+    module Lambdabot.Config.Reference
+) where
 
 import Lambdabot.Config.Reference
 import Lambdabot.Plugin.Reference.Dict

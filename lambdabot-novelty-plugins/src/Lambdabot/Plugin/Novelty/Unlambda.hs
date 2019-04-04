@@ -4,29 +4,47 @@
 -- | A plugin for the Haskell interpreter for the unlambda language
 --
 -- http://www.madore.org/~david/programs/unlambda/
-module Lambdabot.Plugin.Novelty.Unlambda (unlambdaPlugin) where
+module Lambdabot.Plugin.Novelty.Unlambda
+  ( unlambdaPlugin
+  )
+where
 
-import Lambdabot.Config.Novelty
-import Lambdabot.Plugin
-import Lambdabot.Util.Process
-import Text.Regex.TDFA
+import           Lambdabot.Config.Novelty
+import           Lambdabot.Plugin               ( Module()
+                                                , moduleCmds
+                                                , help
+                                                , process
+                                                , newModule
+                                                , say
+                                                , command
+                                                , Cmd
+                                                , MonadConfig
+                                                , ios80
+                                                )
+import           Lambdabot.Util.Process         ( run )
+import           Control.Monad.IO.Class         ( MonadIO )
+import           Text.Regex.TDFA                ( (=~) )
 
 unlambdaPlugin :: Module ()
 unlambdaPlugin = newModule
-    { moduleCmds = return
-        [ (command "unlambda")
-            { help = say "unlambda <expr>. Evaluate an unlambda expression"
-            , process = \msg -> do
-                binary <- getConfig unlambdaBinary
-                ios80 (run binary msg scrub)
-            }
-        ]
-    }
+  { moduleCmds =
+    return
+      [ (command "unlambda")
+          { help    = say "unlambda <expr>. Evaluate an unlambda expression"
+          , process = unlambda
+          }
+      ]
+  }
+
+unlambda :: (MonadConfig m, MonadIO m) => String -> Cmd m ()
+unlambda msg = do
+  let binary = "unlambda" -- getConfig unlambdaBinary
+  ios80 (run binary msg scrub)
 
 scrub :: String -> String
-scrub = unlines . take 6 . map (' ':) . lines . cleanit
+scrub = unlines . take 6 . map (' ' :) . lines . cleanit
 
 cleanit :: String -> String
 cleanit s | s =~ terminated = "Terminated\n"
           | otherwise       = s
-    where terminated = "waitForProc"
+  where terminated = "waitForProc"

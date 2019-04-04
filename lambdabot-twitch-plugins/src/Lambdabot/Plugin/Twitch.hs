@@ -1,11 +1,10 @@
-module Lambdabot.Plugin.Twitch (
-  twitchPlugin,
-  twitchPlugins
-) where
+module Lambdabot.Plugin.Twitch
+  ( twitchPlugin
+  , twitchPlugins
+  )
+where
 
-import Lambdabot.Plugin.Twitch.Twitch
+import           Lambdabot.Plugin.Twitch.Twitch ( twitchPlugin )
 
 twitchPlugins :: [String]
-twitchPlugins = [
-  "twitch"
-  ]
+twitchPlugins = ["twitch"]

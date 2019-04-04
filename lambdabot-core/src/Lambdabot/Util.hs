@@ -4,33 +4,32 @@
 {-# LANGUAGE FlexibleContexts #-}
 
 -- | String and other utilities
-module Lambdabot.Util (
-        strip,
-        dropFromEnd,
-        splitFirstWord,
-        limitStr,
-        listToStr,
-        showClean,
-        expandTab,
-        arePrefixesWithSpaceOf,
-        arePrefixesOf,
+module Lambdabot.Util
+  ( strip
+  , dropFromEnd
+  , splitFirstWord
+  , limitStr
+  , listToStr
+  , showClean
+  , expandTab
+  , arePrefixesWithSpaceOf
+  , arePrefixesOf
+  , io
+  , forkUnmasked
+  , random
+  , randomFailureMsg
+  , randomSuccessMsg
+  )
+where
 
-        io,
-        forkUnmasked,
-
-        random,
-        randomFailureMsg,
-        randomSuccessMsg
-    ) where
-
-import Control.Monad.Trans
-import Data.Char
-import Data.List
-import Data.Random
-import Control.Concurrent.Lifted
-import Control.Monad.Trans.Control
-import Lambdabot.Config
-import Lambdabot.Config.Core
+import           Control.Monad.Trans
+import           Data.Char
+import           Data.List
+import           Data.Random
+import           Control.Concurrent.Lifted
+import           Control.Monad.Trans.Control
+import           Lambdabot.Config
+import           Lambdabot.Config.Core
 
 ------------------------------------------------------------------------
 
@@ -39,15 +38,15 @@ splitFirstWord xs = (w, dropWhile isSpace xs')
   where (w, xs') = break isSpace xs
 
 limitStr :: Int -> String -> String
-limitStr n s = let (b, t) = splitAt n s in
-           if null t then b else take (n-3) b ++ "..."
+limitStr n s =
+  let (b, t) = splitAt n s in if null t then b else take (n - 3) b ++ "..."
 
 listToStr :: String -> [String] -> String
-listToStr _    []           = []
-listToStr conj (item:items) =
-  let listToStr' [] = []
-      listToStr' [y] = concat [" ", conj, " ", y]
-      listToStr' (y:ys) = concat [", ", y, listToStr' ys]
+listToStr _ [] = []
+listToStr conj (item : items) =
+  let listToStr' []       = []
+      listToStr' [y     ] = concat [" ", conj, " ", y]
+      listToStr' (y : ys) = concat [", ", y, listToStr' ys]
   in  item ++ listToStr' items
 
 ------------------------------------------------------------------------
@@ -76,15 +75,15 @@ dropFromEnd p = reverse . dropWhile p . reverse
 -- NB: assumes show instance outputs a quoted 'String'.
 -- under that assumption, strips the outer quotes.
 showClean :: (Show a) => [a] -> String
-showClean = intercalate " " . map (init . tail . show)
+showClean = unwords . map (init . tail . show)
 
 -- | untab an string
 expandTab :: Int -> String -> String
 expandTab w = go 0
-  where
-    go _ []         = []
-    go i ('\t':xs)  = replicate (w - i `mod` w) ' ' ++ go 0 xs
-    go i (x:xs)     = x : go (i+1) xs
+ where
+  go _ []          = []
+  go i ('\t' : xs) = replicate (w - i `mod` w) ' ' ++ go 0 xs
+  go i (x    : xs) = x : go (i + 1) xs
 
 ------------------------------------------------------------------------
 
@@ -107,78 +106,83 @@ arePrefixesOf = flip (any . flip isPrefixOf)
 --
 insult :: [String]
 insult =
-   ["Just what do you think you're doing Dave?",
-    "It can only be attributed to human error.",
-    "That's something I cannot allow to happen.",
-    "My mind is going. I can feel it.",
-    "Sorry about this, I know it's a bit silly.",
-    "Take a stress pill and think things over.",
-    "This mission is too important for me to allow you to jeopardize it.",
-    "I feel much better now.",
-
-    "Wrong!  You cheating scum!",
-    "And you call yourself a Rocket Scientist!",
-    "And you call yourself a Rocket Surgeon!",
-    "Where did you learn to type?",
-    "Are you on drugs?",
-    "My pet ferret can type better than you!",
-    "You type like i drive.",
-    "Do you think like you type?",
-    "Your mind just hasn't been the same since the electro-shock, has it?",
-    "I don't think I can be your friend on Facebook anymore.",
-
-    "Maybe if you used more than just two fingers...",
-    "BOB says:  You seem to have forgotten your passwd, enter another!",
-    "stty: unknown mode: doofus",
-    "I can't hear you -- I'm using the scrambler.",
-    "The more you drive -- the dumber you get.",
-    "Listen, broccoli brains, I don't have time to listen to this trash.",
-    "I've seen penguins that can type better than that.",
-    "Have you considered trying to match wits with a rutabaga?",
-    "You speak an infinite deal of nothing.",
+  [ "Just what do you think you're doing Dave?"
+  , "It can only be attributed to human error."
+  , "That's something I cannot allow to happen."
+  , "My mind is going. I can feel it."
+  , "Sorry about this, I know it's a bit silly."
+  , "Take a stress pill and think things over."
+  , "This mission is too important for me to allow you to jeopardize it."
+  , "I feel much better now."
+  , "Wrong!  You cheating scum!"
+  , "And you call yourself a Rocket Scientist!"
+  , "And you call yourself a Rocket Surgeon!"
+  , "Where did you learn to type?"
+  , "Are you on drugs?"
+  , "My pet ferret can type better than you!"
+  , "You type like i drive."
+  , "Do you think like you type?"
+  , "Your mind just hasn't been the same since the electro-shock, has it?"
+  , "I don't think I can be your friend on Facebook anymore."
+  , "Maybe if you used more than just two fingers..."
+  , "BOB says:  You seem to have forgotten your passwd, enter another!"
+  , "stty: unknown mode: doofus"
+  , "I can't hear you -- I'm using the scrambler."
+  , "The more you drive -- the dumber you get."
+  , "Listen, broccoli brains, I don't have time to listen to this trash."
+  , "I've seen penguins that can type better than that."
+  , "Have you considered trying to match wits with a rutabaga?"
+  , "You speak an infinite deal of nothing."
+  ,
 
     -- other
-    "Are you typing with your feet?",
-    "Abort, Retry, Panic?",
+    "Are you typing with your feet?"
+  , "Abort, Retry, Panic?"
+  ,
 
     -- More haskellish insults
-    "You untyped fool!",
-    "My brain just exploded"
-    ]
+    "You untyped fool!"
+  , "My brain just exploded"
+  ]
 
 --
 -- some more friendly replies
 --
 apology :: [String]
 apology =
-   ["I am sorry.","Sorry.",
-    "Maybe you made a typo?",
-    "Just try something else.",
-    "There are some things that I just don't know.",
-    "Whoa.",
-    ":(",":(",
-    "","",""
-    ]
+  [ "I am sorry."
+  , "Sorry."
+  , "Maybe you made a typo?"
+  , "Just try something else."
+  , "There are some things that I just don't know."
+  , "Whoa."
+  , ":("
+  , ":("
+  , ""
+  , ""
+  , ""
+  ]
 
 randomFailureMsg :: (MonadIO m, MonadConfig m) => m String
 randomFailureMsg = do
-    useInsults <- getConfig enableInsults
-    random (if useInsults then insult ++ apology else apology)
+  useInsults <- getConfig enableInsults
+  random (if useInsults then insult ++ apology else apology)
 
 --
 -- Some more interesting confirmations for @remember and @where
 --
 confirmation :: [String]
 confirmation =
-   ["Done.","Done.",
-    "Okay.",
-    "I will remember.",
-    "Good to know.",
-    "It is stored.",
-    "I will never forget.",
-    "It is forever etched in my memory.",
-    "Nice!"
-   ]
+  [ "Done."
+  , "Done."
+  , "Okay."
+  , "I will remember."
+  , "Good to know."
+  , "It is stored."
+  , "I will never forget."
+  , "It is forever etched in my memory."
+  , "Nice!"
+  ]
 
 randomSuccessMsg :: MonadIO m => m String
 randomSuccessMsg = random confirmation

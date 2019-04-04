@@ -10,6 +10,7 @@ import Control.Exception (evaluate)
 import Data.List
 import Data.Maybe
 import Data.Time
+import Data.Ord
 
 type ActivityState = [(UTCTime,Nick)]
 type Activity       = ModuleT ActivityState LB
@@ -44,8 +45,8 @@ activity full args = do
     now <- io getCurrentTime
     let cutoff = addUTCTime (- fromInteger (fromMaybe 90 $ readM args)) now
     users <- mapM (obscure . snd) . takeWhile ((> cutoff) . fst) =<< readMS
-    let agg_users = reverse . sort . map (length &&& head) . group . sort $ users
-    fmt_agg <- fmap (intercalate " " . (:) (show (length users) ++ "*total"))
+    let agg_users = sortOn Data.Ord.Down . map (length &&& head) . group . sort $ users
+    fmt_agg <- fmap (unwords . (:) (show (length users) ++ "*total"))
                     (mapM (\(n,u) -> do u' <- showNick u; return (show n ++ "*" ++ u')) $ agg_users)
 
     say fmt_agg

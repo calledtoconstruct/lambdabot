@@ -1,4 +1,6 @@
+
 {-# LANGUAGE PatternGuards #-}
+
 -- | DICT (RFC 2229) Lookup Module for lambdabot IRC robot.
 -- Tom Moertel <tom@moertel.com>
 module Lambdabot.Plugin.Reference.Dict (dictPlugin) where
@@ -51,31 +53,26 @@ dictTable =
     , ("wn"       , (dict_org, "wn",           "WordNet (r) 1.7"))
     , ("world02"  , (dict_org, "world02",      "CIA World Factbook 2002"))
     ]
-    where
-    dict_org    = Dict.QC "dict.org" 2628
+    where dict_org    = Dict.QC "dict.org" 2628
 
 dictNames :: [String]
 dictNames = sort (map fst dictTable)
 
-
 -- | Print out help.
-
 getHelp :: [String] -> Cmd Dict ()
 getHelp []    = do
-    say ("I perform dictionary lookups via the following "
-          ++ show (length dictNames) ++ " commands:\n")
+    say ("I perform dictionary lookups via the following " ++ show (length dictNames) ++ " commands:\n")
     getHelp dictNames
 
 getHelp dicts = mapM_ (say . gH) dicts
-  where
-    gH dict | Just (_, _, descr) <- lookup dict dictTable
-            = pad dict ++ " " ++ descr
+  where gH dict | Just (_, _, descr) <- lookup dict dictTable
+                = pad dict ++ " " ++ descr
 
-            | otherwise
-            = "There is no dictionary database '" ++ dict ++ "'."
+                | otherwise
+                = "There is no dictionary database '" ++ dict ++ "'."
 
-    pad xs = take padWidth (xs ++ " " ++ repeat '.')
-    padWidth = maximum (map length dictNames) + 4
+        pad xs = take padWidth (xs ++ " " ++ repeat '.')
+        padWidth = maximum (map length dictNames) + 4
 
 
 -- | Break a string into dictionary-query terms, handling quoting and
@@ -96,8 +93,8 @@ parseTerms = pW . words
     where
     pW []  = []
     pW (w@(f:_):ws)
-        | f `elem` "'\"" = intercalate " " qws : pW ws'
-        | last w == '\\' = let (w':rest) = pW ws in intercalate " " [w, w'] : rest
+        | f `elem` "'\"" = unwords qws : pW ws'
+        | last w == '\\' = let (w':rest) = pW ws in unwords [w, w'] : rest
         | otherwise      = w : pW ws
         where
         (qws, ws') = case break isCloseQuotedWord (w:ws) of

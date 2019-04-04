@@ -8,15 +8,15 @@ import Math.OEIS
 import Data.Char
 
 oeisPlugin :: Module ()
-oeisPlugin = newModule
-    { moduleCmds = return
-        [ (command "oeis")
-            { aliases = ["sequence"]
-            , help = say "oeis <sequence>. Look up a sequence in the Online Encyclopedia of Integer Sequences"
-            , process = ios80 . lookupOEIS'
-            }
-        ]
-    }
+oeisPlugin = newModule {
+    moduleCmds = return [
+        (command "oeis") {
+            aliases = ["sequence"],
+            help = say "oeis <sequence>. Look up a sequence in the Online Encyclopedia of Integer Sequences",
+            process = ios80 . lookupOEIS'
+        }
+    ]
+}
 
 lookupOEIS' :: String -> IO String
 lookupOEIS' a = do
@@ -27,8 +27,8 @@ lookupOEIS' a = do
         Just s  -> return $ unlines [
             concat ("https://oeis.org/" : take 1 (catalogNums s)) ++
             ' ' : description s,
-            show $ sequenceData s]
-  where
-    commas []                     = []
-    commas (x:' ':xs) | isDigit x = x : ',' : commas xs
-    commas (x:xs)                 = x : commas xs
+            show $ sequenceData s
+            ]
+  where commas []                     = []
+        commas (x:' ':xs) | isDigit x = x : ',' : commas xs
+        commas (x:xs)                 = x : commas xs

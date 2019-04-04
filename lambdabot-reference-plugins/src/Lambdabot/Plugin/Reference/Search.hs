@@ -1,4 +1,6 @@
+
 {-# LANGUAGE ViewPatterns #-}
+
 -- | Search various things, Wikipedia and google for now.
 --
 -- (c) 2005 Samuel Bronson
@@ -22,12 +24,12 @@ import Text.HTML.TagSoup
 import Text.HTML.TagSoup.Match (anyAttr, tagOpen)
 
 engines :: [(String, (URI, String -> String, [Header]))]
-engines =
-   [("google", (googleUri, (\s -> "?hl=en&q="++s++"&btnI=I'm+Feeling+Lucky"), googleHeaders)),
+engines = [
+    ("google", (googleUri, \s -> "?hl=en&q=" ++ s ++ "&btnI=I'm+Feeling+Lucky", googleHeaders)),
     -- ("wikipedia", (wikipediaUri, ("?search="++), [])), -- this has changed and Wikipedia requires a User-Agent string
-    ("gsite", (googleUri, (\s -> "?hl=en&q=site%3A"++s++"&btnI=I'm+Feeling+Lucky"), googleHeaders)),
-    ("gwiki", (googleUri, (\s -> "?hl=en&q=site%3Awiki.haskell.org+" ++s++"&btnI=I'm+Feeling+Lucky"), googleHeaders))
-   ]
+    ("gsite", (googleUri, \s -> "?hl=en&q=site%3A" ++ s ++ "&btnI=I'm+Feeling+Lucky", googleHeaders)),
+    ("gwiki", (googleUri, \s -> "?hl=en&q=site%3Awiki.haskell.org+" ++ s ++ "&btnI=I'm+Feeling+Lucky", googleHeaders))
+    ]
 
 googleHeaders :: [Header]
 googleHeaders = [mkHeader HdrReferer "http://www.google.com/"]
@@ -38,11 +40,11 @@ normalizeOptions = do
     let hasProxy = case proxy' of
             NoProxy -> False
             _       -> True
-    return defaultNormalizeRequestOptions
-        { normDoClose = True
-        , normForProxy = hasProxy
-        , normUserAgent = Nothing
-        } -- there is a default user agent, perhaps we want it?
+    return defaultNormalizeRequestOptions {
+        normDoClose = True,
+        normForProxy = hasProxy,
+        normUserAgent = Nothing
+    } -- there is a default user agent, perhaps we want it?
 
 makeUri :: String -> String -> URI
 makeUri regName path = nullURI {
@@ -55,17 +57,17 @@ googleUri = makeUri "www.google.com" "/search"
 -- wikipediaUri = makeUri "en.wikipedia.org" "/wiki/Special:Search"
 
 searchPlugin :: Module ()
-searchPlugin = newModule
-    { moduleCmds = return
-        [ (command name)
-            { help = say (moduleHelp name)
-            , process = \e -> do
+searchPlugin = newModule {
+    moduleCmds = return [
+        (command name) {
+            help = say (moduleHelp name),
+            process = \e -> do
                 s <- getCmdName
                 lb (searchCmd s (strip isSpace e)) >>= mapM_ say
-            }
+        }
         | name <- map fst engines
-        ]
-    }
+    ]
+}
 
 moduleHelp :: String -> String
 moduleHelp s = case s of

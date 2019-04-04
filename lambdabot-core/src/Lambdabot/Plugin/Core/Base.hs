@@ -17,7 +17,6 @@ import Lambdabot.Nick
 import Lambdabot.Plugin
 import Lambdabot.Util
 
-import Control.Applicative
 import Control.Exception.Lifted as E
 import Control.Monad
 import Control.Monad.Reader

@@ -1,12 +1,7 @@
-# Usage examples:
-#
-#   nix-shell path/to/ghc.nix/ --pure --run './boot && ./configure && make -j4'
-#   nix-shell path/to/ghc.nix/        --run 'hadrian/build.sh -c -j4 --flavour=quickest'
-#   nix-shell path/to/ghc.nix/        --run 'THREADS=4 ./validate --slow'
-#
+
 { nixpkgs   ? import ./nixpkgs.nix {}
 , bootghc   ? "ghc863"
-, version   ? "8.7"
+, version   ? "0.2"
 , useClang  ? false  # use Clang for C compilation
 , withLlvm  ? false
 , withDocs  ? true
@@ -74,12 +69,6 @@ let
       # 0.6.0.0
       rev="6794005";
       sha256="0pc90ns0xcsa6b630d8kkq5zg8yzszbgd7qmnylkqpa0l58zvnpn";
-      # ?.?.?.?
-      # rev="cbc91ade57e0a95304ff7dc9ec14c62ae2420ad0";
-      # sha256="0wgxmjawdlkf3jq3z9w49gmh382vbdriknan7mj95avddpfx65j4";
-      # ?.?.?.?
-      # rev="e3113da";
-      # sha256="05rkzjvzywsg66iafm84xgjlkf27yfbagrdcb8sc9fd59hrzyiqk";
     }) { });
 
     hieWrapper = writeShellScriptBin "hieWrapper" ''
@@ -107,12 +96,6 @@ let
       ++
       # Concise version from the vscode market place when not available in the default set.
       vscode-utils.extensionsFromVscodeMarketplace [
-        # {
-        #   name = "haskelly";
-        #   publisher = "ucl";
-        #   version = "0.5.5";
-        #   sha256 = "0s6a3hdckn2ssk7wkxdv09c0gjk4g0h8071bf7x8br0brnnrwsgi";
-        # }
         {
           name = "theme-dracula-at-night";
           publisher = "bceskavich";
@@ -122,8 +105,8 @@ let
         {
           name = "vsc-material-theme";
           publisher = "equinusocio";
-          version = "2.8.2";
-          sha256 = "04hixd2bv7dd46pcs4mflr7xzfz273zai91k67jz6589bd8m93av";
+          version = "2.7.0";
+          sha256 = "1rs4ygsqh3hv2lg4kqj8vfkkvins2zfdqniyap3m1xr5kxfa96pn";
         }
         {
           name = "gitlens";
@@ -160,24 +143,14 @@ let
         --prefix PATH : ${lib.makeBinPath [ cabal-install ]}
     '';
 
-    myghc = hspkgs.haskellPackages.ghcWithHoogle (ps: with ps; [
-      split
-      parsec
-      vector
-      cabal-install
-    ]);
-
 in
 stdenv.mkDerivation rec {
-  name = "ghc-${version}";
-  buildInputs = [
-    pcre zlib
-  ] ++ [ env codeWrapper hieWrapper ]
-    ++ stdenv.lib.optionals stdenv.isDarwin
+  name = "vscode-with-hie-${version}";
+  buildInputs = 
+    [ pcre pcre2 zlib ] ++
+    [ env codeWrapper hieWrapper ] ++
+    stdenv.lib.optionals stdenv.isDarwin
     [ libiconv darwin.libobjc darwin.apple_sdk.frameworks.Foundation ];
-  libraryHaskellDepends = [
-    haskellPackages.zlib
-  ];
   hardeningDisable = [ "fortify" ];
   phases = ["nobuild"];
   postPatch = "patchShebangs .";
@@ -190,16 +163,16 @@ stdenv.mkDerivation rec {
     cp ${mkFile} mk/build.mk
   '';
   # N.B. CC gets overridden by stdenv
-  CC                  = "${stdenv.cc}/bin/cc"        ;
-  CC_STAGE0           = CC                           ;
-  CFLAGS              = "-I${env}/include"           ;
-  CPPFLAGS            = "-I${env}/include"           ;
-  LDFLAGS             = "-L${env}/lib"               ;
-  LD_LIBRARY_PATH     = "${env}/lib"                 ;
-  GMP_LIB_DIRS        = "${env}/lib"                 ;
-  GMP_INCLUDE_DIRS    = "${env}/include"             ;
-  CURSES_LIB_DIRS     = "${env}/lib"                 ;
-  CURSES_INCLUDE_DIRS = "${env}/include"             ;
+  CC                  = "${stdenv.cc}/bin/cc"         ;
+  CC_STAGE0           = CC                            ;
+  CFLAGS              = "-I${env}/include"            ;
+  CPPFLAGS            = "-I${env}/include"            ;
+  LDFLAGS             = "-L${env}/lib"                ;
+  LD_LIBRARY_PATH     = "${env}/lib"                  ;
+  GMP_LIB_DIRS        = "${env}/lib"                  ;
+  GMP_INCLUDE_DIRS    = "${env}/include"              ;
+  CURSES_LIB_DIRS     = "${env}/lib"                  ;
+  CURSES_INCLUDE_DIRS = "${env}/include"              ;
   configureFlags      = lib.concatStringsSep " "
     ( lib.optional withDwarf "--enable-dwarf-unwind" ) ;
 

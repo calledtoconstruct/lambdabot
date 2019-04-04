@@ -13,19 +13,18 @@ import Network.HTTP (getRequest, rspCode, rspBody)
 import Data.Char (isAlpha, toUpper)
 
 metarPlugin :: Module ()
-metarPlugin = newModule
-    { moduleCmds = return
-        [ (command "metar")
-            { help = say "metar <ICAO airport code>\n\
-                         \Look up METAR weather data for given airport."
-            , process = doMetar
-            }
-        ]
-    }
+metarPlugin = newModule {
+    moduleCmds = return [
+        (command "metar") {
+            help = say "metar <ICAO airport code>\n\
+                \Look up METAR weather data for given airport.",
+            process = doMetar
+        }
+    ]
+}
 
 addsUri :: String
-addsUri =
-    "http://www.aviationweather.gov/adds/dataserver_current/httpparam"
+addsUri = "http://www.aviationweather.gov/adds/dataserver_current/httpparam"
 
 addsSrc :: String -> String
 addsSrc code = addsUri ++
@@ -39,7 +38,7 @@ doMetar code | length code == 4 && all isAlpha code = do
         (_, resp) <- request $ getRequest src
         case rspCode resp of
             (2,_,_) -> return $ extractMetar (rspBody resp)
-            _ -> return $ "Request failed."
+            _ -> return "Request failed."
     say msg
 doMetar _ = return ()
 

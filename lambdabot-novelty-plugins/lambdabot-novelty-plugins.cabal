@@ -57,7 +57,7 @@ library
                         Lambdabot.Plugin.Novelty.Quote
                         Lambdabot.Plugin.Novelty.Slap
                         Lambdabot.Plugin.Novelty.Unlambda
-                        Lambdabot.Plugin.Novelty.Vixen
+                        -- Lambdabot.Plugin.Novelty.Vixen
 
   other-modules:        Lambdabot.Util.Process
 
@@ -74,5 +74,5 @@ library
                         regex-tdfa              >= 1.1,
 
                         -- runtime dependencies
-                        brainfuck               >= 0.1,
+                        -- brainfuck               >= 0.1,
                         unlambda                >= 0.1

@@ -19,42 +19,38 @@ type WhereWriter        = WhereState -> Cmd Where ()
 type Where              = ModuleT WhereState LB
 
 wherePlugin :: Module (M.Map P.ByteString P.ByteString)
-wherePlugin = newModule
-    { moduleDefState  = return M.empty
-    , moduleSerialize = Just mapPackedSerial
-
-    , moduleCmds = return
-        [ (command "where")
-            { help = say "where <key>. Return element associated with key"
-            , process = doCmd "where"
-            }
-        , (command "url")
-            { help = say "url <key>. Return element associated with key"
-            , process = doCmd "url"
-            }
-        , (command "what")
-            { help = say "what <key>. Return element associated with key"
-            , process = doCmd "what"
-            }
-        , (command "where+")
-            { help = say "where+ <key> <elem>. Define an association"
-            , process = doCmd "where+"
-            }
-        ]
-    }
+wherePlugin = newModule {
+    moduleDefState  = return M.empty,
+    moduleSerialize = Just mapPackedSerial,
+    moduleCmds = return [
+        (command "where") {
+            help = say "where <key>. Return element associated with key",
+            process = doCmd "where"
+        },
+        (command "url") {
+            help = say "url <key>. Return element associated with key",
+            process = doCmd "url"
+        },
+        (command "what") {
+            help = say "what <key>. Return element associated with key",
+            process = doCmd "what"
+        },
+        (command "where+") {
+            help = say "where+ <key> <elem>. Define an association",
+            process = doCmd "where+"
+        }
+    ]
+}
 
 doCmd :: String -> String -> Cmd Where ()
 doCmd cmd rest = (say =<<) . withMS $ \factFM writer ->
     case words rest of
         []         -> return "@where <key>, return element associated with key"
-        (fact:dat) -> processCommand factFM writer
-                            (map toLower fact) cmd (unwords dat)
+        (fact:dat) -> processCommand factFM writer (map toLower fact) cmd (unwords dat)
 
 ------------------------------------------------------------------------
 
-processCommand :: WhereState -> WhereWriter
-               -> String -> String -> String -> Cmd Where String
-
+processCommand :: WhereState -> WhereWriter -> String -> String -> String -> Cmd Where String
 processCommand factFM writer fact cmd dat = case cmd of
         "where"     -> return $ getWhere factFM fact
         "what"      -> return $ getWhere factFM fact -- an alias

@@ -10,14 +10,12 @@ module Lambdabot.Plugin.Suggest.Suggest (
 import Lambdabot.Plugin
 import Lambdabot.Util
 
-import Control.Monad
 import Data.Char
-import Data.Maybe
 
 type Suggestions  = [String]
 type Suggest      = ModuleT Suggestions LB
 
-suggestPlugin :: Module (Suggestions)
+suggestPlugin :: Module Suggestions
 suggestPlugin = newModule {
   moduleSerialize = Just stdSerial,
   moduleDefState  = return [],

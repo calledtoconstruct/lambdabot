@@ -1,11 +1,11 @@
-module Lambdabot.Plugin.IRC
-    ( ircPlugin
-    , localtimePlugin
-    , logPlugin
-    , topicPlugin
+module Lambdabot.Plugin.IRC (
+    ircPlugin,
+    localtimePlugin,
+    logPlugin,
+    topicPlugin,
     
-    , ircPlugins
-    ) where
+    ircPlugins
+) where
 
 import Lambdabot.Plugin.IRC.IRC
 import Lambdabot.Plugin.IRC.Localtime

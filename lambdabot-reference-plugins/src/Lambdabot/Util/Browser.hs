@@ -2,10 +2,10 @@
 
 -- | URL Utility Functions
 
-module Lambdabot.Util.Browser
-    ( urlPageTitle
-    , browseLB
-    ) where
+module Lambdabot.Util.Browser (
+    urlPageTitle,
+    browseLB
+) where
 
 import Codec.Binary.UTF8.String
 import Control.Monad.Trans
@@ -55,13 +55,13 @@ rawPageTitle :: String -> BrowserAction (HandleStream String) (Maybe String)
 rawPageTitle url = checkHTTPS $ do
     (_, result) <- request (getRequest (takeWhile (/='#') url))
     case rspCode result of
-        (2,0,0)   -> do
+        (2,0,0)   ->
             case takeWhile (/= ';') <$> lookupHeader HdrContentType (rspHeaders result) of
                 Just "text/html"       -> return $ extractTitle (rspBody result)
                 Just "application/pdf" -> rawPageTitle (googleCacheURL url)
-                _                      -> return $ Nothing
+                _                      -> return Nothing
         _         -> return Nothing
-    
+
     where googleCacheURL = (gURL++) . escapeURIString (const False)
           gURL = "http://www.google.com/search?hl=en&q=cache:"
           checkHTTPS act | "https:" `isPrefixOf` map toLower url = return Nothing

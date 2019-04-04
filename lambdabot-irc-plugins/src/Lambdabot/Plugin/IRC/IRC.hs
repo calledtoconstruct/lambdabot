@@ -43,7 +43,7 @@ ircPlugin = newModule {
         case splitOn " " rest of
           tag:hostn:portn:nickn:uix -> do
             pn <- (PortNumber . fromInteger) `fmap` readM portn
-            lift (online tag hostn pn nickn (intercalate " " uix))
+            lift (online tag hostn pn nickn (unwords uix))
           _ -> say "Not enough parameters!"
     },
     (command "irc-persist-connect") {
@@ -53,7 +53,7 @@ ircPlugin = newModule {
         case splitOn " " rest of
           tag:hostn:portn:nickn:uix -> do
             pn <- (PortNumber . fromInteger) `fmap` readM portn
-            lift (online tag hostn pn nickn (intercalate " " uix))
+            lift (online tag hostn pn nickn (unwords uix))
             lift $ lift $ modify $ \state' -> state' { ircPersists = M.insert tag True $ ircPersists state' }
           _ -> say "Not enough parameters!"
     },
@@ -62,8 +62,7 @@ ircPlugin = newModule {
       help = say "irc-password pwd.  set password for next irc-connect command",
       process = \rest ->
         case splitOn " " rest of
-          pwd:_ -> do
-            modifyMS (\ms -> ms{ password = Just pwd })
+          pwd:_ -> modifyMS (\ms -> ms{ password = Just pwd })
           _ -> say "Not enough parameters!"
     }
   ],
@@ -81,7 +80,7 @@ encodeMessage :: IrcMessage -> String -> String
 encodeMessage msg = encodePrefix (ircMsgPrefix msg) . encodeCommand (ircMsgCommand msg) . encodeParams (ircMsgParams msg)
   where encodePrefix [] = id
         encodePrefix prefix = showChar ':' . showString' prefix . showChar ' '
-        encodeCommand cmd = showString cmd
+        encodeCommand = showString
         encodeParams [] = id
         encodeParams (p:ps) = showChar ' ' . showString' p . encodeParams ps
 
@@ -106,20 +105,18 @@ decodeMessage svr lbn line =
       ircMsgParams = params
     }
   where decodePrefix k (':':cs) = decodePrefix' k cs
-
         decodePrefix k cs = k "" cs
-
         decodeCmd k []       = k "" ""
         decodeCmd k (' ':cs) = k "" cs
         decodeCmd k (c:cs)   = decodeCmd (k . (c:)) cs
 
+decodePrefix' :: (String -> String -> p) -> String -> p
 decodePrefix' j ""       = j "" ""
 decodePrefix' j (' ':ds) = j "" ds
 decodePrefix' j (c:ds)   = decodePrefix' (j . (c:)) ds
 
-
 decodeParams :: String -> [String]
-decodeParams xs = decodeParams' [] [] xs
+decodeParams = decodeParams' [] []
   where decodeParams' param params []
           | null param = reverse params
           | otherwise  = reverse (reverse param : params)
@@ -133,7 +130,7 @@ decodeParams xs = decodeParams' [] [] xs
 
 ircSignOn :: String -> Nick -> Maybe String -> String -> LB ()
 ircSignOn svr nickn pwd ircname = do
-    maybe (return ()) (\pwd' -> send $ pass (nTag nickn) pwd') pwd
+    maybe (return ()) (send . pass (nTag nickn)) pwd
     send $ user (nTag nickn) (nName nickn) svr ircname
     send $ setNick nickn
 
@@ -183,12 +180,12 @@ online tag hostn portnum nickn ui = do
             io $ SSem.signal ready
             delay <- getConfig reconnectDelay
             let retry = do
-                continue <- lift $ gets $ \st -> (M.member tag $ ircPersists st) && not (M.member tag $ ircServerMap st)
-                if continue then do
+                continue <- lift $ gets $ \st -> M.member tag (ircPersists st) && not (M.member tag $ ircServerMap st)
+                if continue then
                   E.catch online' (\e@SomeException{} -> do
-                    errorM (show e)
-                    io $ threadDelay delay
-                    retry)
+                  errorM (show e)
+                  io $ threadDelay delay
+                  retry)
                   else do
                     chans <- lift $ gets ircChannels
                     forM_ (M.keys chans) $ \chan -> when (nTag (getCN chan) == tag) $ lift $ modify $ \state' -> state' { ircChannels = M.delete chan $ ircChannels state' }
@@ -236,7 +233,7 @@ readerLoop tag nickn pongref sock ready = forever $ do
                 else do
                     when (ircMsgCommand msg == "001") $ io $ SSem.signal ready
                     received msg
-                
+
 sendMsg :: Handle -> MVar () -> SSem.SSem -> IrcMessage -> IO ()
 sendMsg sock mv fin msg =
     E.catch (do takeMVar mv

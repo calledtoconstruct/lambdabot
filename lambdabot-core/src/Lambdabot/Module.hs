@@ -1,35 +1,62 @@
+
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
+
 module Lambdabot.Module
-    ( Module(..)
-    , newModule
-    
-    , ModuleID
-    , newModuleID
-    
-    , ModuleInfo(..)
-    , ModuleT
-    , runModuleT
-    ) where
+  ( Module(..)
+  , newModule
+  , ModuleID
+  , newModuleID
+  , ModuleInfo(..)
+  , ModuleT
+  , runModuleT
+  , LB(..)
+  , CommandRef(..)
+  , OutputFilterRef(..)
+  , CallbackRef(..)
+  , ServerRef(..)
+  , IRCRState(..)
+  , IRCRWState(..)
+  , Callback
+  , Server
+  , OutputFilter
+  )
+where
 
-import qualified Lambdabot.Command as Cmd
-import Lambdabot.Config
-import Lambdabot.Logging
-import {-# SOURCE #-} Lambdabot.Monad
-import Lambdabot.Util.Serial
+import qualified Lambdabot.Command             as Cmd
+import           Lambdabot.Config
+import           Lambdabot.IRC
+import           Lambdabot.Logging
+import           Lambdabot.Util.Serial
 
-import Control.Applicative
-import Control.Concurrent (MVar)
-import Control.Monad
-import Control.Monad.Base
-import Control.Monad.Reader (MonadReader(..), ReaderT(..), asks)
-import Control.Monad.Trans (MonadTrans(..), MonadIO(..))
-import Control.Monad.Trans.Control
-import Data.Unique.Tag
-import System.Console.Haskeline.MonadException (MonadException)
+import           Control.Concurrent             ( MVar )
+import           Control.Monad.Identity
+import           Control.Monad.Base
+import           Control.Monad.Reader           ( MonadReader(..)
+                                                , ReaderT(..)
+                                                , asks
+                                                )
+
+import           Control.Monad.Trans            ( MonadTrans(..)
+                                                , MonadIO(..)
+                                                )
+
+import           Control.Monad.Trans.Control
+import           Data.IORef
+import           Data.Unique.Tag
+import qualified Data.Dependent.Map            as D
+import           Data.Some
+import qualified Data.Map                      as M
+import qualified Data.Set                      as S
+import           System.Console.Haskeline.MonadException
+                                                ( MonadException )
+import           Data.Dependent.Sum
+import           Lambdabot.ChanName
+import           Lambdabot.Command
+import           Lambdabot.Nick
 
 ------------------------------------------------------------------------
 
@@ -71,15 +98,14 @@ data Module st = Module {
 ------------------------------------------------------------------------
 
 newModule :: Module st
-newModule = Module
-    { contextual         = \_ -> return ()
-    , moduleCmds         = return []
-    , moduleExit         = return ()
-    , moduleInit         = return ()
-    , moduleSticky       = False
-    , moduleSerialize    = Nothing
-    , moduleDefState     = return $ error "state not initialized"
-    }
+newModule = Module { contextual      = \_ -> return ()
+                   , moduleCmds      = return []
+                   , moduleExit      = return ()
+                   , moduleInit      = return ()
+                   , moduleSticky    = False
+                   , moduleSerialize = Nothing
+                   , moduleDefState  = return $ error "state not initialized"
+                   }
 
 newtype ModuleID st = ModuleID (Tag RealWorld st)
     deriving (GEq, GCompare)
@@ -98,34 +124,92 @@ data ModuleInfo st = ModuleInfo
 -- | This transformer encodes the additional information a module might
 --   need to access its name or its state.
 newtype ModuleT st m a = ModuleT { unModuleT :: ReaderT (ModuleInfo st) m a }
-    deriving (Applicative, Functor, Monad, MonadReader (ModuleInfo st), 
+    deriving (Applicative, Functor, Monad, MonadReader (ModuleInfo st),
         MonadTrans, MonadIO, MonadException, MonadConfig)
 
 runModuleT :: ModuleT st m a -> ModuleInfo st -> m a
 runModuleT = runReaderT . unModuleT
 
 instance MonadLogging m => MonadLogging (ModuleT st m) where
-    getCurrentLogger = do
-        parent <- lift getCurrentLogger
-        self   <- asks moduleName
-        return (parent ++ ["Plugin", self])
-    logM a b c = lift (logM a b c)
+  getCurrentLogger = do
+    parent <- lift getCurrentLogger
+    self   <- asks moduleName
+    return (parent ++ ["Plugin", self])
+  logM a b c = lift (logM a b c)
 
 instance MonadBase b m => MonadBase b (ModuleT st m) where
-    liftBase = lift . liftBase
+  liftBase = lift . liftBase
 
 instance MonadTransControl (ModuleT st) where
-    type StT (ModuleT st) a = a
-    liftWith f = do
-        r <- ModuleT ask
-        lift $ f $ \t -> runModuleT t r
-    restoreT = lift
-    {-# INLINE liftWith #-}
-    {-# INLINE restoreT #-}
+  type StT (ModuleT st) a = a
+  liftWith f = do
+    r <- ModuleT ask
+    lift $ f $ \t -> runModuleT t r
+  restoreT = lift
+  {-# INLINE liftWith #-}
+  {-# INLINE restoreT #-}
 
 instance MonadBaseControl b m => MonadBaseControl b (ModuleT st m) where
-    type StM (ModuleT st m) a = ComposeSt (ModuleT st) m a
-    liftBaseWith = defaultLiftBaseWith
-    restoreM     = defaultRestoreM
-    {-# INLINE liftBaseWith #-}
-    {-# INLINE restoreM #-}
+  type StM (ModuleT st m) a = ComposeSt (ModuleT st) m a
+  liftBaseWith = defaultLiftBaseWith
+  restoreM     = defaultRestoreM
+  {-# INLINE liftBaseWith #-}
+  {-# INLINE restoreM #-}
+
+
+
+
+type Callback st = IrcMessage -> ModuleT st LB ()
+type OutputFilter st = Nick -> [String] -> ModuleT st LB [String]
+type Server st = IrcMessage -> ModuleT st LB ()
+
+newtype CallbackRef     st = CallbackRef     (Callback st)
+newtype CommandRef      st = CommandRef      (Command (ModuleT st LB))
+newtype OutputFilterRef st = OutputFilterRef (OutputFilter st)
+newtype ServerRef       st = ServerRef       (Server st)
+
+
+------------------------------------------------------------------------
+--
+-- Lambdabot state
+--
+
+-- | Global read-only state.
+data IRCRState = IRCRState {
+  ircInitDoneMVar   :: MVar ()
+    , ircQuitMVar       :: MVar ()
+    , ircConfig         :: D.DMap Config Identity
+    }
+
+-- | Global read\/write state.
+data IRCRWState = IRCRWState
+    { ircServerMap       :: M.Map String (DSum ModuleID ServerRef)
+    , ircPrivilegedUsers :: S.Set Nick
+    , ircIgnoredUsers    :: S.Set Nick
+
+    , ircChannels        :: M.Map ChanName String
+    -- ^ maps channel names to topics
+    , ircPersists        :: M.Map String Bool
+    -- ^ lists servers to which to reconnect on failure (one-time or always)
+
+    , ircModulesByName   :: M.Map String (Some ModuleInfo)
+    , ircModulesByID     :: D.DMap ModuleID ModuleInfo
+    , ircCallbacks       :: M.Map String (D.DMap ModuleID CallbackRef)
+    , ircOutputFilters   :: [DSum ModuleID OutputFilterRef]
+    -- ^ Output filters, invoked from right to left
+
+    , ircCommands        :: M.Map String (DSum ModuleID CommandRef)
+    }
+
+-- ---------------------------------------------------------------------
+--
+-- The LB (LambdaBot) monad
+--
+
+-- | The IRC Monad. The reader transformer holds information about the
+--   connection to the IRC server.
+--
+-- instances Monad, Functor, MonadIO, MonadState, MonadError
+
+newtype LB a = LB { unLB :: ReaderT (IRCRState, IORef IRCRWState) IO a }
+  deriving (Functor, Applicative, Monad, MonadIO, MonadException)

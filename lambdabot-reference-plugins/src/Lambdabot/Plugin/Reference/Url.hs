@@ -1,4 +1,6 @@
+
 {-# LANGUAGE PatternGuards #-}
+
 -- | Fetch URL page titles of HTML links.
 module Lambdabot.Plugin.Reference.Url (urlPlugin) where
 
@@ -14,41 +16,36 @@ import Network.HTTP
 import Text.Regex.TDFA
 
 urlPlugin :: Module Bool
-urlPlugin = newModule
-    { moduleCmds = return
-        [ (command "url-title")
-            { help = say "url-title <url>. Fetch the page title."
-            , process =
-                  maybe (say "Url not valid.") (mbSay <=< fetchTitle)
-                . containsUrl
-            }
-        , (command "tiny-url")
-            { help = say "tiny-url <url>. Shorten <url>."
-            , process =
-                  maybe (say "Url not valid.") (mbSay <=< fetchTiny)
-                . containsUrl
-            }
-        , (command "url-on")
-            { privileged = True
-            , help = say "url-on: enable automatic URL summaries"
-            , process = const $ do
+urlPlugin = newModule {
+    moduleCmds = return [
+        (command "url-title") {
+            help = say "url-title <url>. Fetch the page title.",
+            process = maybe (say "Url not valid.") (mbSay <=< fetchTitle) . containsUrl
+        },
+        (command "tiny-url") {
+            help = say "tiny-url <url>. Shorten <url>.",
+            process = maybe (say "Url not valid.") (mbSay <=< fetchTiny) . containsUrl
+        },
+        (command "url-on") {
+            privileged = True,
+            help = say "url-on: enable automatic URL summaries",
+            process = const $ do
                 writeMS True
                 say "Url enabled"
-            }
-        , (command "url-off")
-            { privileged = True
-            , help = say "url-off: disable automatic URL summaries"
-            , process = const $ do
+        },
+        (command "url-off") {
+            privileged = True,
+            help = say "url-off: disable automatic URL summaries",
+            process = const $ do
                 writeMS False
                 say "Url disabled"
-            }
-        ]
-    , moduleDefState              = return True -- url on
-    , moduleSerialize             = Just stdSerial
-
-    , contextual = \text -> do
+        }
+    ],
+    moduleDefState              = return True,
+    moduleSerialize             = Just stdSerial,
+    contextual = \text -> do
       alive <- lift readMS
-      if alive && (not $ areSubstringsOf ignoredStrings text)
+      if alive && not (areSubstringsOf ignoredStrings text)
         then case containsUrl text of
                Nothing  -> return ()
                Just url
@@ -105,12 +102,13 @@ findTiny text = do
 -- url in it (infinite loop).  Ideally, this list could be added to
 -- by an admin via a privileged command (TODO).
 ignoredStrings :: [String]
-ignoredStrings =
-    ["paste",                -- Ignore lisppaste, rafb.net
-     "cpp.sourcforge.net",   -- C++ paste bin
-     "HaskellIrcPastePage",  -- Ignore paste page
-     "title of that page",   -- Ignore others like the old me
-     urlTitlePrompt]         -- Ignore others like me
+ignoredStrings = [
+    "paste",                -- Ignore lisppaste, rafb.net
+    "cpp.sourcforge.net",   -- C++ paste bin
+    "HaskellIrcPastePage",  -- Ignore paste page
+    "title of that page",   -- Ignore others like the old me
+    urlTitlePrompt          -- Ignore others like me
+    ]
 
 -- | Suffixes that should be stripped off when identifying URLs in
 -- contextual messages.  These strings may be punctuation in the
@@ -145,5 +143,4 @@ stripSuffixes (s:ss) str
 -- list are substrings of the String.
 areSubstringsOf :: [String] -> String -> Bool
 areSubstringsOf = flip (any . flip isSubstringOf)
-    where
-      isSubstringOf s str = any (isPrefixOf s) (tails str)
+    where isSubstringOf s str = any (isPrefixOf s) (tails str)

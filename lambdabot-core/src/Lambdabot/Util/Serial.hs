@@ -111,7 +111,7 @@ instance Packable (Map ByteString ByteString) where
   readPacked ps = M.fromList $ readPackedEntry (splitAt 2) (\(k: v: _) -> (k, v)) (P.lines . gunzip $ ps)
   showPacked m  = gzip. P.unlines . concatMap (\(k, v) -> [k, v]) $ M.toList m
 
-instance Packable ( [ (ByteString, ByteString) ] ) where
+instance Packable [ (ByteString, ByteString) ] where
   readPacked ps = readPackedEntry (splitAt 2) (\(k: v: _) -> (k, v)) (P.lines . gunzip $ ps)
   showPacked = gzip . P.unlines . concatMap (\(k,v) -> [k,v])
 
@@ -134,7 +134,7 @@ mapListPackedSerial :: Serial (Map ByteString [ByteString])
 mapListPackedSerial = Serial (Just . showPacked) (Just . readPacked)
 
 -- And for association list
-assocListPackedSerial :: Serial ( [ (ByteString, ByteString) ] )
+assocListPackedSerial :: Serial [ (ByteString, ByteString) ]
 assocListPackedSerial = Serial (Just . showPacked) (Just . readPacked)
 
 ------------------------------------------------------------------------

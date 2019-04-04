@@ -17,8 +17,8 @@ import qualified Data.Map as M
 import Control.Monad.State (gets)
 
 type Topic = ModuleT () LB
-
 type TopicAction = Nick -> String -> Cmd Topic ()
+
 data TopicCommand = TopicCommand {
   _commandAliases    :: [String],
   _commandHelp       :: String,
@@ -27,8 +27,8 @@ data TopicCommand = TopicCommand {
 
 commands :: [TopicCommand]
 commands = [
-    TopicCommand ["set-topic"] "Set the topic of the channel, without using all that listy stuff" (installTopic),
-    TopicCommand ["get-topic"] "Recite the topic of the channel" (reciteTopic),
+    TopicCommand ["set-topic"] "Set the topic of the channel, without using all that listy stuff" installTopic,
+    TopicCommand ["get-topic"] "Recite the topic of the channel" reciteTopic,
     TopicCommand ["unshift-topic", "queue-topic"] "Add a new topic item to the front of the topic list" (alterListTopic (:)),
     TopicCommand ["shift-topic"] "Remove a topic item from the front of the topic list" (alterListTopic (const tail)),
     TopicCommand ["push-topic"] "Add a new topic item to the end of the topic stack" (alterListTopic (\arg -> (++ [arg]))),
@@ -63,18 +63,15 @@ topicPlugin = newModule {
 -- Topic action implementations
 
 installTopic :: TopicAction
-installTopic chan topic = withTopic chan $ \_ -> do
-    lb (send (setTopic chan topic))
+installTopic chan topic = withTopic chan $ \_ -> lb (send (setTopic chan topic))
 
 reciteTopic :: TopicAction
-reciteTopic chan ""       = withTopic chan $ \topic -> do
-    say (nName chan ++ ": " ++ topic)
+reciteTopic chan ""       = withTopic chan $ \topic -> say (nName chan ++ ": " ++ topic)
 reciteTopic _ ('#':_)     = say "One channel at a time.  Jeepers!"
 reciteTopic _ _           = say "I don't know what all that extra stuff is about."
 
 alterTopic :: (String -> String -> String) -> TopicAction
-alterTopic f chan args = withTopic chan $ \oldTopic -> do
-    lb (send (setTopic chan (f args oldTopic)))
+alterTopic f chan args = withTopic chan $ \oldTopic -> lb (send (setTopic chan (f args oldTopic)))
 
 alterListTopic :: (String -> [String] -> [String]) -> TopicAction
 alterListTopic f = alterTopic $ \args topic -> show $ case reads topic of
@@ -84,7 +81,7 @@ alterListTopic f = alterTopic $ \args topic -> show $ case reads topic of
 ------------------------------------------------------------------------
 
 lookupTopic :: Nick -> LB (Maybe String)
-lookupTopic chan = gets (\s -> M.lookup (mkCN chan) (ircChannels s))
+lookupTopic chan = gets (M.lookup (mkCN chan) . ircChannels)
 
 -- | 'withTopic' is like 'lookupTopic' except that it ditches the Maybe in
 --   favor of just yelling at the user when things don't work out as planned.

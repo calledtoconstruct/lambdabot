@@ -115,14 +115,14 @@ cleanLogState = withMS $ \state writer -> do
 
 -- | Fetch a channel from the internal map. Uses LB's fail if not found.
 getChannel :: Channel -> Log ChanState
-getChannel c = (readMS >>=) . mLookup $ c
+getChannel = (readMS >>=) . mLookup
   where mLookup k = maybe (fail "getChannel: not found") return . M.lookup k
 
 getDate :: Channel -> Log DateStamp
-getDate c = fmap chanDate . getChannel $ c
+getDate = fmap chanDate . getChannel
 
 getHandle :: Channel -> Log Handle
-getHandle c = fmap chanHandle . getChannel $ c
+getHandle = fmap chanHandle . getChannel
     -- add points. otherwise:
     -- Unbound implicit parameters (?ref::GHC.IOBase.MVar LogState, ?name::String)
     --  arising from instantiating a type signature at
@@ -159,7 +159,7 @@ reopenChannelMaybe chan ct = do
 -- | Initialise the channel state (if it not already inited)
 initChannelMaybe :: Nick -> UTCTime -> Log ()
 initChannelMaybe chan ct = do
-  chanp <- liftM (M.member chan) readMS
+  chanp <- fmap (M.member chan) readMS
   unless chanp $ do
     hdl <- openChannelFile chan ct
     modifyMS (M.insert chan $ CS hdl (dateStamp ct))
@@ -170,8 +170,7 @@ withValidLog f clockTime chan = do
   initChannelMaybe chan clockTime
   reopenChannelMaybe chan clockTime
   hdl <- getHandle chan
-  rv <- f hdl clockTime
-  return rv
+  f hdl clockTime
 
 -- | Log a string. Main logging workhorse.
 logString :: Handle -> String -> Log ()
@@ -183,11 +182,11 @@ logString hdl str = io $ hPutStrLn hdl str >> hFlush hdl
 
 -- | When somebody joins.
 joinCB :: IrcMessage -> UTCTime -> Event
-joinCB msg ct = Joined (Msg.nick msg) (Msg.fullName msg) ct
+joinCB msg = Joined (Msg.nick msg) (Msg.fullName msg)
 
 -- | When somebody quits.
 partCB :: IrcMessage -> UTCTime -> Event
-partCB msg ct = Parted (Msg.nick msg) (Msg.fullName msg) ct
+partCB msg = Parted (Msg.nick msg) (Msg.fullName msg)
 
 -- | When somebody is kicked.
 kickCB :: IrcMessage -> UTCTime -> Event

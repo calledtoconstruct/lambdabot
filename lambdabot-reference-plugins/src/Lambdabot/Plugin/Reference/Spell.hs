@@ -1,4 +1,6 @@
+
 {-# LANGUAGE PatternGuards #-}
+
 -- Copyright (c) 2004-6 Don Stewart - http://www.cse.unsw.edu.au/~dons
 -- GPL version 2 or later (see http://www.gnu.org/copyleft/gpl.html)
 --
@@ -17,38 +19,35 @@ import Data.Maybe
 import System.Process
 import Text.Regex.TDFA
 
-
 type Spell = ModuleT Bool LB
 
 spellPlugin :: Module Bool
-spellPlugin = newModule
-    { moduleCmds = return
-        [ (command "spell")
-            { help = say helpStr
-            , process = doSpell
-            }
-        , (command "spell-all")
-            { help = say helpStr
-            , process = spellAll
-            }
-        , (command "nazi-on")
-            { privileged = True
-            , help = say helpStr
-            , process = const (nazi True)
-            }
-        , (command "nazi-off")
-            { privileged = True
-            , help = say helpStr
-            , process = const (nazi False)
-            }
-        ]
-    , moduleDefState = return False
-
-    , contextual = \txt -> do
+spellPlugin = newModule {
+    moduleCmds = return [
+        (command "spell") {
+            help = say helpStr,
+            process = doSpell
+        },
+        (command "spell-all") {
+            help = say helpStr,
+            process = spellAll
+        },
+        (command "nazi-on") {
+            privileged = True,
+            help = say helpStr,
+            process = const (nazi True)
+        },
+        (command "nazi-off") {
+            privileged = True,
+            help = say helpStr,
+            process = const (nazi False)
+        }
+    ],
+    moduleDefState = return False,
+    contextual = \txt -> do
         alive <- readMS
         binary <- getConfig aspellBinary
-        if alive then io (spellingNazi binary txt) >>= mapM_ say
-                 else return ()
+        if alive then io (spellingNazi binary txt) >>= mapM_ say else return ()
     }
 
 helpStr :: String
@@ -58,7 +57,7 @@ doSpell :: [Char] -> Cmd Spell ()
 doSpell [] = say "No word to spell."
 doSpell s  = do
     binary <- getConfig aspellBinary
-    (say . showClean . take 5) =<< (io (spell binary s))
+    (say . showClean . take 5) =<< io (spell binary s)
 
 spellAll :: [Char] -> Cmd Spell ()
 spellAll [] = say "No phrase to spell."

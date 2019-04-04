@@ -38,7 +38,7 @@ cabal.config
 
 
 
-*.nix
+# *.nix
 State
 .vscode
 shutdown.rc

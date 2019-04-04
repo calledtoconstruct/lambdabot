@@ -1,61 +1,59 @@
 
-{-# LANGUAGE TemplateHaskell #-}
+module Lambdabot.Main
+  ( lambdabotVersion
+  , Config
+  , DSum(..)
+  , (==>)
+  , lambdabotMain
+  , Modules
+  , module Lambdabot.Plugin.Core
+  , Priority(..)
+  )
+where
 
-module Lambdabot.Main (
-  lambdabotVersion,
-  Config,
-  DSum(..),
-  (==>),
-  lambdabotMain,
-  Modules,
-  modules,
-  module Lambdabot.Plugin.Core,
-  Priority(..)
-) where
+import           Lambdabot.Bot
+import           Lambdabot.Config
+import           Lambdabot.Logging
+import           Lambdabot.Module
+import           Lambdabot.Monad
+import           Lambdabot.Plugin.Core
+import           Lambdabot.Util
+import           Lambdabot.Util.Signals
 
-import Lambdabot.Bot
-import Lambdabot.Config
-import Lambdabot.Logging
-import Lambdabot.Module
-import Lambdabot.Monad
-import Lambdabot.Plugin.Core
-import Lambdabot.Util
-import Lambdabot.Util.Signals
-
-import Control.Exception.Lifted as E
-import Control.Monad.Identity
-import Data.Dependent.Sum
-import Data.List
-import Data.IORef
-import Data.Some
-import Data.Version
-import Language.Haskell.TH
-import Paths_lambdabot_core (version)
-import System.Exit
-import System.Log.Formatter
-import qualified System.Log.Logger as L
-import System.Log.Handler.Simple
-import Network.Socket
+import           Control.Exception.Lifted      as E
+import           Control.Monad.Identity
+import           Data.Dependent.Sum
+import           Data.IORef
+import           Data.Some
+import           Data.Version
+import           Paths_lambdabot_core           ( version )
+import           System.Exit
+import           System.Log.Formatter
+import qualified System.Log.Logger             as L
+import           System.Log.Handler.Simple
+import           Network.Socket
 
 lambdabotVersion :: Version
 lambdabotVersion = version
 
 setupLogging :: LB ()
 setupLogging = do
-  stream <- getConfig consoleLogHandle
-  level  <- getConfig consoleLogLevel
-  format <- getConfig consoleLogFormat
-  
+  stream             <- getConfig consoleLogHandle
+  level              <- getConfig consoleLogLevel
+  format             <- getConfig consoleLogFormat
+
   unformattedHandler <- io (streamHandler stream level)
-  let consoleHandler = unformattedHandler {
-    formatter = simpleLogFormatter format
-  }
-  
+  let consoleHandler =
+        unformattedHandler { formatter = simpleLogFormatter format }
+
   setRoot <- getConfig replaceRootLogger
-  
+
   io $ if setRoot
-    then L.updateGlobalLogger L.rootLoggerName (L.setLevel level . L.setHandlers [consoleHandler])
-    else L.updateGlobalLogger "Lambdabot" (L.setLevel level . L.addHandler consoleHandler)
+    then L.updateGlobalLogger
+      L.rootLoggerName
+      (L.setLevel level . L.setHandlers [consoleHandler])
+    else L.updateGlobalLogger "Lambdabot"
+                              (L.setLevel level . L.addHandler consoleHandler)
 
 -- | The Lambdabot entry point.
 -- Initialise plugins, connect, and run the bot in the LB monad
@@ -71,13 +69,11 @@ lambdabotMain initialise cfg = withSocketsDo . withIrcSignalCatch $ do
   E.catch runMainLoop showExceptionAndExit
 
 showExceptionAndExit :: SomeException -> IO ExitCode
-showExceptionAndExit exception = do
-  -- clean up and go home
-  case fromException exception of
-    Just code -> return code
-    Nothing   -> do
-      errorM (show exception)
-      return (ExitFailure 1)
+showExceptionAndExit exception = case fromException exception of
+  Just code -> return code
+  Nothing   -> do
+    errorM (show exception)
+    return (ExitFailure 1)
 
 showExceptionAndContinue :: SomeException -> LB ()
 showExceptionAndContinue exception = errorM $ show exception
@@ -88,9 +84,9 @@ lambdabotRun ms = do
   infoM "Initialising plugins"
   withModules ms $ do
     infoM "Done loading plugins"
-    reportInitDone    
+    reportInitDone
     E.catch waitForQuit showExceptionAndContinue
-  
+
   -- clean up any dynamically loaded modules
   mapM_ ircUnloadModule =<< listModules
   return ExitSuccess
@@ -99,13 +95,9 @@ lambdabotRun ms = do
 
 type Modules = [(String, Some Module)]
 
-modules :: [String] -> Q Exp
-modules xs = [| $(listE $ map instalify (nub xs)) |]
-  where instalify x = let module' = varE $ mkName (x ++ "Plugin") in [| (x, This $module') |]
-
 withModules :: Modules -> LB a -> LB a
-withModules []                = id
-withModules ((n, This m):ms)  = withModule n m . withModules ms
+withModules []                 = id
+withModules ((n, This m) : ms) = withModule n m . withModules ms
 
 withModule :: String -> Module st -> LB a -> LB a
 withModule name m = bracket_ (ircLoadModule name m) (ircUnloadModule name)

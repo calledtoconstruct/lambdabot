@@ -13,7 +13,6 @@ import Lambdabot.Plugin
 import Lambdabot.Util
 import Lambdabot.Logging
 
-import Data.Monoid
 import Control.Monad.Reader
 import Control.Monad.State (gets, modify)
 import qualified Data.Map as M
@@ -145,8 +144,7 @@ doList "" = say "What module?  Try ?listmodules for some ideas."
 doList m  = say =<< lb (listModule m)
 
 doEcho :: String -> Cmd System ()
-doEcho rest = do
-  say (concat ["uhh...", show rest])
+doEcho rest = say $ "uhh..." ++ show rest
 
 doAdmin :: String -> Cmd System ()
 doAdmin = toggleNick $ \op nck s -> s { ircPrivilegedUsers = op nck (ircPrivilegedUsers s) }
@@ -180,7 +178,7 @@ toggleNick edit rest = do
 listModule :: String -> LB String
 listModule s = inModuleNamed s fromCommand printProvides
   where fromCommand = withCommand s (return $ "No module \""++s++"\" loaded") (const printProvides)
-  
+
 printProvides :: ModuleT st LB String
 printProvides = do
   cmds <- moduleCmds =<< asks theModule

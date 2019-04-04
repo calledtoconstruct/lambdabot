@@ -13,18 +13,18 @@ import Text.Printf
 type Ticker = ModuleT () LB
 
 tickerPlugin :: Module ()
-tickerPlugin = newModule
-    { moduleCmds = return
-        [ (command "ticker")
-            { help = say "ticker symbols.  Look up quotes for symbols"
-            , process = tickerCmd
-            }
-        , (command "bid")
-            { help = say "bid symbols.  Sum up the bid and ask prices for symbols."
-            , process = bidsCmd
-            }
-        ]
-    }
+tickerPlugin = newModule {
+    moduleCmds = return [
+        (command "ticker") {
+            help = say "ticker symbols.  Look up quotes for symbols",
+            process = tickerCmd
+        },
+        (command "bid") {
+            help = say "bid symbols.  Sum up the bid and ask prices for symbols.",
+            process = bidsCmd
+        }
+    ]
+}
 
 ------------------------------------------------------------------------
 
@@ -106,7 +106,7 @@ calcBids ticks = do
 getPage :: MonadLB m => String -> m [String]
 getPage url = do
     let cleanup = (map (filter (/= '\r'))) . lines
-    
+
     browseLB $ do
         (_, result) <- request (getRequest url)
         case rspCode result of
@@ -128,7 +128,7 @@ csv xs = case span (/= ',') xs of
 
 -- | Read a value from a string.
 readMaybe :: Read a => String -> Maybe a
-readMaybe x = case readsPrec 0 x of
+readMaybe x = case reads x of
                 [(y,"")] -> Just y
                 _        -> Nothing
 

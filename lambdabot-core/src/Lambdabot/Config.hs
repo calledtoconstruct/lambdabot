@@ -14,7 +14,6 @@ module Lambdabot.Config (
     configWithMerge
     ) where
 
-import Control.Applicative
 import Control.Monad.Identity
 import Control.Monad.Reader
 import Control.Monad.Writer
@@ -33,23 +32,22 @@ cast1 :: (Typeable f, Typeable g) => f a -> Maybe (g a)
 cast1 = fmap runIdentity . gcast1 . Identity
 
 instance GEq Config where
-    geq (Config k1 _ _) (Config k2 _ _) = do
-        k2' <- cast1 k2
-        geq k1 k2'
+  geq (Config k1 _ _) (Config k2 _ _) = do
+    k2' <- cast1 k2
+    geq k1 k2'
 
 instance GCompare Config where
-    gcompare (Config k1 _ _) (Config k2 _ _) =
-        case compare t1 t2 of
-            LT -> GLT
-            EQ -> fromMaybe typeErr $ do
-                k2'  <- cast1 k2
-                return (gcompare k1 k2')
-            GT -> GGT
-        where
-            t1 = typeOf1 k1
-            t2 = typeOf1 k2
+  gcompare (Config k1 _ _) (Config k2 _ _) = case compare t1 t2 of
+    LT -> GLT
+    EQ -> fromMaybe typeErr $ do
+      k2' <- cast1 k2
+      return (gcompare k1 k2')
+    GT -> GGT
+   where
+    t1      = typeOf1 k1
+    t2      = typeOf1 k2
 
-            typeErr = error "TypeReps claim to be equal but cast failed"
+    typeErr = error "TypeReps claim to be equal but cast failed"
 
 getConfigDefault :: Config t -> t
 getConfigDefault (Config _ def _) = def

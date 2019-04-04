@@ -40,7 +40,7 @@ data-files:             scripts/online.rc.sample,
                         State/Pristine.hs.706,
                         State/Pristine.hs.708,
                         State/Pristine.hs.default,
-                        State/source,
+                        State/source
                         State/vixen
 
 source-repository head
@@ -54,15 +54,16 @@ executable lambdabot
                         Paths_lambdabot
 
   ghc-options:          -Wall -threaded
-  build-depends:        base                         >= 3 && < 5,
-                        lambdabot-core               >= 5.1.0.1 && < 5.2,
+  build-depends:        base                          >= 3 && < 5,
+                        lambdabot-core                >= 5.1.0.1 && < 5.2,
                         -- lambdabot-haskell-plugins    >= 5.1.0.1 && < 5.2,
-                        lambdabot-irc-plugins        >= 5.1.0.1 && < 5.2,
-                        lambdabot-twitch-plugins     >= 5.1.0.1 && < 5.2,
-                        lambdabot-points-plugins    >= 5.1.0.1 && < 5.2,
-                        lambdabot-suggest-plugins    >= 5.1.0.1 && < 5.2,
-                        lambdabot-misc-plugins       >= 5.1.0.1 && < 5.2,
-                        lambdabot-novelty-plugins    >= 5.1.0.1 && < 5.2,
-                        lambdabot-reference-plugins  >= 5.1.0.1 && < 5.2,
-                        lambdabot-social-plugins     >= 5.1.0.1 && < 5.2,
-                        mtl                          >= 2
+                        lambdabot-irc-plugins         >= 5.1.0.1 && < 5.2,
+                        lambdabot-twitch-plugins      >= 5.1.0.1 && < 5.2,
+                        lambdabot-points-plugins      >= 5.1.0.1 && < 5.2,
+                        lambdabot-suggest-plugins     >= 5.1.0.1 && < 5.2,
+                        lambdabot-misc-plugins        >= 5.1.0.1 && < 5.2,
+                        lambdabot-novelty-plugins     >= 5.1.0.1 && < 5.2,
+                        lambdabot-reference-plugins   >= 5.1.0.1 && < 5.2,
+                        lambdabot-social-plugins      >= 5.1.0.1 && < 5.2,
+                        mtl                           >= 2,
+                        dependent-sum                >= 0.4

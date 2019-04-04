@@ -42,7 +42,7 @@ twitchPlugin = newModule {
         case splitOn " " rest of
           tag:hostn:portn:nickn:uix -> do
             pn <- (PortNumber . fromInteger) `fmap` readM portn
-            lift (online tag hostn pn nickn (intercalate " " uix))
+            lift (online tag hostn pn nickn (unwords uix))
           _ -> say "Not enough parameters!"
     },
     (command "twitch-persist-connect") {
@@ -52,7 +52,7 @@ twitchPlugin = newModule {
         case splitOn " " rest of
           tag:hostn:portn:nickn:uix -> do
             pn <- (PortNumber . fromInteger) `fmap` readM portn
-            lift (online tag hostn pn nickn (intercalate " " uix))
+            lift (online tag hostn pn nickn (unwords uix))
             lift $ lift $ modify $ \state' -> state' { ircPersists = M.insert tag True $ ircPersists state' }
           _ -> say "Not enough parameters!"
     },
@@ -165,11 +165,11 @@ twitchSignOn svr nickn pwd ircname = do
 doRetry :: HostName -> PortID -> String -> Int -> String -> Maybe String -> String -> ModuleT st LB ()
 doRetry hostn portnum tag delay nickn psw ui = do
   continue <- lift $ gets $ \st -> (M.member tag $ ircPersists st) && not (M.member tag $ ircServerMap st)
-  if continue then do
+  if continue then
     E.catch (goOnline hostn portnum tag nickn psw ui) (\e@SomeException{} -> do
-      errorM (show e)
-      io $ threadDelay delay
-      doRetry hostn portnum tag delay nickn psw ui)
+    errorM (show e)
+    io $ threadDelay delay
+    doRetry hostn portnum tag delay nickn psw ui)
     else do
       chans <- lift $ gets ircChannels
       forM_ (M.keys chans) $ \chan -> when (nTag (getCN chan) == tag) $ lift $ modify $ \state' -> state' { ircChannels = M.delete chan $ ircChannels state' }
@@ -229,7 +229,7 @@ readerLoop tag nickn sock ready = forever $ do
       let msg = decodeMessage tag nickn line'
       when (ircMsgCommand msg == "001") $ io $ SSem.signal ready
       received msg
-                
+
 sendMsg :: Handle -> MVar () -> SSem.SSem -> IrcMessage -> IO ()
 sendMsg sock mv fin msg = E.catch (do
   takeMVar mv

@@ -1,7 +1,6 @@
 
 module Lambdabot.Plugin.Social.Seen.UserStatus where
 
-import Control.Applicative
 import Data.Binary
 import qualified Data.ByteString as BS
 import Data.List

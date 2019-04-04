@@ -1,6 +1,8 @@
+
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE PatternGuards #-}
 {-# LANGUAGE FlexibleContexts #-}
+
 -- | Support for quotes
 module Lambdabot.Plugin.Novelty.Quote (quotePlugin) where
 
@@ -8,40 +10,39 @@ import Lambdabot.Plugin
 import Lambdabot.Util
 
 import qualified Data.ByteString.Char8 as P
-import Data.Char
-import Data.Fortune
-import Data.List
+import Data.Char (isSpace)
+import Data.Fortune (resolveFortuneFiles, randomFortune, FortuneType (All))
+import Data.List (isInfixOf, delete)
 import qualified Data.Map as M
-import Data.Maybe
-import Text.Regex.TDFA
+import Data.Maybe (fromMaybe)
+import Text.Regex.TDFA (captureGroups, newSyntax, caseSensitive, match, defaultExecOpt, defaultCompOpt, makeRegexOptsM)
 
 type Key    = P.ByteString
 type Quotes = M.Map Key [P.ByteString]
 type Quote  = ModuleT Quotes LB
 
 quotePlugin :: Module (M.Map P.ByteString [P.ByteString])
-quotePlugin = newModule
-    { moduleSerialize = Just mapListPackedSerial
-    , moduleDefState  = return M.empty
-    , moduleInit      = modifyMS (M.filter (not . null))
-
-    , moduleCmds = return
-        [ (command "quote")
-            { help = say "quote <nick>: Quote <nick> or a random person if no nick is given"
-            , process = runQuote . strip isSpace
-            }
-        , (command "remember")
-            { help = say "remember <nick> <quote>: Remember that <nick> said <quote>."
-            , process = runRemember . strip isSpace
-            }
-        , (command "forget")
-            { help = say "forget nick quote.  Delete a quote"
-            , process = runForget . strip isSpace
-            }
-        , (command "ghc")
-            { help = say "ghc. Choice quotes from GHC."
-            , process = const (fortune ["ghc"])
-            }
+quotePlugin = newModule {
+  moduleSerialize = Just mapListPackedSerial,
+  moduleDefState  = return M.empty,
+  moduleInit      = modifyMS (M.filter (not . null)),
+  moduleCmds = return [
+    (command "quote") {
+      help = say "quote <nick>: Quote <nick> or a random person if no nick is given",
+        process = runQuote . strip isSpace
+    },
+    (command "remember") {
+      help = say "remember <nick> <quote>: Remember that <nick> said <quote>.",
+      process = runRemember . strip isSpace
+    },
+    (command "forget") {
+      help = say "forget nick quote.  Delete a quote",
+      process = runForget . strip isSpace
+    },
+    (command "ghc") {
+      help = say "ghc. Choice quotes from GHC.",
+      process = const (fortune ["ghc"])
+    }
         , (command "fortune")
             { help = say "fortune. Provide a random fortune"
             , process = const (fortune [])

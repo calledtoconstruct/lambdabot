@@ -2,10 +2,11 @@
 -- Provides interface to messages, message pipes
 --
 module Lambdabot.Message
-    ( Message(..)
-    ) where
+  ( Message(..)
+  )
+where
 
-import Lambdabot.Nick
+import           Lambdabot.Nick
 
 -- TODO: probably remove "Show a" later (used only to implement @echo)
 class Show a => Message a where
