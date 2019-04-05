@@ -1,0 +1,8 @@
+{
+    "[haskell]": {
+        "editor.tabSize": 2,
+        "editor.detectIndentation": false
+    },
+    "languageServerHaskell.useCustomHieWrapper": true,
+    "languageServerHaskell.useCustomHieWrapperPath": "hieWrapper"
+}
