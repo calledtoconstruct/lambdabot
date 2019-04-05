@@ -8,7 +8,7 @@
 , withDwarf ? nixpkgs.stdenv.isLinux  # enable libdw unwinding support
 , withNuma  ? nixpkgs.stdenv.isLinux
 , mkFile    ? null
-, cores     ? 4
+, cores     ? 16
 }:
 
 with nixpkgs;
