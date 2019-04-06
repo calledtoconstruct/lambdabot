@@ -1,5 +1,7 @@
+
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE GADTs #-}
+
 module Lambdabot.Plugin.Misc.Stats (statsPlugin) where
 
 import Lambdabot.Plugin

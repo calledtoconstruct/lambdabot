@@ -8,7 +8,15 @@ module Lambdabot.Plugin.Novelty.Elite
   )
 where
 
-import           Lambdabot.Plugin
+import           Lambdabot.Plugin               ( Module
+                                                , newModule
+                                                , aliases
+                                                , say
+                                                , moduleCmds
+                                                , help
+                                                , process
+                                                , command
+                                                )
 import           Lambdabot.Util                 ( io
                                                 , random
                                                 )

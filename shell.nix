@@ -58,8 +58,8 @@ let
         {
           name = "vsc-material-theme";
           publisher = "equinusocio";
-          version = "2.7.0";
-          sha256 = "1rs4ygsqh3hv2lg4kqj8vfkkvins2zfdqniyap3m1xr5kxfa96pn";
+          version = "2.8.2";
+          sha256 = "04hixd2bv7dd46pcs4mflr7xzfz273zai91k67jz6589bd8m93av";
         }
         {
           name = "gitlens";
@@ -79,12 +79,12 @@ let
           version = "2.5.0";
           sha256 = "10jqj8qw5x6da9l8zhjbra3xcbrwb4cpwc3ygsy29mam5pd8g6b3";
         }
-        {
-          name = "brittany";
-          publisher="maxgabriel";
-          version="0.0.6";
-          sha256= "1v47an1bad5ss4j5sajxia94r1r4yfyvbim5wax4scr0d5bdgv54";
-        }
+        # {
+        #   name = "brittany";
+        #   publisher="maxgabriel";
+        #   version="0.0.6";
+        #   sha256= "1v47an1bad5ss4j5sajxia94r1r4yfyvbim5wax4scr0d5bdgv54";
+        # }
       ];
     };
 
@@ -96,10 +96,15 @@ let
         --prefix PATH : ${lib.makeBinPath [ cabal-install ]}
     '';
 
+    env = buildEnv {
+      name = "development-environment";
+      paths = default.buildInputs ++ [ codeWrapper hieWrapper figlet ];
+    };
+
 in
 stdenv.mkDerivation rec {
   name = "vscode-with-hie-${version}";
-  buildInputs = default.buildInputs ++ [ codeWrapper hieWrapper figlet ];
+  buildInputs = [ env ];
   libraryHaskellDepends = with haskellPackages; [
     zlib
     pcre
@@ -118,6 +123,19 @@ stdenv.mkDerivation rec {
   '';
 
   # ${lib.optionalString withDocs "export FONTCONFIG_FILE=${fonts}"}
+
+  CC                  = "${stdenv.cc}/bin/cc"         ;
+  CC_STAGE0           = CC                            ;
+  CFLAGS              = "-I${env}/include"            ;
+  CPPFLAGS            = "-I${env}/include"            ;
+  LDFLAGS             = "-L${env}/lib"                ;
+  LD_LIBRARY_PATH     = "${env}/lib"                  ;
+  GMP_LIB_DIRS        = "${env}/lib"                  ;
+  GMP_INCLUDE_DIRS    = "${env}/include"              ;
+  CURSES_LIB_DIRS     = "${env}/lib"                  ;
+  CURSES_INCLUDE_DIRS = "${env}/include"              ;
+  configureFlags      = lib.concatStringsSep " "
+    ( lib.optional withDwarf "--enable-dwarf-unwind" ) ;
 
   shellHook           = let toYesNo = b: if b then "YES" else "NO"; in ''
     # somehow, CC gets overriden so we set it again here.

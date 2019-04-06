@@ -8,7 +8,21 @@ module Lambdabot.Plugin.Novelty.Dice
   )
 where
 
-import           Lambdabot.Plugin
+import           Lambdabot.Plugin               ( Module
+                                                , LB
+                                                , Cmd
+                                                , moduleCmds
+                                                , aliases
+                                                , help
+                                                , command
+                                                , ModuleT
+                                                , process
+                                                , contextual
+                                                , newModule
+                                                , showNick
+                                                , getSender
+                                                , say
+                                                )
 import           Lambdabot.Util                 ( io
                                                 , limitStr
                                                 )

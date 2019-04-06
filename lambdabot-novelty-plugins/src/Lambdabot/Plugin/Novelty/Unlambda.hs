@@ -20,8 +20,9 @@ import           Lambdabot.Plugin               ( Module()
                                                 , Cmd
                                                 , MonadConfig
                                                 , ios80
+                                                , getConfig
                                                 )
-import           Lambdabot.Util.Process         ( run )
+import           Lambdabot.Util.Process         
 import           Control.Monad.IO.Class         ( MonadIO )
 import           Text.Regex.TDFA                ( (=~) )
 
@@ -38,7 +39,7 @@ unlambdaPlugin = newModule
 
 unlambda :: (MonadConfig m, MonadIO m) => String -> Cmd m ()
 unlambda msg = do
-  let binary = "unlambda" -- getConfig unlambdaBinary
+  binary <- getConfig unlambdaBinary
   ios80 (run binary msg scrub)
 
 scrub :: String -> String

@@ -1,6 +1,7 @@
-{-# LANGUAGE DeriveDataTypeable #-}
+
+-- {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE GADTs #-}
-{-# LANGUAGE TemplateHaskell #-}
+-- {-# LANGUAGE TemplateHaskell #-}
 {-# OPTIONS_GHC -fno-warn-overlapping-patterns #-}
 
 module Lambdabot.Config.Points (

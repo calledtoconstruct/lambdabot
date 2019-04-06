@@ -17,8 +17,9 @@ import           Lambdabot.Plugin               ( Module
                                                 , process
                                                 , command
                                                 , ios80
+                                                , getConfig
                                                 )
-import           Lambdabot.Util.Process         ( run )
+import           Lambdabot.Util.Process
 
 import           Data.Char                      ( ord )
 import           Text.Regex.TDFA                ( (=~) )
@@ -29,7 +30,7 @@ bfPlugin = newModule
                    [ (command "bf")
                        { help = say "bf <expr>. Evaluate a brainf*ck expression"
                        , process = \msg -> do
-                                     let bf = "bf" -- getConfig bfBinary
+                                     bf <- getConfig bfBinary
                                      ios80 (run bf msg scrub)
                        }
                    ]

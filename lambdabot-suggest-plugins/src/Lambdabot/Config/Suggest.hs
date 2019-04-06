@@ -1,14 +1,16 @@
-{-# LANGUAGE DeriveDataTypeable #-}
+
+-- {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE GADTs #-}
-{-# LANGUAGE TemplateHaskell #-}
+-- {-# LANGUAGE TemplateHaskell #-}
 {-# OPTIONS_GHC -fno-warn-overlapping-patterns #-}
 
-module Lambdabot.Config.Suggest (
-  -- suggestion,
-  -- suggestions
-) where
+module Lambdabot.Config.Suggest
+  -- ( suggestion
+  -- , suggestions
+  -- )
+where
 
-import Lambdabot.Config
+import           Lambdabot.Config
 
 -- config "bfBinary"       [t| String |] [| "bf"       |]
 -- config "unlambdaBinary" [t| String |] [| "unlambda" |]

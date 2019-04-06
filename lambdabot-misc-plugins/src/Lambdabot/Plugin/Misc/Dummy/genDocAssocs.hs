@@ -1,5 +1,7 @@
+
 {-# LANGUAGE ViewPatterns #-}
 {- generates the Lambdabot.Plugin.Misc.Dummy.DocAssocs -}
+
 module Main where
 
 import Text.HTML.TagSoup

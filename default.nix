@@ -46,19 +46,27 @@ let
       gmp.dev gmp.out glibcLocales
       ncurses.dev ncurses.out
       perl git file which python3
-      (hspkgs.ghcWithPackages (ps: [ ps.alex ps.happy ]))
+      (hspkgs.ghcWithPackages (ps: [ ps.alex ps.happy ps.zlib ]))
       xlibs.lndir  # for source distribution generation
       cabal-install
       zlib.out
       zlib.dev
       zlib
+      curl.out
+      curl.dev
+      curl
+      pcre.out
+      pcre.dev
+      pcre
+      pcre2.out
+      pcre2.dev
+      pcre2
     ]
     ++ docsPackages
     ++ stdenv.lib.optional withLlvm llvm_6
     ++ stdenv.lib.optional withNuma numactl
     ++ stdenv.lib.optional withDwarf elfutils
     ++ stdenv.lib.optional (! stdenv.isDarwin) pxz 
-    ++ [ pcre pcre2 zlib ]
     ++ stdenv.lib.optionals stdenv.isDarwin
     [ libiconv darwin.libobjc darwin.apple_sdk.frameworks.Foundation ];
 

@@ -4,8 +4,22 @@ module Lambdabot.Plugin.Novelty.Slap
   )
 where
 
-import           Lambdabot.Plugin
-import           Lambdabot.Util
+import           Lambdabot.Plugin               ( Module
+                                                , ModuleT
+                                                , moduleCmds
+                                                , aliases
+                                                , help
+                                                , process
+                                                , LB
+                                                , Cmd
+                                                , command
+                                                , newModule
+                                                , say
+                                                , showNick
+                                                , getSender
+                                                , getLambdabotName
+                                                )
+import           Lambdabot.Util                 ( random )
 
 type Slap = ModuleT () LB
 

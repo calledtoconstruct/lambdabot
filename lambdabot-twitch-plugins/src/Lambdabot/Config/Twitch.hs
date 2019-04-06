@@ -4,10 +4,11 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# OPTIONS_GHC -fno-warn-overlapping-patterns -Wmissing-signatures #-}
 
-module Lambdabot.Config.Twitch (
-  reconnectDelay
-) where
+module Lambdabot.Config.Twitch
+  ( reconnectDelay
+  )
+where
 
-import Lambdabot.Config
+import           Lambdabot.Config
 
 config "reconnectDelay" [t| Int |] [| 10000000 |]

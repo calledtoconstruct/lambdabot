@@ -37,7 +37,11 @@ import           Data.Binary                    ( Binary(get, put)
                                                 , getWord8
                                                 )
 import qualified Data.ByteString.Char8         as P
+                                                ( unpack
+                                                , ByteString
+                                                )
 import qualified Data.ByteString.Lazy          as L
+                                                ( fromStrict )
 import           Text.Regex.TDFA                ( Regex
                                                 , makeRegex
                                                 , match
