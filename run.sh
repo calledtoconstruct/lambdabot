@@ -1,0 +1,1 @@
+while [ True ]; do ./dist/build/lambdabot/lambdabot; done
