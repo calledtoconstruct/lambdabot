@@ -1,0 +1,10 @@
+nix-env -iA hies -f https://github.com/domenkozar/hie-nix/tarball/master
+
+sh <(curl https://nixos.org/nix/install) --no-daemon
+
+. /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh
+
+
+https://github.com/alpmestan/ghc.nix
+
+nix-shell https://github.com/alpmestan/ghc.nix/archive/master.tar.gz

@@ -1,13 +1,11 @@
 
 { nixpkgs   ? import ./nixpkgs.nix {}
-, bootghc   ? "ghc863"
-, version   ? "0.2"
+, version   ? "ghc864"
 , useClang  ? false  # use Clang for C compilation
 , withLlvm  ? false
 , withDocs  ? true
 , withDwarf ? nixpkgs.stdenv.isLinux  # enable libdw unwinding support
 , withNuma  ? nixpkgs.stdenv.isLinux
-, mkFile    ? null
 , cores     ? 16
 }:
 
@@ -21,7 +19,7 @@ let
 
     noTest = pkg: haskell.lib.dontCheck pkg;
 
-    hspkgs = haskell.packages.${bootghc};
+    hspkgs = haskell.packages.${version};
 
     ourtexlive = nixpkgs.texlive.combine {
       inherit (nixpkgs.texlive)
@@ -46,7 +44,19 @@ let
       gmp.dev gmp.out glibcLocales
       ncurses.dev ncurses.out
       perl git file which python3
-      (hspkgs.ghcWithPackages (ps: [ ps.alex ps.happy ps.zlib ]))
+      # (hspkgs.ghcWithHoogle (ps: with ps; [
+      #   base hint placeholders template-haskell
+      #   cabal-install
+      #   zlib.out
+      #   zlib
+      #   curl.out
+      #   curl
+      #   pcre.out
+      #   pcre
+      #   pcre2.out
+      #   pcre2
+      # ]))
+      (hspkgs.ghcWithPackages (ps: [ ps.alex ps.happy ps.zlib ps.zlib.out ]))
       xlibs.lndir  # for source distribution generation
       cabal-install
       zlib.out
@@ -74,20 +84,26 @@ in
 stdenv.mkDerivation rec {
   name = "ghc-for-lambdabot-${version}";
   buildInputs = deps;
-  libraryHaskellDepends = with haskellPackages; [
-    zlib
-    pcre
-    pcre2
-  ];
-  hardeningDisable = [ "fortify" ];
-  phases = ["nobuild"];
-  postPatch = "patchShebangs .";
+  # libraryHaskellDepends = with hspkgs; [
+  #   zlib
+  #   pcre
+  #   pcre2
+  # ];
+  # hardeningDisable = [ "fortify" ];
+  # phases = ["nobuild"];
+  # postPatch = "patchShebangs .";
+
+  inherit (nixpkgs)
+    buildEnv glibcLocales lib
+    cabal-install
+    vscode-with-extensions vscode-extensions vscode-utils
+    pcre pcre2 zlib;
 
   # ${lib.optionalString withDocs "export FONTCONFIG_FILE=${fonts}"}
 
-  enableParallelBuilding = true;
-  NIX_BUILD_CORES = cores;
-  stripDebugFlags = [ "-S" ];
+  # enableParallelBuilding = true;
+  # NIX_BUILD_CORES = cores;
+  # stripDebugFlags = [ "-S" ];
 
   nobuild = ''
     echo Do not run this derivation with nix-build, it can only be used with nix-shell

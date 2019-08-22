@@ -13,6 +13,7 @@ import           Lambdabot.Main
 import           Lambdabot.Plugin.IRC
 import           Lambdabot.Plugin.Twitch
 import           Lambdabot.Plugin.Points
+import           Lambdabot.Plugin.Hangman
 import           Lambdabot.Plugin.Suggest
 import           Lambdabot.Plugin.Misc
 import           Lambdabot.Plugin.Novelty
@@ -24,6 +25,7 @@ modulesInfo :: Modules
 modulesInfo =
   [ ("twitch"   , This twitchPlugin)
   , ("points"   , This pointsPlugin)
+  , ("hangman"  , This hangmanPlugin)
   , ("suggest"  , This suggestPlugin)
   , ("irc"      , This ircPlugin)
   , ("localtime", This localtimePlugin)

@@ -4,5 +4,5 @@
         "editor.detectIndentation": false
     },
     "languageServerHaskell.useCustomHieWrapper": true,
-    "languageServerHaskell.useCustomHieWrapperPath": "hieWrapper"
+    "languageServerHaskell.useCustomHieWrapperPath": "hie-wrapper"
 }

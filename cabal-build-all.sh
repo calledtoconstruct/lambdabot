@@ -2,6 +2,8 @@ cd ~/code/lambdabot/lambdabot-core
 cabal install --force-reinstalls
 cd ../lambdabot-trusted
 cabal install --force-reinstalls
+cd ../lambdabot-hangman-plugins
+cabal install --force-reinstalls
 cd ../lambdabot-points-plugins
 cabal install --force-reinstalls
 cd ../lambdabot-suggest-plugins
