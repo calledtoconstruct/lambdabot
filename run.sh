@@ -1,1 +1,1 @@
-while [ True ]; do ./dist/build/lambdabot/lambdabot; done
+while [ True ]; do cabal new-run lambdabot; done

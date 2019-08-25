@@ -9,7 +9,7 @@ module Lambdabot.Config.Points (
   -- suggestions
 ) where
 
-import Lambdabot.Config
+-- import Lambdabot.Config
 
 -- config "bfBinary"       [t| String |] [| "bf"       |]
 -- config "unlambdaBinary" [t| String |] [| "unlambda" |]

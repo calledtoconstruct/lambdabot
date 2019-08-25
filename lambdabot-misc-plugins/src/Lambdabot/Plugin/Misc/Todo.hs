@@ -28,7 +28,6 @@ import           Lambdabot.Plugin               ( Module
                                                 , aliases
                                                 , privileged
                                                 , Cmd
-                                                , readPackedEntry
                                                 , newModule
                                                 , command
                                                 , say
@@ -40,6 +39,7 @@ import           Lambdabot.Plugin               ( Module
                                                 , withMS
                                                 , Serial(..)
                                                 )
+import Lambdabot.Util ( readPackedEntry )
 import           Control.Monad                  ( zipWithM
                                                 , forM_
                                                 )

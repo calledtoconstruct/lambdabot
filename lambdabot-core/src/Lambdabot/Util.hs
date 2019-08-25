@@ -19,6 +19,7 @@ module Lambdabot.Util
   , random
   , randomFailureMsg
   , randomSuccessMsg
+  , readPackedEntry
   )
 where
 
@@ -30,6 +31,7 @@ import           Control.Concurrent.Lifted
 import           Control.Monad.Trans.Control
 import           Lambdabot.Config
 import           Lambdabot.Config.Core
+import           Lambdabot.Util.Serial
 
 ------------------------------------------------------------------------
 

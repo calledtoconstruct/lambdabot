@@ -71,7 +71,7 @@ library
                         misfortune              >= 0.1,
                         process                 >= 1.1,
                         random-fu               >= 0.2.6.2,
-                        regex-tdfa              >= 1.1,
+                        regex-tdfa              >= 1.1 && < 2,
 
                         -- runtime dependencies
                         -- brainfuck               >= 0.1,

@@ -7,7 +7,32 @@ module Lambdabot.Plugin.Points.Points (
   pointsPlugin
 ) where
 
-import Lambdabot.Plugin
+import Lambdabot.Plugin (
+  Module,
+  ModuleT,
+  LB,
+  Cmd,
+  Packable ( readPacked, showPacked ),
+  Serial (..),
+  moduleDefState,
+  moduleInit
+  , help
+  , moduleCmds
+  , moduleSerialize
+  , process
+  , aliases
+  , privileged
+  , command
+  , say
+  , readMS
+  , showNick
+  , getSender
+  , modifyMS
+  , readM
+  , withMS,
+  stdSerial,
+  newModule )
+import Lambdabot.Util ( readPackedEntry )
 import Lambdabot.Compat.PackedNick (packNick, unpackNick)
 
 import qualified Data.ByteString.Char8 as P

@@ -1,12 +1,23 @@
+{-# LANGUAGE DeriveGeneric #-}
 
 module Lambdabot.Plugin.Hangman.Logic where
 
 import Data.List (sortOn, sort, sortBy, group, nub)
 import Data.Char (toUpper)
+import Data.Aeson (ToJSON, toJSON, object, (.=))
+import GHC.Generics
+
+-- TODO:
+-- [ ]: Add list of phrases to data type
+-- [ ]: Add command for privileged user to add a phrase
+-- [ ]: Add messages to configuration (You Win, You Lost, etc...)
+-- [ ]: Intercalate letters already used
+-- [ ]: Incorporate emoji
 
 data Game =
   NoGame
   | InGame GameState
+  deriving (Generic, Show, Read)
 
 data GameState = GameState {
   userLetters :: String,
@@ -14,6 +25,7 @@ data GameState = GameState {
   incorrectLetters :: String,
   target :: String
 }
+  deriving (Generic, Show, Read)
 
 -- Current State:
 -- Target: Twitch Love
@@ -152,7 +164,7 @@ modifyState (InGame game) char = (InGame game { userLetters = char: userLetters 
 showBoard :: Game -> String
 showBoard NoGame = "No game in progress at the moment.  Use ?hangman-start to start one."
 showBoard (InGame (GameState _ correctLetters _ target)) = output
-  where output = concatMap (: ".") board
+  where output = intercalate '.' board
         board = map (transformLetter correctLetters) target
 
 showInternalState :: Game -> String
@@ -164,3 +176,10 @@ transformLetter :: [Char] -> Char -> Char
 transformLetter correctLetters letter = case elem letter $ ' ': correctLetters of
   True -> letter
   False -> '_'
+
+intercalate :: Char -> [Char] -> [Char]
+intercalate _ [] = []
+intercalate value (first: rest)
+  | null ending = first: ending
+  | otherwise = first: value: ending
+  where ending = intercalate value rest

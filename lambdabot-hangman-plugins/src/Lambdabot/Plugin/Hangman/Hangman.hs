@@ -7,7 +7,23 @@ module Lambdabot.Plugin.Hangman.Hangman (
   hangmanPlugin
 ) where
 
-import Lambdabot.Plugin
+import Lambdabot.Plugin (
+  ModuleT
+  , Cmd
+  , moduleDefState
+  , moduleSerialize
+  , moduleInit
+  , moduleCmds
+  , command
+  , help
+  , process
+  , say
+  , Module
+  , LB
+  , newModule
+  , stdSerial
+  , withMS
+  )
 import Lambdabot.Compat.PackedNick (packNick, unpackNick)
 
 import qualified Data.ByteString.Char8 as P
@@ -23,7 +39,7 @@ type Hangman = ModuleT HangmanState LB
 
 hangmanPlugin :: Module HangmanState
 hangmanPlugin = newModule {
-  -- moduleSerialize = Just stdSerial,
+  moduleSerialize = Just stdSerial,
   moduleDefState  = return NoGame,
   moduleInit      = return (),
   moduleCmds      = return [
@@ -76,4 +92,4 @@ appendState (letter: _) =
 
 sayMessages :: [String] -> Cmd Hangman ()
 sayMessages [] = return ()
-sayMessages messages = foldl1 (>>) $ fmap say messages
+sayMessages messages = foldr1 (>>) $ fmap say messages
