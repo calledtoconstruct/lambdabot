@@ -40,7 +40,18 @@ type Hangman = ModuleT HangmanState LB
 hangmanPlugin :: Module HangmanState
 hangmanPlugin = newModule {
   moduleSerialize = Just stdSerial,
-  moduleDefState  = return NoGame,
+  moduleDefState  = return (NoGame (Configuration {
+    phrases = [
+      "MONKATOS",
+      "TWITCH SINGS",
+      "BEST STREAMER",
+      "IN REAL LIFE",
+      "SCIENCE AND TECHNOLOGY",
+      "SOFTWARE ENGINEERING",
+      "HASKELL RULEZ"
+    ],
+    lastPhrase = 0
+  })),
   moduleInit      = return (),
   moduleCmds      = return [
     (command "hangman-start") {
@@ -68,11 +79,11 @@ clearState [] =
     let (messages, updatedState) = initializeGame game
     writer updatedState
     sayMessages messages
-clearState rest = say incorrectArgumentsForStart
+clearState _ = say incorrectArgumentsForStart
 
 showState :: String -> Cmd Hangman ()
 showState [] = withMS $ \game _ -> say $ showBoard game
-showState rest = say incorrectArgumentsForShow
+showState _ = say incorrectArgumentsForShow
 
 progress :: String -> Cmd Hangman ()
 progress [] =
@@ -80,7 +91,7 @@ progress [] =
     let (messages, updatedState) = progressGame game
     writer updatedState
     sayMessages messages
-progress rest = say incorrectArgumentsForProgress
+progress _ = say incorrectArgumentsForProgress
 
 appendState :: String -> Cmd Hangman ()
 appendState [] = say incorrectArgumentsForAppend

@@ -5,18 +5,19 @@ module Lambdabot.Plugin.Hangman.Logic where
 import Data.List (sortOn, sort, sortBy, group, nub)
 import Data.Char (toUpper)
 import Data.Aeson (ToJSON, toJSON, object, (.=))
+import System.Random (mkStdGen, random)
 import GHC.Generics
 
 -- TODO:
--- [ ]: Add list of phrases to data type
+-- [ ]: Add list of configuration to data type
 -- [ ]: Add command for privileged user to add a phrase
 -- [ ]: Add messages to configuration (You Win, You Lost, etc...)
 -- [ ]: Intercalate letters already used
 -- [ ]: Incorporate emoji
 
 data Game =
-  NoGame
-  | InGame GameState
+  NoGame Configuration
+  | InGame GameState Configuration
   deriving (Generic, Show, Read)
 
 data GameState = GameState {
@@ -24,6 +25,12 @@ data GameState = GameState {
   correctLetters :: String,
   incorrectLetters :: String,
   target :: String
+}
+  deriving (Generic, Show, Read)
+
+data Configuration = Configuration {
+  phrases :: [String],
+  lastPhrase :: Int
 }
   deriving (Generic, Show, Read)
 
@@ -63,25 +70,34 @@ gameInProgress :: String
 gameInProgress = "A game is in progress, please complete this game before starting a new one."
 
 initializeGame :: Game -> ([String], Game)
-initializeGame NoGame = (message: [], updatedState)
-    where updatedState = newGame "ANGEL FISH"
+initializeGame (NoGame configuration) = (message: [], updatedState)
+    where updatedState = newGame phrase updatedConfiguration
+          (updatedConfiguration, phrase) = selectPhrase configuration
           message = "The hangman state has been reset."
-initializeGame game = (gameInProgress: [], game)
+initializeGame game = ([gameInProgress], game)
 
-newGame :: String -> Game
-newGame target = InGame $ GameState {
-  target = target,
+selectPhrase :: Configuration -> (Configuration, String)
+selectPhrase configuration@(Configuration options previous) = (updatedConfiguration, phrase)
+  where maximum = length options
+        generator = mkStdGen previous
+        (selected, _) = random generator
+        phrase = options !! (selected `mod` maximum)
+        updatedConfiguration = configuration { lastPhrase = selected }
+
+newGame :: String -> Configuration -> Game
+newGame answer = InGame (GameState {
+  target = answer,
   userLetters = "",
   correctLetters = "",
   incorrectLetters = ""
-}
+})
 
 addGuess :: Game -> Char -> ([String], Game)
 addGuess game letter = ([], finalState)
   where finalState = modifyState game $ toUpper letter
 
 progressGame :: Game -> ([String], Game)
-progressGame NoGame = ([noGameInProgress], NoGame)
+progressGame (NoGame configuration) = ([noGameInProgress], NoGame configuration)
 progressGame game =
   case getMostPopularGuess game of
     Just guess -> applyGuess game guess
@@ -110,70 +126,71 @@ youLost :: String
 youLost = "You lost!"
 
 evaluateGame :: Game -> ([String], Game)
-evaluateGame NoGame = ([noGameInProgress], NoGame)
-evaluateGame game@(InGame (GameState userLetters correctLetters incorrectLetters target))
-  | remaining <= 0 = ([youLost], NoGame)
-  | (length correctLetters) == (length $ nub $ filter (/= ' ') target) = ([youWon], NoGame)
-  | otherwise = (remainingGuesses: incorrectGuesses: [], game)
-  where remaining = allowedMisses - (length incorrectLetters)
-        remainingGuesses = "You have " ++ (show remaining) ++ " incorrect guesses left."
-        incorrectGuesses = "You have already tried: " ++ incorrectLetters
+evaluateGame (NoGame configuration) = ([noGameInProgress], NoGame configuration)
+evaluateGame game@(InGame (GameState _ correct incorrect answer) configuration)
+  | remaining <= 0 = ([youLost], NoGame configuration)
+  | length correct == length (nub $ filter (/= ' ') answer) = ([youWon], NoGame configuration)
+  | otherwise = ([remainingGuesses, incorrectGuesses], game)
+  where remaining = allowedMisses - length incorrect
+        remainingGuesses = "You have " ++ show remaining ++ " incorrect guesses left."
+        incorrectGuesses = "You have already tried: " ++ incorrect
 
 getMostPopularGuess :: Game -> Maybe Char
-getMostPopularGuess (InGame (GameState letters _ _ _))
+getMostPopularGuess (InGame (GameState letters _ _ _) _)
   | null letters = Nothing
-  | otherwise = Just $ last $ concat $ (sortOn length) $ group $ sort letters
+  | otherwise = Just $ last $ concat $ sortOn length $ group $ sort letters
 
 isCorrect :: Game -> Char -> Maybe Bool
-isCorrect (InGame (GameState _ correctLetters _ target)) letter = case foundInTarget of
+isCorrect (InGame (GameState _ correct _ answer) _) letter = case foundInTarget of
   True -> case foundInCorrectLetters of
     True -> Nothing
     False -> Just True
   False -> Just False
-  where foundInTarget = elem letter target
-        foundInCorrectLetters = elem letter correctLetters
+  where foundInTarget = elem letter answer
+        foundInCorrectLetters = elem letter correct
 
 saveFinalAnswer :: Game -> Char -> Maybe Bool -> Game
-saveFinalAnswer (InGame gameState) letter action = InGame $ updateGameState gameState letter action
-saveFinalAnswer NoGame _ _ = NoGame
+saveFinalAnswer (InGame gameState configuration) letter action = InGame updatedGameState configuration
+  where updatedGameState = updateGameState gameState letter action
+saveFinalAnswer (NoGame configuration) _ _ = NoGame configuration
 
 updateGameState :: GameState -> Char -> Maybe Bool -> GameState
-updateGameState (GameState _ correctLetters incorrectLetters target) letter (Just True) = GameState {
+updateGameState (GameState _ correct incorrect answer) letter (Just True) = GameState {
   userLetters = [],
-  correctLetters = letter: correctLetters,
-  incorrectLetters = incorrectLetters,
-  target = target
+  correctLetters = letter: correct,
+  incorrectLetters = incorrect,
+  target = answer
 }
-updateGameState (GameState _ correctLetters incorrectLetters target) letter (Just False) = GameState {
+updateGameState (GameState _ correct incorrect answer) letter (Just False) = GameState {
   userLetters = [],
-  correctLetters = correctLetters,
-  incorrectLetters = letter: incorrectLetters,
-  target = target
+  correctLetters = correct,
+  incorrectLetters = letter: incorrect,
+  target = answer
 }
-updateGameState (GameState _ correctLetters incorrectLetters target) letter Nothing = GameState {
+updateGameState (GameState _ correct incorrect answer) letter Nothing = GameState {
   userLetters = [],
-  correctLetters = correctLetters,
-  incorrectLetters = letter: incorrectLetters,
-  target = target
+  correctLetters = correct,
+  incorrectLetters = letter: incorrect,
+  target = answer
 }
 
 modifyState :: Game -> Char -> Game
-modifyState NoGame _ = NoGame
-modifyState (InGame game) char = (InGame game { userLetters = char: userLetters game })
+modifyState (NoGame configuration) _ = NoGame configuration
+modifyState (InGame game configuration) char = InGame game { userLetters = char: userLetters game } configuration
 
 showBoard :: Game -> String
-showBoard NoGame = "No game in progress at the moment.  Use ?hangman-start to start one."
-showBoard (InGame (GameState _ correctLetters _ target)) = output
+showBoard (NoGame _) = "No game in progress at the moment.  Use ?hangman-start to start one."
+showBoard (InGame (GameState _ correct _ answer) _) = output
   where output = intercalate '.' board
-        board = map (transformLetter correctLetters) target
+        board = map (transformLetter correct) answer
 
 showInternalState :: Game -> String
-showInternalState NoGame = "No game in progress at the moment.  Use ?hangman-start to start one."
-showInternalState (InGame (GameState userLetters correctLetters incorrectLetters target)) = output
-    where output = userLetters ++ ":" ++ correctLetters ++ ":" ++ incorrectLetters ++ ":" ++ target
+showInternalState (NoGame _) = "No game in progress at the moment.  Use ?hangman-start to start one."
+showInternalState (InGame (GameState user correct incorrect answer) _) = output
+    where output = user ++ ":" ++ correct ++ ":" ++ incorrect ++ ":" ++ answer
 
 transformLetter :: [Char] -> Char -> Char
-transformLetter correctLetters letter = case elem letter $ ' ': correctLetters of
+transformLetter correct letter = case elem letter $ ' ': correct of
   True -> letter
   False -> '_'
 

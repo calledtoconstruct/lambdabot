@@ -50,4 +50,5 @@ library
                         regex-tdfa              >= 1.1,
                         split                   >= 0.2,
                         extra                   >= 1.0,
-                        aeson                   >= 1.4.4.0
+                        aeson                   >= 1.4.4.0,
+                        random                  >= 1.1
