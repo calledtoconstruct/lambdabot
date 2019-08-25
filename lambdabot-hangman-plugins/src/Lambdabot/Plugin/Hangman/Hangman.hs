@@ -17,7 +17,9 @@ import Lambdabot.Plugin (
   , command
   , help
   , process
+  , aliases
   , say
+  , privileged
   , Module
   , LB
   , newModule
@@ -66,9 +68,20 @@ hangmanPlugin = newModule {
       help = say "hangman-final-answer - Tallies the guesses and applies the most popular one.",
       process = progress
     },
-    (command "hm") {
-      help = say "hm [char] - Provide your guess.",
+    (command "hangman-guess") {
+      aliases = ["hg"],
+      help = say "hangman-guess [letter] - Provide your guess.",
       process = appendState
+    },
+    (command "hangman-add") {
+      help = say "hangman-add [phrase] - Add a new phrase to the database.",
+      process = commandAddPhrase,
+      privileged = True
+    },
+    (command "hangman-remove") {
+      help = say "hangman-remove [phrase] - Remove a phrase from the database.",
+      process = commandRemovePhrase,
+      privileged = True
     }
   ]
 }
@@ -104,3 +117,17 @@ appendState (letter: _) =
 sayMessages :: [String] -> Cmd Hangman ()
 sayMessages [] = return ()
 sayMessages messages = foldr1 (>>) $ fmap say messages
+
+commandAddPhrase :: String -> Cmd Hangman ()
+commandAddPhrase [] = say incorrectArgumentsForAddPhrase
+commandAddPhrase phrase =
+  withMS $ \game writer -> do
+    writer $ addPhrase game phrase
+    say "Phrase added"
+
+commandRemovePhrase :: String -> Cmd Hangman ()
+commandRemovePhrase [] = say incorrectArgumentsForRemovePhrase
+commandRemovePhrase phrase =
+  withMS $ \game writer -> do
+    writer $ removePhrase game phrase
+    say "Phrase removed"

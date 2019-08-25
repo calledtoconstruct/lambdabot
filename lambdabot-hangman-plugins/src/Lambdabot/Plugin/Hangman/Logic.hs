@@ -63,6 +63,12 @@ incorrectArgumentsForProgress = "Incorrect number of arguments, please do not ad
 incorrectArgumentsForAppend :: String
 incorrectArgumentsForAppend = "Incorrect number of arguments, please include the character you want to guess."
 
+incorrectArgumentsForAddPhrase :: String
+incorrectArgumentsForAddPhrase = "Incorrect number of arguments, please include the phrase you want to add."
+
+incorrectArgumentsForRemovePhrase :: String
+incorrectArgumentsForRemovePhrase = "Incorrect number of arguments, please include the phrase you want to remove."
+
 noGameInProgress :: String
 noGameInProgress = "No game is in progress, use ?hangman-start to start a new game."
 
@@ -200,3 +206,20 @@ intercalate value (first: rest)
   | null ending = first: ending
   | otherwise = first: value: ending
   where ending = intercalate value rest
+
+addPhrase :: Game -> String -> Game
+addPhrase (NoGame configuration) phrase = NoGame $ addPhrase' configuration phrase
+addPhrase (InGame gameState configuration) phrase = InGame gameState $ addPhrase' configuration phrase
+
+addPhrase' :: Configuration -> String -> Configuration
+addPhrase' configuration@(Configuration options _) phrase = configuration { phrases = upperPhrase: options }
+  where upperPhrase = map toUpper phrase
+
+removePhrase :: Game -> String -> Game
+removePhrase (NoGame configuration) phrase = NoGame $ removePhrase' configuration phrase
+removePhrase (InGame gameState configuration) phrase = InGame gameState $ removePhrase' configuration phrase
+
+removePhrase' :: Configuration -> String -> Configuration
+removePhrase' configuration@(Configuration options _) phrase = configuration { phrases = filtered }
+  where filtered = filter (/= upperPhrase) options
+        upperPhrase = map toUpper phrase

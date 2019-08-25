@@ -8,4 +8,11 @@ import Lambdabot.Config.Hangman
 import Lambdabot.Plugin.Hangman.Hangman
 
 hangmanPlugins :: [String]
-hangmanPlugins = ["hangman-start", "hangman-status", "hm"]
+hangmanPlugins = [
+  "hangman-start",
+  "hangman-status",
+  "hangman-guess",
+  "hangman-final-answer",
+  "hangman-add",
+  "hangman-remove"
+  ]
