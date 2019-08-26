@@ -52,7 +52,8 @@ hangmanPlugin = newModule {
       "SOFTWARE ENGINEERING",
       "HASKELL RULEZ"
     ],
-    lastPhrase = 0
+    lastPhrase = 0,
+    allowedMisses = 10
   })),
   moduleInit      = return (),
   moduleCmds      = return [
@@ -89,13 +90,14 @@ hangmanPlugin = newModule {
 clearState :: String -> Cmd Hangman ()
 clearState [] = 
   withMS $ \game writer -> do
-    let (messages, updatedState) = initializeGame game
-    writer updatedState
-    sayMessages messages
+    let (initialization, updatedGame) = initializeGame game
+    writer updatedGame
+    let game = showGame updatedGame
+    sayMessages $ initialization ++ game
 clearState _ = say incorrectArgumentsForStart
 
 showState :: String -> Cmd Hangman ()
-showState [] = withMS $ \game _ -> say $ showBoard game
+showState [] = withMS $ \game _ -> sayMessages $ showGame game
 showState _ = say incorrectArgumentsForShow
 
 progress :: String -> Cmd Hangman ()
