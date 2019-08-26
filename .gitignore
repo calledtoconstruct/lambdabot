@@ -35,10 +35,10 @@ cabal.config
 
 \#*#
 
-
-
-
 # *.nix
+result
+
+# scripts
 State
 shutdown.rc
 onstartup.rc
