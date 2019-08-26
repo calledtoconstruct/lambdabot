@@ -3,6 +3,7 @@
 module Lambdabot.Plugin.Hangman.Logic where
 
 import Data.List (sortOn, sort, sortBy, group, nub)
+import Data.List.Split (splitOn)
 import Data.Char (toUpper)
 import Data.Aeson (ToJSON, toJSON, object, (.=))
 import System.Random (mkStdGen, random)
@@ -76,11 +77,35 @@ noGameInProgress = "No game is in progress, use ?hangman-start to start a new ga
 gameInProgress :: String
 gameInProgress = "A game is in progress, please complete this game before starting a new one."
 
+messagePhraseAdded :: String
+messagePhraseAdded = "Phrase added"
+
+messagePhraseRemoved :: String
+messagePhraseRemoved = "Phrase removed"
+
+messageYouWon :: String
+messageYouWon = "You win!"
+
+messageYouLost :: String
+messageYouLost = "You lost!"
+
+messageThereWereNoGuesses :: String
+messageThereWereNoGuesses = "There were no guesses!"
+
+messageNewGameHasBegun :: String
+messageNewGameHasBegun = "A new game of Hangman has begun!  Guess the first letter using:  ?hangman-guess [letter]"
+
+messageIncorrectGuessesTried :: String
+messageIncorrectGuessesTried = "You have already tried: [@]"
+
+messageNumberOfGuessesRemaining :: String
+messageNumberOfGuessesRemaining = "You have @ incorrect guesses left."
+
 initializeGame :: Game -> ([String], Game)
 initializeGame (NoGame configuration) = (message: [], updatedState)
     where updatedState = newGame phrase updatedConfiguration
           (updatedConfiguration, phrase) = selectPhrase configuration
-          message = "The hangman state has been reset."
+          message = messageNewGameHasBegun
 initializeGame game = ([gameInProgress], game)
 
 selectPhrase :: Configuration -> (Configuration, String)
@@ -108,7 +133,7 @@ progressGame (NoGame configuration) = ([noGameInProgress], NoGame configuration)
 progressGame game =
   case getMostPopularGuess game of
     Just guess -> applyGuess game guess
-    Nothing -> (["There were no guesses!"], game)
+    Nothing -> ([messageThereWereNoGuesses], game)
 
 applyGuess :: Game -> Char -> ([String], Game)
 applyGuess (NoGame configuration) _ = ([noGameInProgress], NoGame configuration)
@@ -126,16 +151,10 @@ applyGuess (InGame gameState configuration) popular = (messages, updatedGame)
           Just finalGameState -> InGame finalGameState configuration
         messages = outcome: evaluation
 
-youWon :: String
-youWon = "You win!"
-
-youLost :: String
-youLost = "You lost!"
-
 evaluateGame :: GameState -> Configuration -> ([String], Maybe GameState)
 evaluateGame gameState@(GameState _ correct incorrect answer) configuration
-  | remaining <= 0 = ([board, youLost], Nothing)
-  | length correct == length (nub $ filter (/= ' ') answer) = ([board, youWon], Nothing)
+  | remaining <= 0 = ([board, messageYouLost], Nothing)
+  | length correct == length (nub $ filter (/= ' ') answer) = ([board, messageYouWon], Nothing)
   | otherwise = (board: guesses, Just gameState)
   where remaining = calculateRemaining configuration incorrect
         guesses = showGuesses gameState configuration
@@ -144,8 +163,16 @@ evaluateGame gameState@(GameState _ correct incorrect answer) configuration
 showGuesses :: GameState -> Configuration -> [String]
 showGuesses (GameState _ _ incorrect _) configuration = [remainingGuesses, incorrectGuesses]
   where remaining = calculateRemaining configuration incorrect
-        remainingGuesses = "You have " ++ show remaining ++ " incorrect guesses left."
-        incorrectGuesses = "You have already tried: " ++ incorrect
+        remainingGuesses = substituteRemaining $ show remaining
+        incorrectGuesses = substituteIncorrect incorrect
+
+substituteIncorrect :: String -> String
+substituteIncorrect value = concat $ [prefix, value, suffix]
+  where (prefix: suffix: []) = splitOn "@" messageIncorrectGuessesTried
+
+substituteRemaining :: String -> String
+substituteRemaining value = concat $ [prefix, value, suffix]
+  where (prefix: suffix: []) = splitOn "@" messageNumberOfGuessesRemaining
 
 calculateRemaining :: Configuration -> String -> Int
 calculateRemaining (Configuration _ _ allowedMisses) incorrect = allowedMisses - length incorrect
@@ -189,7 +216,7 @@ modifyState (NoGame configuration) _ = NoGame configuration
 modifyState (InGame game configuration) char = InGame game { userLetters = char: userLetters game } configuration
 
 showGame :: Game -> [String]
-showGame (NoGame _) = ["No game in progress at the moment.  Use ?hangman-start to start one."]
+showGame (NoGame _) = [noGameInProgress]
 showGame (InGame gameState configuration) = board: guesses
     where board = showBoard gameState
           guesses = showGuesses gameState configuration
@@ -200,7 +227,7 @@ showBoard (GameState _ correct _ answer) = output
         board = map (transformLetter correct) answer
 
 showInternalState :: Game -> String
-showInternalState (NoGame _) = "No game in progress at the moment.  Use ?hangman-start to start one."
+showInternalState (NoGame _) = noGameInProgress
 showInternalState (InGame (GameState user correct incorrect answer) _) = output
     where output = user ++ ":" ++ correct ++ ":" ++ incorrect ++ ":" ++ answer
 

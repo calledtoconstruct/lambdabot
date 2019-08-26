@@ -59,20 +59,20 @@ hangmanPlugin = newModule {
   moduleCmds      = return [
     (command "hangman-start") {
       help = say "hangman-start - Starts the game.",
-      process = clearState
+      process = commandStartGame
     },
     (command "hangman-status") {
       help = say "hangman-status - Prints the current state of the game.",
-      process = showState
+      process = commandStatus
     },
     (command "hangman-final-answer") {
       help = say "hangman-final-answer - Tallies the guesses and applies the most popular one.",
-      process = progress
+      process = commandFinalAnswer
     },
     (command "hangman-guess") {
       aliases = ["hg"],
       help = say "hangman-guess [letter] - Provide your guess.",
-      process = appendState
+      process = commandAppendGuess
     },
     (command "hangman-add") {
       help = say "hangman-add [phrase] - Add a new phrase to the database.",
@@ -87,49 +87,49 @@ hangmanPlugin = newModule {
   ]
 }
 
-clearState :: String -> Cmd Hangman ()
-clearState [] = 
+commandStartGame :: String -> Cmd Hangman ()
+commandStartGame [] = 
   withMS $ \game writer -> do
     let (initialization, updatedGame) = initializeGame game
     writer updatedGame
     let game = showGame updatedGame
     sayMessages $ initialization ++ game
-clearState _ = say incorrectArgumentsForStart
+commandStartGame _ = say incorrectArgumentsForStart
 
-showState :: String -> Cmd Hangman ()
-showState [] = withMS $ \game _ -> sayMessages $ showGame game
-showState _ = say incorrectArgumentsForShow
+commandStatus :: String -> Cmd Hangman ()
+commandStatus [] = withMS $ \game _ -> sayMessages $ showGame game
+commandStatus _ = say incorrectArgumentsForShow
 
-progress :: String -> Cmd Hangman ()
-progress [] =
+commandFinalAnswer :: String -> Cmd Hangman ()
+commandFinalAnswer [] =
   withMS $ \game writer -> do
     let (messages, updatedState) = progressGame game
     writer updatedState
     sayMessages messages
-progress _ = say incorrectArgumentsForProgress
+commandFinalAnswer _ = say incorrectArgumentsForProgress
 
-appendState :: String -> Cmd Hangman ()
-appendState [] = say incorrectArgumentsForAppend
-appendState (letter: _) =
+commandAppendGuess :: String -> Cmd Hangman ()
+commandAppendGuess [] = say incorrectArgumentsForAppend
+commandAppendGuess (letter: _) =
   withMS $ \game writer -> do
     let (messages, updatedState) = addGuess game letter
     writer updatedState
     sayMessages messages
-
-sayMessages :: [String] -> Cmd Hangman ()
-sayMessages [] = return ()
-sayMessages messages = foldr1 (>>) $ fmap say messages
 
 commandAddPhrase :: String -> Cmd Hangman ()
 commandAddPhrase [] = say incorrectArgumentsForAddPhrase
 commandAddPhrase phrase =
   withMS $ \game writer -> do
     writer $ addPhrase game phrase
-    say "Phrase added"
+    say messagePhraseAdded
 
 commandRemovePhrase :: String -> Cmd Hangman ()
 commandRemovePhrase [] = say incorrectArgumentsForRemovePhrase
 commandRemovePhrase phrase =
   withMS $ \game writer -> do
     writer $ removePhrase game phrase
-    say "Phrase removed"
+    say messagePhraseRemoved
+
+sayMessages :: [String] -> Cmd Hangman ()
+sayMessages [] = return ()
+sayMessages messages = foldr1 (>>) $ fmap say messages
