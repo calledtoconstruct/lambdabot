@@ -2,17 +2,14 @@
 
 module Lambdabot.Plugin.Hangman.Logic where
 
-import Data.List (sortOn, sort, sortBy, group, nub)
+import Data.Universe.Helpers ((+++))
+import Data.List (sortOn, sort, group, nub)
 import Data.List.Split (splitOn)
 import Data.Char (toUpper)
-import Data.Aeson (ToJSON, toJSON, object, (.=))
 import System.Random (mkStdGen, random)
 import GHC.Generics
 
 -- TODO:
--- [ ]: Add list of configuration to data type
--- [ ]: Add command for privileged user to add a phrase
--- [ ]: Add messages to configuration (You Win, You Lost, etc...)
 -- [ ]: Intercalate letters already used
 -- [ ]: Incorporate emoji
 
@@ -32,7 +29,16 @@ data GameState = GameState {
 data Configuration = Configuration {
   phrases :: [String],
   lastPhrase :: Int,
-  allowedMisses :: Int
+  allowedMisses :: Int,
+  messagePhraseAdded :: String,
+  messagePhraseRemoved :: String,
+  messageYouWon :: String,
+  messageYouLost :: String,
+  messageThereWereNoGuesses :: String,
+  messageNewGameHasBegun :: String,
+  messageIncorrectGuessesTried :: String,
+  messageNumberOfGuessesRemaining :: String,
+  messageGuessing :: String
 }
   deriving (Generic, Show, Read)
 
@@ -77,44 +83,12 @@ noGameInProgress = "No game is in progress, use ?hangman-start to start a new ga
 gameInProgress :: String
 gameInProgress = "A game is in progress, please complete this game before starting a new one."
 
-messagePhraseAdded :: String
-messagePhraseAdded = "Phrase added"
-
-messagePhraseRemoved :: String
-messagePhraseRemoved = "Phrase removed"
-
-messageYouWon :: String
-messageYouWon = "You win!"
-
-messageYouLost :: String
-messageYouLost = "You lost!"
-
-messageThereWereNoGuesses :: String
-messageThereWereNoGuesses = "There were no guesses!"
-
-messageNewGameHasBegun :: String
-messageNewGameHasBegun = "A new game of Hangman has begun!  Guess the first letter using:  ?hangman-guess [letter]"
-
-messageIncorrectGuessesTried :: String
-messageIncorrectGuessesTried = "You have already tried: [@]"
-
-messageNumberOfGuessesRemaining :: String
-messageNumberOfGuessesRemaining = "You have @ incorrect guesses left."
-
 initializeGame :: Game -> ([String], Game)
 initializeGame (NoGame configuration) = (message: [], updatedState)
     where updatedState = newGame phrase updatedConfiguration
           (updatedConfiguration, phrase) = selectPhrase configuration
-          message = messageNewGameHasBegun
+          message = messageNewGameHasBegun configuration
 initializeGame game = ([gameInProgress], game)
-
-selectPhrase :: Configuration -> (Configuration, String)
-selectPhrase configuration@(Configuration options previous _) = (updatedConfiguration, phrase)
-  where maximum = length options
-        generator = mkStdGen previous
-        (selected, _) = random generator
-        phrase = options !! (selected `mod` maximum)
-        updatedConfiguration = configuration { lastPhrase = selected }
 
 newGame :: String -> Configuration -> Game
 newGame answer = InGame (GameState {
@@ -124,20 +98,60 @@ newGame answer = InGame (GameState {
   incorrectLetters = ""
 })
 
+newConfiguration :: Configuration
+newConfiguration = Configuration {
+  phrases = [
+    "MONKATOS",
+    "TWITCH SINGS",
+    "BEST STREAMER",
+    "IN REAL LIFE",
+    "SCIENCE AND TECHNOLOGY",
+    "SOFTWARE ENGINEERING",
+    "HASKELL RULEZ"
+  ],
+  lastPhrase = 0,
+  allowedMisses = 10,
+  messagePhraseAdded = "Phrase added",  
+  messagePhraseRemoved = "Phrase removed",  
+  messageYouWon = "You win!",  
+  messageYouLost = "You lost!",  
+  messageThereWereNoGuesses = "There were no guesses!  Use ?hangman-guess [letter] to add a letter you believe is in the phrase.  The most popular guess will be evaluated.",  
+  messageNewGameHasBegun = "A new game of Hangman has begun!  Guess the first letter using:  ?hangman-guess [letter]",  
+  messageIncorrectGuessesTried = "The following guesses were incorrect or duplicate: [@]",  
+  messageNumberOfGuessesRemaining = "You will lose if you make @ more mistake(s).",
+  messageGuessing = "You are guessing this phrase: [@]"
+}
+
+getConfiguration :: Game -> Configuration
+getConfiguration (NoGame configuration) = configuration
+getConfiguration (InGame _ configuration) = configuration
+
+selectPhrase :: Configuration -> (Configuration, String)
+selectPhrase configuration = (updatedConfiguration, phrase)
+  where lengthOfPhrases = length $ listOfPhrases
+        generator = mkStdGen $ lastPhrase configuration
+        (selected, _) = random generator
+        phrase = listOfPhrases !! (selected `mod` lengthOfPhrases)
+        updatedConfiguration = configuration { lastPhrase = selected }
+        listOfPhrases = phrases configuration
+
 addGuess :: Game -> Char -> ([String], Game)
 addGuess game letter = ([], finalState)
   where finalState = modifyState game $ toUpper letter
 
+modifyState :: Game -> Char -> Game
+modifyState (NoGame configuration) _ = NoGame configuration
+modifyState (InGame game configuration) char = InGame game { userLetters = char: userLetters game } configuration
+
 progressGame :: Game -> ([String], Game)
 progressGame (NoGame configuration) = ([noGameInProgress], NoGame configuration)
-progressGame game =
-  case getMostPopularGuess game of
-    Just guess -> applyGuess game guess
-    Nothing -> ([messageThereWereNoGuesses], game)
+progressGame game@(InGame gameState configuration) =
+  case getMostPopularGuess gameState of
+    Just guess -> applyGuess gameState configuration guess
+    Nothing -> ([messageThereWereNoGuesses configuration], game)
 
-applyGuess :: Game -> Char -> ([String], Game)
-applyGuess (NoGame configuration) _ = ([noGameInProgress], NoGame configuration)
-applyGuess (InGame gameState configuration) popular = (messages, updatedGame)
+applyGuess :: GameState -> Configuration -> Char -> ([String], Game)
+applyGuess gameState configuration popular = (messages, updatedGame)
   where correct = isCorrect gameState popular
         result = case correct of
           Just True -> "correct"
@@ -153,32 +167,30 @@ applyGuess (InGame gameState configuration) popular = (messages, updatedGame)
 
 evaluateGame :: GameState -> Configuration -> ([String], Maybe GameState)
 evaluateGame gameState@(GameState _ correct incorrect answer) configuration
-  | remaining <= 0 = ([board, messageYouLost], Nothing)
-  | length correct == length (nub $ filter (/= ' ') answer) = ([board, messageYouWon], Nothing)
+  | remaining <= 0 = ([board, messageYouLost configuration], Nothing)
+  | length correct == length (nub $ filter (/= ' ') answer) = ([board, messageYouWon configuration], Nothing)
   | otherwise = (board: guesses, Just gameState)
   where remaining = calculateRemaining configuration incorrect
         guesses = showGuesses gameState configuration
-        board = showBoard gameState
+        board = showBoard gameState configuration
 
 showGuesses :: GameState -> Configuration -> [String]
 showGuesses (GameState _ _ incorrect _) configuration = [remainingGuesses, incorrectGuesses]
   where remaining = calculateRemaining configuration incorrect
-        remainingGuesses = substituteRemaining $ show remaining
-        incorrectGuesses = substituteIncorrect incorrect
+        remainingGuesses = substituteTokens (messageNumberOfGuessesRemaining configuration) "@" $ [numberOfGuessesRemaining]
+        incorrectGuesses = substituteTokens (messageIncorrectGuessesTried configuration) "@" [incorrect]
+        numberOfGuessesRemaining = show remaining
 
-substituteIncorrect :: String -> String
-substituteIncorrect value = concat $ [prefix, value, suffix]
-  where (prefix: suffix: []) = splitOn "@" messageIncorrectGuessesTried
-
-substituteRemaining :: String -> String
-substituteRemaining value = concat $ [prefix, value, suffix]
-  where (prefix: suffix: []) = splitOn "@" messageNumberOfGuessesRemaining
+substituteTokens :: String -> String -> [String] -> String
+substituteTokens template token values = message
+  where segments = splitOn token template
+        message = concat $ (+++) segments values
 
 calculateRemaining :: Configuration -> String -> Int
-calculateRemaining (Configuration _ _ allowedMisses) incorrect = allowedMisses - length incorrect
+calculateRemaining configuration incorrect = (allowedMisses configuration) - length incorrect
 
-getMostPopularGuess :: Game -> Maybe Char
-getMostPopularGuess (InGame (GameState letters _ _ _) _)
+getMostPopularGuess :: GameState -> Maybe Char
+getMostPopularGuess (GameState letters _ _ _)
   | null letters = Nothing
   | otherwise = Just $ last $ concat $ sortOn length $ group $ sort letters
 
@@ -211,20 +223,17 @@ updateGameState (GameState _ correct incorrect answer) letter Nothing = GameStat
   target = answer
 }
 
-modifyState :: Game -> Char -> Game
-modifyState (NoGame configuration) _ = NoGame configuration
-modifyState (InGame game configuration) char = InGame game { userLetters = char: userLetters game } configuration
-
 showGame :: Game -> [String]
 showGame (NoGame _) = [noGameInProgress]
 showGame (InGame gameState configuration) = board: guesses
-    where board = showBoard gameState
+    where board = showBoard gameState configuration
           guesses = showGuesses gameState configuration
 
-showBoard :: GameState -> String
-showBoard (GameState _ correct _ answer) = output
-  where output = intercalate '.' board
-        board = map (transformLetter correct) answer
+showBoard :: GameState -> Configuration -> String
+showBoard (GameState _ correct _ answer) configuration = message
+  where message = substituteTokens (messageGuessing configuration) "@" [board]
+        board = intercalate '.' boardState
+        boardState = map (transformLetter correct) answer
 
 showInternalState :: Game -> String
 showInternalState (NoGame _) = noGameInProgress
@@ -248,7 +257,7 @@ addPhrase (NoGame configuration) phrase = NoGame $ addPhrase' configuration phra
 addPhrase (InGame gameState configuration) phrase = InGame gameState $ addPhrase' configuration phrase
 
 addPhrase' :: Configuration -> String -> Configuration
-addPhrase' configuration@(Configuration options _ _) phrase = configuration { phrases = upperPhrase: options }
+addPhrase' configuration phrase = configuration { phrases = upperPhrase: (phrases configuration) }
   where upperPhrase = map toUpper phrase
 
 removePhrase :: Game -> String -> Game
@@ -256,6 +265,6 @@ removePhrase (NoGame configuration) phrase = NoGame $ removePhrase' configuratio
 removePhrase (InGame gameState configuration) phrase = InGame gameState $ removePhrase' configuration phrase
 
 removePhrase' :: Configuration -> String -> Configuration
-removePhrase' configuration@(Configuration options _ _) phrase = configuration { phrases = filtered }
-  where filtered = filter (/= upperPhrase) options
+removePhrase' configuration phrase = configuration { phrases = filtered }
+  where filtered = filter (/= upperPhrase) $ phrases configuration
         upperPhrase = map toUpper phrase

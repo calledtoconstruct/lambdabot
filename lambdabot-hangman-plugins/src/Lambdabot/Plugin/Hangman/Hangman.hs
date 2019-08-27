@@ -26,13 +26,6 @@ import Lambdabot.Plugin (
   , stdSerial
   , withMS
   )
-import Lambdabot.Compat.PackedNick (packNick, unpackNick)
-
-import qualified Data.ByteString.Char8 as P
-import Data.List.Split -- (splitOn)
-import Data.Ord
-import Data.ByteString.Lazy (fromChunks, toChunks)
-import Text.Read (readMaybe)
 
 import Lambdabot.Plugin.Hangman.Logic
 
@@ -42,19 +35,7 @@ type Hangman = ModuleT HangmanState LB
 hangmanPlugin :: Module HangmanState
 hangmanPlugin = newModule {
   moduleSerialize = Just stdSerial,
-  moduleDefState  = return (NoGame (Configuration {
-    phrases = [
-      "MONKATOS",
-      "TWITCH SINGS",
-      "BEST STREAMER",
-      "IN REAL LIFE",
-      "SCIENCE AND TECHNOLOGY",
-      "SOFTWARE ENGINEERING",
-      "HASKELL RULEZ"
-    ],
-    lastPhrase = 0,
-    allowedMisses = 10
-  })),
+  moduleDefState  = return (NoGame newConfiguration),
   moduleInit      = return (),
   moduleCmds      = return [
     (command "hangman-start") {
@@ -92,8 +73,8 @@ commandStartGame [] =
   withMS $ \game writer -> do
     let (initialization, updatedGame) = initializeGame game
     writer updatedGame
-    let game = showGame updatedGame
-    sayMessages $ initialization ++ game
+    let messageGame = showGame updatedGame
+    sayMessages $ initialization ++ messageGame
 commandStartGame _ = say incorrectArgumentsForStart
 
 commandStatus :: String -> Cmd Hangman ()
@@ -120,15 +101,17 @@ commandAddPhrase :: String -> Cmd Hangman ()
 commandAddPhrase [] = say incorrectArgumentsForAddPhrase
 commandAddPhrase phrase =
   withMS $ \game writer -> do
+    let configuration = getConfiguration game
     writer $ addPhrase game phrase
-    say messagePhraseAdded
+    say $ messagePhraseAdded configuration
 
 commandRemovePhrase :: String -> Cmd Hangman ()
 commandRemovePhrase [] = say incorrectArgumentsForRemovePhrase
 commandRemovePhrase phrase =
   withMS $ \game writer -> do
+    let configuration = getConfiguration game
     writer $ removePhrase game phrase
-    say messagePhraseRemoved
+    say $ messagePhraseRemoved configuration
 
 sayMessages :: [String] -> Cmd Hangman ()
 sayMessages [] = return ()
