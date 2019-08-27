@@ -28,6 +28,7 @@ import Lambdabot.Plugin (
   )
 
 import Lambdabot.Plugin.Hangman.Logic
+import Data.Char (toUpper)
 
 type HangmanState = Game
 type Hangman = ModuleT HangmanState LB
@@ -102,8 +103,13 @@ commandAddPhrase [] = say incorrectArgumentsForAddPhrase
 commandAddPhrase phrase =
   withMS $ \game writer -> do
     let configuration = getConfiguration game
-    writer $ addPhrase game phrase
-    say $ messagePhraseAdded configuration
+    let upperPhrase = map toUpper phrase
+    let invalidCharacters = filter (`notElem` validCharacters) upperPhrase
+    case null invalidCharacters of
+      True -> do
+        writer $ addPhrase game upperPhrase
+        say $ messagePhraseAdded configuration
+      False -> say "The phrase contains one or more invalid characters, therefore, it was not added."
 
 commandRemovePhrase :: String -> Cmd Hangman ()
 commandRemovePhrase [] = say incorrectArgumentsForRemovePhrase

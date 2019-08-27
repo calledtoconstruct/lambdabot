@@ -111,13 +111,13 @@ newConfiguration = Configuration {
   ],
   lastPhrase = 0,
   allowedMisses = 10,
-  messagePhraseAdded = "Phrase added",  
-  messagePhraseRemoved = "Phrase removed",  
-  messageYouWon = "You win!",  
-  messageYouLost = "You lost!",  
-  messageThereWereNoGuesses = "There were no guesses!  Use ?hangman-guess [letter] to add a letter you believe is in the phrase.  The most popular guess will be evaluated.",  
-  messageNewGameHasBegun = "A new game of Hangman has begun!  Guess the first letter using:  ?hangman-guess [letter]",  
-  messageIncorrectGuessesTried = "The following guesses were incorrect or duplicate: [@]",  
+  messagePhraseAdded = "Phrase added",
+  messagePhraseRemoved = "Phrase removed",
+  messageYouWon = "You win!",
+  messageYouLost = "You lost!",
+  messageThereWereNoGuesses = "There were no guesses!  Use ?hangman-guess [letter] to add a letter you believe is in the phrase.  The most popular guess will be evaluated.",
+  messageNewGameHasBegun = "A new game of Hangman has begun!  Guess the first letter using:  ?hangman-guess [letter]",
+  messageIncorrectGuessesTried = "The following guesses were incorrect or duplicate: [@]",
   messageNumberOfGuessesRemaining = "You will lose if you make @ more mistake(s).",
   messageGuessing = "You are guessing this phrase: [@]"
 }
@@ -135,9 +135,24 @@ selectPhrase configuration = (updatedConfiguration, phrase)
         updatedConfiguration = configuration { lastPhrase = selected }
         listOfPhrases = phrases configuration
 
+validLetters :: String
+validLetters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+
+validNumbers :: String
+validNumbers = "0123456789"
+
+validSymbols :: String
+validSymbols = "`~!@#$%^&*()-_=+[{]}\\|;:\'\",<.>/?"
+
+validCharacters :: String
+validCharacters = validLetters ++ validNumbers ++ validSymbols
+
 addGuess :: Game -> Char -> ([String], Game)
-addGuess game letter = ([], finalState)
-  where finalState = modifyState game $ toUpper letter
+addGuess game letter = if isValid then ([], finalState) else ([messageNotRecognized], game)
+  where finalState = modifyState game upperLetter
+        isValid = elem upperLetter validCharacters
+        messageNotRecognized = ['[', upperLetter, ']'] ++ " is not recognized."
+        upperLetter = toUpper letter
 
 modifyState :: Game -> Char -> Game
 modifyState (NoGame configuration) _ = NoGame configuration
@@ -241,9 +256,9 @@ showInternalState (InGame (GameState user correct incorrect answer) _) = output
     where output = user ++ ":" ++ correct ++ ":" ++ incorrect ++ ":" ++ answer
 
 transformLetter :: [Char] -> Char -> Char
-transformLetter correct letter = case elem letter $ ' ': correct of
-  True -> letter
-  False -> '_'
+transformLetter correctGuesses letter = if isGuessed || isSpace then letter else '_'
+  where isGuessed = elem letter correctGuesses
+        isSpace = letter == ' '
 
 intercalate :: Char -> [Char] -> [Char]
 intercalate _ [] = []
