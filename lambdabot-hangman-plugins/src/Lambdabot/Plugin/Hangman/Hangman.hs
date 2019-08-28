@@ -29,6 +29,7 @@ import Lambdabot.Plugin (
 
 import Lambdabot.Plugin.Hangman.Logic
 import Data.Char (toUpper)
+import Data.List.Split (splitOn)
 
 type HangmanState = Game
 type Hangman = ModuleT HangmanState LB
@@ -64,6 +65,11 @@ hangmanPlugin = newModule {
     (command "hangman-remove") {
       help = say "hangman-remove [phrase] - Remove a phrase from the database.",
       process = commandRemovePhrase,
+      privileged = True
+    },
+    (command "hangman-configure") {
+      help = say "hangman-configure [option] [value] - Update the configuration option to the value provided.",
+      process = commandConfigure,
       privileged = True
     }
   ]
@@ -122,3 +128,12 @@ commandRemovePhrase phrase =
 sayMessages :: [String] -> Cmd Hangman ()
 sayMessages [] = return ()
 sayMessages messages = foldr1 (>>) $ fmap say messages
+
+commandConfigure :: String -> Cmd Hangman ()
+commandConfigure [] = say messageIncorrectArgumentsForConfigure
+commandConfigure input = 
+  withMS $ \game writer -> do
+    let (messages, updatedGame) = configure game parameters
+    writer updatedGame
+    sayMessages messages
+  where parameters = splitOn " " input

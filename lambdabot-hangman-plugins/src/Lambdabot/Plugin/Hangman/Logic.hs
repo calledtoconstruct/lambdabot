@@ -283,3 +283,39 @@ removePhrase' :: Configuration -> String -> Configuration
 removePhrase' configuration phrase = configuration { phrases = filtered }
   where filtered = filter (/= upperPhrase) $ phrases configuration
         upperPhrase = map toUpper phrase
+
+messageIncorrectArgumentsForConfigure :: String
+messageIncorrectArgumentsForConfigure = "Incorrect number of arguments, please use ?hangman-configure [option] [value]."
+
+messageUnknownConfigurationOption :: String
+messageUnknownConfigurationOption = "Unknown configuration option"
+
+messageConfigurationUpdated :: String
+messageConfigurationUpdated = "Configuration updated"
+
+configure :: Game -> [String] -> ([String], Game)
+configure (NoGame configuration) parameters = (messages, NoGame updatedConfiguration)
+  where (messages, updatedConfiguration) = configure' configuration parameters
+configure (InGame gameState configuration) parameters = (messages, InGame gameState updatedConfiguration)
+  where (messages, updatedConfiguration) = configure' configuration parameters
+
+configure' :: Configuration -> [String] -> ([String], Configuration)
+configure' configuration [] = ([messageIncorrectArgumentsForConfigure], configuration)
+configure' configuration (_: []) = ([messageIncorrectArgumentsForConfigure], configuration)
+configure' configuration (option: rest) = case result of
+  Just updatedConfiguration -> ([messageConfigurationUpdated], updatedConfiguration)
+  Nothing -> ([messageUnknownConfigurationOption], configuration)
+  where result = updateConfiguration configuration option value
+        value = concat $ (+++) rest $ replicate numberOfSegments " "
+        numberOfSegments = flip (-) 1 $ length rest
+
+updateConfiguration :: Configuration -> String -> String -> Maybe Configuration
+updateConfiguration configuration "messageYouWon" value = Just configuration { messageYouWon = value }
+updateConfiguration configuration "messageYouLost" value = Just configuration { messageYouLost = value }
+updateConfiguration configuration "messageThereWereNoGuesses" value = Just configuration { messageThereWereNoGuesses = value }
+updateConfiguration configuration "messageNewGameHasBegun" value = Just configuration { messageNewGameHasBegun = value }
+updateConfiguration configuration "messageIncorrectGuessesTried" value = Just configuration { messageIncorrectGuessesTried = value }
+updateConfiguration configuration "messageNumberOfGuessesRemaining" value = Just configuration { messageNumberOfGuessesRemaining = value }
+updateConfiguration configuration "messageGuessing" value = Just configuration { messageGuessing = value }
+updateConfiguration configuration "allowedMisses" value = Just configuration { allowedMisses = read value }
+updateConfiguration _ _ _ = Nothing
