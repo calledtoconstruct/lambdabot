@@ -33,6 +33,9 @@ library
   other-modules:        Lambdabot.Config.Hangman
                         Lambdabot.Plugin.Hangman.Hangman
                         Lambdabot.Plugin.Hangman.Logic
+                        Lambdabot.Plugin.Hangman.Game
+                        Lambdabot.Plugin.Hangman.Configuration
+                        Lambdabot.Plugin.Hangman.Manage
 
   -- other-modules:
 

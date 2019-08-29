@@ -27,9 +27,10 @@ import Lambdabot.Plugin (
   , withMS
   )
 
+import Lambdabot.Plugin.Hangman.Configuration
+import Lambdabot.Plugin.Hangman.Game
 import Lambdabot.Plugin.Hangman.Logic
-import Data.Char (toUpper)
-import Data.List.Split (splitOn)
+import Lambdabot.Plugin.Hangman.Manage
 
 type HangmanState = Game
 type Hangman = ModuleT HangmanState LB
@@ -77,63 +78,56 @@ hangmanPlugin = newModule {
 
 commandStartGame :: String -> Cmd Hangman ()
 commandStartGame [] = 
-  withMS $ \game writer -> do
-    let (initialization, updatedGame) = initializeGame game
-    writer updatedGame
-    let messageGame = showGame updatedGame
-    sayMessages $ initialization ++ messageGame
+  withMS $ \previous writer -> do
+    let result = initializeGame previous
+    writer $ game result
+    sayMessages $ messages result
 commandStartGame _ = say incorrectArgumentsForStart
 
 commandStatus :: String -> Cmd Hangman ()
-commandStatus [] = withMS $ \game _ -> sayMessages $ showGame game
+commandStatus [] = withMS $ \current _ -> sayMessages $ showGame current
 commandStatus _ = say incorrectArgumentsForShow
 
 commandFinalAnswer :: String -> Cmd Hangman ()
 commandFinalAnswer [] =
-  withMS $ \game writer -> do
-    let (messages, updatedState) = progressGame game
-    writer updatedState
-    sayMessages messages
+  withMS $ \previous writer -> do
+    let result = progressGame previous
+    writer $ game result
+    sayMessages $ messages result
 commandFinalAnswer _ = say incorrectArgumentsForProgress
 
 commandAppendGuess :: String -> Cmd Hangman ()
 commandAppendGuess [] = say incorrectArgumentsForAppend
 commandAppendGuess (letter: _) =
-  withMS $ \game writer -> do
-    let (messages, updatedState) = addGuess game letter
-    writer updatedState
-    sayMessages messages
+  withMS $ \previous writer -> do
+    let result = addGuess previous letter
+    writer $ game result
+    sayMessages $ messages result
 
 commandAddPhrase :: String -> Cmd Hangman ()
 commandAddPhrase [] = say incorrectArgumentsForAddPhrase
 commandAddPhrase phrase =
-  withMS $ \game writer -> do
-    let configuration = getConfiguration game
-    let upperPhrase = map toUpper phrase
-    let invalidCharacters = filter (`notElem` validCharacters) upperPhrase
-    case null invalidCharacters of
-      True -> do
-        writer $ addPhrase game upperPhrase
-        say $ messagePhraseAdded configuration
-      False -> say "The phrase contains one or more invalid characters, therefore, it was not added."
+  withMS $ \previous writer -> do
+    let result = addPhrase previous phrase
+    writer $ game result
+    sayMessages $ messages result
 
 commandRemovePhrase :: String -> Cmd Hangman ()
 commandRemovePhrase [] = say incorrectArgumentsForRemovePhrase
 commandRemovePhrase phrase =
-  withMS $ \game writer -> do
-    let configuration = getConfiguration game
-    writer $ removePhrase game phrase
-    say $ messagePhraseRemoved configuration
-
-sayMessages :: [String] -> Cmd Hangman ()
-sayMessages [] = return ()
-sayMessages messages = foldr1 (>>) $ fmap say messages
+  withMS $ \previous writer -> do
+    let result = removePhrase previous phrase
+    writer $ game result
+    sayMessages $ messages result
 
 commandConfigure :: String -> Cmd Hangman ()
 commandConfigure [] = say messageIncorrectArgumentsForConfigure
 commandConfigure input = 
-  withMS $ \game writer -> do
-    let (messages, updatedGame) = configure game parameters
-    writer updatedGame
-    sayMessages messages
-  where parameters = splitOn " " input
+  withMS $ \previous writer -> do
+    let result = configure previous input
+    writer $ game result
+    sayMessages $ messages result
+
+sayMessages :: Messages -> Cmd Hangman ()
+sayMessages [] = return ()
+sayMessages output = foldr1 (>>) $ fmap say output
