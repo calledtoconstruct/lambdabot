@@ -28,7 +28,8 @@ module Lambdabot.Plugin.Hangman.Game (
   incorrectArgumentsForRemovePhrase,
   messageIncorrectArgumentsForConfigure,
   messageUnknownConfigurationOption,
-  messageConfigurationUpdated
+  messageConfigurationUpdated,
+  substituteTokens
   ) where
 
 import GHC.Generics

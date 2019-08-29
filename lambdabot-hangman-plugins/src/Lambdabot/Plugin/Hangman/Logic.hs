@@ -30,10 +30,10 @@ applyGuess :: GameState -> Configuration -> Char -> Result
 applyGuess gameState configuration popular = Result output updatedGame
   where correct = isCorrect gameState popular
         result = case correct of
-          Just True -> "correct"
-          Just False -> "incorrect"
-          Nothing -> "already guessed"
-        outcome = "The popular guess was " ++ popular: " and that was " ++ result ++ "."
+          Just True -> messageCorrect configuration
+          Just False -> messageIncorrect configuration
+          Nothing -> messageAlreadyGuessed configuration
+        outcome = substituteTokens (messageOutcome configuration) "@" [[popular], result]
         updatedGameState = updateGameState gameState popular correct
         (evaluation, maybeGameState) = evaluateGame updatedGameState configuration
         updatedGame = case maybeGameState of
@@ -71,24 +71,13 @@ type MaybeCorrect = Maybe Bool
 
 updateGameState :: GameState -> Char -> MaybeCorrect -> GameState
 updateGameState gameState letter maybeIsCorrect
-  | maybeIsCorrect == Just True = GameState {
+  | maybeIsCorrect == Just True = gameState {
     userLetters = [],
-    correctLetters = letter: correct,
-    incorrectLetters = incorrect,
-    target = answer
+    correctLetters = letter: correct
   }
-  | maybeIsCorrect == Just False = GameState {
+  | otherwise = gameState {
     userLetters = [],
-    correctLetters = correct,
-    incorrectLetters = letter: incorrect,
-    target = answer
-  }
-  | otherwise = GameState {
-    userLetters = [],
-    correctLetters = correct,
-    incorrectLetters = letter: incorrect,
-    target = answer
+    incorrectLetters = letter: incorrect
   }
   where correct = correctLetters gameState
         incorrect = incorrectLetters gameState
-        answer = target gameState

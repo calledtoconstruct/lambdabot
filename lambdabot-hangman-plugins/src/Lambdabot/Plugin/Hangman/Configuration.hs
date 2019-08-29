@@ -4,7 +4,6 @@ module Lambdabot.Plugin.Hangman.Configuration (
   Configuration (Configuration),
   phrases,
   lastPhrase,
-  allowedMisses,
   messagePhraseAdded,
   messagePhraseRemoved,
   messageYouWon,
@@ -14,6 +13,11 @@ module Lambdabot.Plugin.Hangman.Configuration (
   messageIncorrectGuessesTried,
   messageNumberOfGuessesRemaining,
   messageGuessing,
+  messageCorrect,
+  messageIncorrect,
+  messageAlreadyGuessed,
+  messageOutcome,
+  allowedMisses,
   newConfiguration,
   selectPhrase,
   validCharacters
@@ -34,7 +38,11 @@ data Configuration = Configuration {
   messageNewGameHasBegun :: String,
   messageIncorrectGuessesTried :: String,
   messageNumberOfGuessesRemaining :: String,
-  messageGuessing :: String
+  messageGuessing :: String,
+  messageCorrect :: String,
+  messageIncorrect :: String,
+  messageAlreadyGuessed :: String,
+  messageOutcome :: String
 }
   deriving (Generic, Show, Read)
 
@@ -59,7 +67,11 @@ newConfiguration = Configuration {
   messageNewGameHasBegun = "A new game of Hangman has begun!  Guess the first letter using:  ?hangman-guess [letter]",
   messageIncorrectGuessesTried = "The following guesses were incorrect or duplicate: [@]",
   messageNumberOfGuessesRemaining = "You will lose if you make @ more mistake(s).",
-  messageGuessing = "You are guessing this phrase: [@]"
+  messageGuessing = "You are guessing this phrase: [@]",
+  messageCorrect = "correct",
+  messageIncorrect = "incorrect",
+  messageAlreadyGuessed = "already guessed",
+  messageOutcome = "The popular guess was @ and that was @."
 }
 
 selectPhrase :: Configuration -> (Configuration, String)

@@ -64,5 +64,9 @@ updateConfiguration configuration "messageNewGameHasBegun" value = Just configur
 updateConfiguration configuration "messageIncorrectGuessesTried" value = Just configuration { messageIncorrectGuessesTried = value }
 updateConfiguration configuration "messageNumberOfGuessesRemaining" value = Just configuration { messageNumberOfGuessesRemaining = value }
 updateConfiguration configuration "messageGuessing" value = Just configuration { messageGuessing = value }
+updateConfiguration configuration "messageCorrect" value = Just configuration { messageCorrect = value }
+updateConfiguration configuration "messageIncorrect" value = Just configuration { messageIncorrect = value }
+updateConfiguration configuration "messageAlreadyGuessed" value = Just configuration { messageAlreadyGuessed = value }
+updateConfiguration configuration "messageOutcome" value = Just configuration { messageOutcome = value }
 updateConfiguration configuration "allowedMisses" value = Just configuration { allowedMisses = read value }
 updateConfiguration _ _ _ = Nothing
