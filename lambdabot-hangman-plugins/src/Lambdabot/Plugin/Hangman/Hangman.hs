@@ -78,6 +78,10 @@ hangmanPlugin = newModule {
       help = say "hangman-timer-tick - For internal use only.",
       process = progress
     },
+    (command "hangman-timer-tick") {
+      help = say "hangman-timer-tick - For internal use only.",
+      process = progress
+    },
     (command "hangman-guess") {
       aliases = ["hg"],
       help = say "hangman-guess [letter] - Provide your guess.",
