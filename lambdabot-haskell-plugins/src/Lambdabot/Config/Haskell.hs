@@ -26,7 +26,7 @@ trustedPkgs =
     , "base"
     , "bytestring"
     , "containers"
-    , "lambdabot-trusted"
+    , "lambdabot-trusted-plugins"
     , "random"
     ]
 

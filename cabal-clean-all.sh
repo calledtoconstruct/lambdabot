@@ -1,5 +1,5 @@
 rm ./lambdabot-core/dist --recursive --force
-rm ./lambdabot-trusted/dist --recursive --force
+rm ./lambdabot-trusted-plugins/dist --recursive --force
 rm ./lambdabot-hangman-plugins/dist --recursive --force
 rm ./lambdabot-points-plugins/dist --recursive --force
 rm ./lambdabot-suggest-plugins/dist --recursive --force

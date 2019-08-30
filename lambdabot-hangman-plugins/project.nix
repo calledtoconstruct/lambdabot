@@ -1,15 +1,15 @@
-{ mkDerivation, aeson, base, binary, bytestring, containers, dice
+{ mkDerivation, base, binary, bytestring, containers, dice
 , directory, extra, lambdabot-core, misfortune, mtl, process
-, random, random-fu, regex-tdfa, split, stdenv
+, random, random-fu, regex-tdfa, split, stdenv, universe-base
 }:
 mkDerivation {
   pname = "lambdabot-hangman-plugins";
   version = "5.1.0.4";
   src = ./.;
   libraryHaskellDepends = [
-    aeson base binary bytestring containers dice directory extra
+    base binary bytestring containers dice directory extra
     lambdabot-core misfortune mtl process random random-fu regex-tdfa
-    split
+    split universe-base
   ];
   homepage = "https://wiki.haskell.org/Lambdabot";
   description = "Hangman plugins for Lambdabot";

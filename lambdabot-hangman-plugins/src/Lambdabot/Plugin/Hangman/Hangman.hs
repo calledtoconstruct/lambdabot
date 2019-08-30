@@ -26,15 +26,11 @@ import Lambdabot.Plugin (
   , stdSerial
   , withMS
   )
-import Lambdabot.Compat.PackedNick (packNick, unpackNick)
 
-import qualified Data.ByteString.Char8 as P
-import Data.List.Split -- (splitOn)
-import Data.Ord
-import Data.ByteString.Lazy (fromChunks, toChunks)
-import Text.Read (readMaybe)
-
+import Lambdabot.Plugin.Hangman.Configuration
+import Lambdabot.Plugin.Hangman.Game
 import Lambdabot.Plugin.Hangman.Logic
+import Lambdabot.Plugin.Hangman.Manage
 
 type HangmanState = Game
 type Hangman = ModuleT HangmanState LB
@@ -42,36 +38,25 @@ type Hangman = ModuleT HangmanState LB
 hangmanPlugin :: Module HangmanState
 hangmanPlugin = newModule {
   moduleSerialize = Just stdSerial,
-  moduleDefState  = return (NoGame (Configuration {
-    phrases = [
-      "MONKATOS",
-      "TWITCH SINGS",
-      "BEST STREAMER",
-      "IN REAL LIFE",
-      "SCIENCE AND TECHNOLOGY",
-      "SOFTWARE ENGINEERING",
-      "HASKELL RULEZ"
-    ],
-    lastPhrase = 0
-  })),
+  moduleDefState  = return (NoGame newConfiguration),
   moduleInit      = return (),
   moduleCmds      = return [
     (command "hangman-start") {
       help = say "hangman-start - Starts the game.",
-      process = clearState
+      process = commandStartGame
     },
     (command "hangman-status") {
       help = say "hangman-status - Prints the current state of the game.",
-      process = showState
+      process = commandStatus
     },
     (command "hangman-final-answer") {
       help = say "hangman-final-answer - Tallies the guesses and applies the most popular one.",
-      process = progress
+      process = commandFinalAnswer
     },
     (command "hangman-guess") {
       aliases = ["hg"],
       help = say "hangman-guess [letter] - Provide your guess.",
-      process = appendState
+      process = commandAppendGuess
     },
     (command "hangman-add") {
       help = say "hangman-add [phrase] - Add a new phrase to the database.",
@@ -82,52 +67,67 @@ hangmanPlugin = newModule {
       help = say "hangman-remove [phrase] - Remove a phrase from the database.",
       process = commandRemovePhrase,
       privileged = True
+    },
+    (command "hangman-configure") {
+      help = say "hangman-configure [option] [value] - Update the configuration option to the value provided.",
+      process = commandConfigure,
+      privileged = True
     }
   ]
 }
 
-clearState :: String -> Cmd Hangman ()
-clearState [] = 
-  withMS $ \game writer -> do
-    let (messages, updatedState) = initializeGame game
-    writer updatedState
-    sayMessages messages
-clearState _ = say incorrectArgumentsForStart
+commandStartGame :: String -> Cmd Hangman ()
+commandStartGame [] = 
+  withMS $ \previous writer -> do
+    let result = initializeGame previous
+    writer $ game result
+    sayMessages $ messages result
+commandStartGame _ = say incorrectArgumentsForStart
 
-showState :: String -> Cmd Hangman ()
-showState [] = withMS $ \game _ -> say $ showBoard game
-showState _ = say incorrectArgumentsForShow
+commandStatus :: String -> Cmd Hangman ()
+commandStatus [] = withMS $ \current _ -> sayMessages $ showGame current
+commandStatus _ = say incorrectArgumentsForShow
 
-progress :: String -> Cmd Hangman ()
-progress [] =
-  withMS $ \game writer -> do
-    let (messages, updatedState) = progressGame game
-    writer updatedState
-    sayMessages messages
-progress _ = say incorrectArgumentsForProgress
+commandFinalAnswer :: String -> Cmd Hangman ()
+commandFinalAnswer [] =
+  withMS $ \previous writer -> do
+    let result = progressGame previous
+    writer $ game result
+    sayMessages $ messages result
+commandFinalAnswer _ = say incorrectArgumentsForProgress
 
-appendState :: String -> Cmd Hangman ()
-appendState [] = say incorrectArgumentsForAppend
-appendState (letter: _) =
-  withMS $ \game writer -> do
-    let (messages, updatedState) = addGuess game letter
-    writer updatedState
-    sayMessages messages
-
-sayMessages :: [String] -> Cmd Hangman ()
-sayMessages [] = return ()
-sayMessages messages = foldr1 (>>) $ fmap say messages
+commandAppendGuess :: String -> Cmd Hangman ()
+commandAppendGuess [] = say incorrectArgumentsForAppend
+commandAppendGuess (letter: _) =
+  withMS $ \previous writer -> do
+    let result = addGuess previous letter
+    writer $ game result
+    sayMessages $ messages result
 
 commandAddPhrase :: String -> Cmd Hangman ()
 commandAddPhrase [] = say incorrectArgumentsForAddPhrase
 commandAddPhrase phrase =
-  withMS $ \game writer -> do
-    writer $ addPhrase game phrase
-    say "Phrase added"
+  withMS $ \previous writer -> do
+    let result = addPhrase previous phrase
+    writer $ game result
+    sayMessages $ messages result
 
 commandRemovePhrase :: String -> Cmd Hangman ()
 commandRemovePhrase [] = say incorrectArgumentsForRemovePhrase
 commandRemovePhrase phrase =
-  withMS $ \game writer -> do
-    writer $ removePhrase game phrase
-    say "Phrase removed"
+  withMS $ \previous writer -> do
+    let result = removePhrase previous phrase
+    writer $ game result
+    sayMessages $ messages result
+
+commandConfigure :: String -> Cmd Hangman ()
+commandConfigure [] = say messageIncorrectArgumentsForConfigure
+commandConfigure input = 
+  withMS $ \previous writer -> do
+    let result = configure previous input
+    writer $ game result
+    sayMessages $ messages result
+
+sayMessages :: Messages -> Cmd Hangman ()
+sayMessages [] = return ()
+sayMessages output = foldr1 (>>) $ fmap say output
