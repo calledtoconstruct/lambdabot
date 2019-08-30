@@ -15,10 +15,10 @@ pkgs.vscode-with-extensions.override {
       sha256 = "03wxaizmhsq8k1mlfz246g8p8kkd21h2ajqvvcqfc78978cwvx3p";
     }
     {
-      name = "vsc-material-theme";
-      publisher = "equinusocio";
-      version = "2.8.2";
-      sha256 = "04hixd2bv7dd46pcs4mflr7xzfz273zai91k67jz6589bd8m93av";
+      name = "material-icon-theme";
+      publisher = "pkief";
+      version = "3.9.0";
+      sha256 = "10sqdy42zdckji93rc1rxvnlwic6ykxpyjj785qgkncw8n4ysd5g";
     }
     {
       name = "gitlens";
@@ -43,6 +43,12 @@ pkgs.vscode-with-extensions.override {
       publisher = "MaxGabriel";
       version = "0.0.6";
       sha256 = "1v47an1bad5ss4j5sajxia94r1r4yfyvbim5wax4scr0d5bdgv54";
+    }
+    {
+      name = "yuml";
+      publisher = "jaimeolivares";
+      version = "3.5.1";
+      sha256 = "01phwj8kn2zmzpjk97wacnc8iiby0szv40b1030fkcm3szafnya0";
     }
   ];
 }
