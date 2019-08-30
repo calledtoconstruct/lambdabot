@@ -6,6 +6,7 @@ let
   vscode = import ./vscode.nix { inherit pkgs; };
 
   tools-used-by-hie = with pkgs.haskellPackages; [
+    Cabal_2_4_1_0
     cabal-install
     apply-refact
     hasktags
