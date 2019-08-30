@@ -1,4 +1,4 @@
-{ pkgs ? import <nixpkgs> {} , compiler ? "ghc865" }:
-pkgs.pkgs.haskell.packages.${compiler}.callPackage ./project.nix {
+{ pkgs ? import ../nixpkgs.nix {} , compiler ? "ghc865" }:
+compiler.callPackage ./project.nix {
     lambdabot-core = (import ../lambdabot-core { inherit compiler; });
 }

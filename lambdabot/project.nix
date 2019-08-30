@@ -3,7 +3,7 @@
 , lambdabot-misc-plugins, lambdabot-novelty-plugins
 , lambdabot-points-plugins, lambdabot-reference-plugins
 , lambdabot-social-plugins, lambdabot-suggest-plugins
-, lambdabot-twitch-plugins, mtl, stdenv
+, lambdabot-trusted-plugins, lambdabot-twitch-plugins, mtl, stdenv
 }:
 mkDerivation {
   pname = "lambdabot";
@@ -17,7 +17,8 @@ mkDerivation {
     lambdabot-irc-plugins lambdabot-misc-plugins
     lambdabot-novelty-plugins lambdabot-points-plugins
     lambdabot-reference-plugins lambdabot-social-plugins
-    lambdabot-suggest-plugins lambdabot-twitch-plugins mtl
+    lambdabot-suggest-plugins lambdabot-trusted-plugins
+    lambdabot-twitch-plugins mtl
   ];
   homepage = "https://wiki.haskell.org/Lambdabot";
   description = "Lambdabot is a development tool and advanced IRC bot";
