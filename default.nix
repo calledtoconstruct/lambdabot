@@ -1,1 +1,3 @@
-import ./lambdabot { pkgs = import ./nixpkgs.nix {}; }  #lambdabot executeable
+import ./lambdabot {
+    compiler = import ./compiler.nix {};
+}

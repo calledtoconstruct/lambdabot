@@ -1,7 +1,7 @@
-{ pkgs ? import ../nixpkgs.nix {} , compiler ? "ghc865" }:
-pkgs.pkgs.haskell.packages.${compiler}.callPackage ./project.nix {
+{ compiler ? import ../compiler.nix {} }:
+compiler.callPackage ./project.nix {
     lambdabot-core = (import ../lambdabot-core { inherit compiler; });
-    lambdabot-hangman-plugins = (import ../lambdabot-hangman-plugins { inherit compiler; });
+    lambdabot-hangman-plugins = (import ../lambdabot-hangman-plugins { inherit  compiler; });
     lambdabot-irc-plugins  = (import ../lambdabot-irc-plugins { inherit compiler; });
     lambdabot-misc-plugins = (import ../lambdabot-misc-plugins { inherit compiler; });
     lambdabot-novelty-plugins  = (import ../lambdabot-novelty-plugins { inherit compiler; });
