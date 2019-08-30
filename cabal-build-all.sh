@@ -1,6 +1,6 @@
 cd ./lambdabot-core
 cabal v1-install --force-reinstalls
-cd ../lambdabot-trusted
+cd ../lambdabot-trusted-plugins
 cabal v1-install --force-reinstalls
 cd ../lambdabot-hangman-plugins
 cabal v1-install --force-reinstalls

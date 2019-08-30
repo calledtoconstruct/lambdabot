@@ -2,7 +2,6 @@
 , directory, lambdabot-core, misfortune, process, random-fu
 , regex-tdfa, stdenv, unlambda
 }:
-
 mkDerivation {
   pname = "lambdabot-novelty-plugins";
   version = "5.1.0.4";
