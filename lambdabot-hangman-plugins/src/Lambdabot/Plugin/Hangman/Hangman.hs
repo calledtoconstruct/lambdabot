@@ -7,6 +7,19 @@ module Lambdabot.Plugin.Hangman.Hangman (
   hangmanPlugin
 ) where
 
+import Lambdabot.Monad (received)
+
+import Lambdabot.Module (ircPersists)
+
+import Lambdabot.IRC (
+  IrcMessage (IrcMessage),
+  ircMsgCommand,
+  ircMsgLBName,
+  ircMsgParams,
+  ircMsgParams,
+  ircMsgPrefix,
+  ircMsgServer)
+
 import Lambdabot.Plugin (
   ModuleT
   , Cmd
@@ -22,17 +35,17 @@ import Lambdabot.Plugin (
   , privileged
   , Module
   , LB
+  , lb
   , newModule
   , stdSerial
-  , withMS
-  )
-import Lambdabot.Compat.PackedNick (packNick, unpackNick)
-
-import qualified Data.ByteString.Char8 as P
-import Data.List.Split -- (splitOn)
-import Data.Ord
-import Data.ByteString.Lazy (fromChunks, toChunks)
-import Text.Read (readMaybe)
+  , withMS)
+  
+import Data.Map (member, insert, delete)
+import Control.Monad (void, when, unless)
+import Control.Monad.State (gets, modify)
+import Control.Monad.Trans (lift)
+import Control.Concurrent.Lifted (fork, threadDelay)
+import System.Timeout.Lifted (timeout)
 
 import Lambdabot.Plugin.Hangman.Logic
 
@@ -54,18 +67,23 @@ hangmanPlugin = newModule {
     ],
     lastPhrase = 0
   })),
-  moduleInit      = return (),
+  moduleInit      = startup,
   moduleCmds      = return [
     (command "hangman-start") {
       help = say "hangman-start - Starts the game.",
       process = clearState
     },
     (command "hangman-status") {
+      aliases = ["hangman-state"],
       help = say "hangman-status - Prints the current state of the game.",
       process = showState
     },
     (command "hangman-final-answer") {
       help = say "hangman-final-answer - Tallies the guesses and applies the most popular one.",
+      process = progress
+    },
+    (command "hangman-timer-tick") {
+      help = say "hangman-timer-tick - For internal use only.",
       process = progress
     },
     (command "hangman-guess") {
@@ -86,13 +104,49 @@ hangmanPlugin = newModule {
   ]
 }
 
+startup :: Hangman ()
+startup = withMS $ \game _ -> maybeStartTimer game
+
+maybeStartTimer :: Game -> Hangman ()
+maybeStartTimer (InGame _ _) = do
+  _ <- fork timerLoop
+  lift $ modify (\state -> state {
+    ircPersists = insert "hangman-timer-loop" True $ ircPersists state
+  })
+  return ()
+maybeStartTimer _ = return ()
+
+timerLoop :: Hangman ()
+timerLoop = do
+  threadDelay $ 15 * 1000 * 1000
+  run <- lift $ gets (member "hangman-timer-loop" . ircPersists)
+  when run $ lb . void . timeout (15 * 1000 * 1000) . received $ IrcMessage {
+    ircMsgServer  = "twitch",
+    ircMsgLBName  = "swarmcollective",
+    ircMsgPrefix  = "hiveworker!n=hiveworker@hiveworker.tmi.twitch.tv",
+    ircMsgCommand = "PRIVMSG",
+    ircMsgParams  = ["#swarmcollective", ":?hangman-timer-tick"]
+  }
+  when run $ do
+    _ <- fork timerLoop
+    return ()
+
 clearState :: String -> Cmd Hangman ()
-clearState [] = 
+clearState [] =
   withMS $ \game writer -> do
+    wasRunning <- lift $ lift $ gets (member "hangman-timer-loop" . ircPersists)
     let (messages, updatedState) = initializeGame game
     writer updatedState
     sayMessages messages
+    unless wasRunning startTimer
 clearState _ = say incorrectArgumentsForStart
+
+startTimer :: Cmd Hangman ()
+startTimer = do
+  _ <- lift $ fork timerLoop
+  lift $ lift $ modify (\state -> state {
+    ircPersists = insert "hangman-timer-loop" True $ ircPersists state
+  })
 
 showState :: String -> Cmd Hangman ()
 showState [] = withMS $ \game _ -> say $ showBoard game
@@ -104,7 +158,14 @@ progress [] =
     let (messages, updatedState) = progressGame game
     writer updatedState
     sayMessages messages
+    maybeStopTimer updatedState
 progress _ = say incorrectArgumentsForProgress
+
+maybeStopTimer :: Game -> Cmd Hangman ()
+maybeStopTimer (NoGame _) = lift $ lift $ modify (\state -> state {
+  ircPersists = delete "hangman-timer-loop" $ ircPersists state
+})
+maybeStopTimer (InGame _ _) = return ()
 
 appendState :: String -> Cmd Hangman ()
 appendState [] = say incorrectArgumentsForAppend
