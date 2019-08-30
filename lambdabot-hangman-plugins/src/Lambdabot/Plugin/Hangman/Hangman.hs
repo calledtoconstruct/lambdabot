@@ -76,11 +76,7 @@ hangmanPlugin = newModule {
     },
     (command "hangman-timer-tick") {
       help = say "hangman-timer-tick - For internal use only.",
-      process = progress
-    },
-    (command "hangman-timer-tick") {
-      help = say "hangman-timer-tick - For internal use only.",
-      process = progress
+      process = commandFinalAnswer
     },
     (command "hangman-guess") {
       aliases = ["hg"],
@@ -106,7 +102,7 @@ hangmanPlugin = newModule {
 }
 
 startup :: Hangman ()
-startup = withMS $ \game _ -> maybeStartTimer game
+startup = withMS $ \current _ -> maybeStartTimer current
 
 maybeStartTimer :: Game -> Hangman ()
 maybeStartTimer (InGame _ _) = do
@@ -159,7 +155,7 @@ commandFinalAnswer [] =
     let result = progressGame previous
     writer $ game result
     sayMessages $ messages result
-    maybeStopTimer updatedState
+    maybeStopTimer $ game result
 commandFinalAnswer _ = say incorrectArgumentsForProgress
 
 maybeStopTimer :: Game -> Cmd Hangman ()
@@ -167,14 +163,6 @@ maybeStopTimer (NoGame _) = lift $ lift $ modify (\state -> state {
   ircPersists = delete "hangman-timer-loop" $ ircPersists state
 })
 maybeStopTimer (InGame _ _) = return ()
-
-appendState :: String -> Cmd Hangman ()
-appendState [] = say incorrectArgumentsForAppend
-appendState (letter: _) =
-  withMS $ \game writer -> do
-    let (messages, updatedState) = addGuess game letter
-    writer updatedState
-    sayMessages messages
 
 commandAppendGuess :: String -> Cmd Hangman ()
 commandAppendGuess [] = say incorrectArgumentsForAppend
