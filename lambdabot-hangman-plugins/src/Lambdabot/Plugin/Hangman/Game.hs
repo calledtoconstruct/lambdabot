@@ -88,7 +88,7 @@ showBoard :: GameState -> Configuration -> String
 showBoard (GameState _ correct _ answer) configuration = message
   where message = substituteTokens (messageGuessing configuration) "@" [board]
         board = intercalate '.' boardState
-        boardState = map (transformLetter correct) answer
+        boardState = map (`transformLetter` correct) answer
 
 showGuesses :: GameState -> Configuration -> Messages
 showGuesses gameState configuration = [remainingGuesses, incorrectGuesses]
@@ -106,10 +106,11 @@ substituteTokens template token values = message
   where segments = splitOn token template
         message = concat $ (+++) segments values
 
-transformLetter :: [Char] -> Char -> Char
-transformLetter correctGuesses letter = if isGuessed || isSpace then letter else '_'
-  where isGuessed = elem letter correctGuesses
-        isSpace = letter == ' '
+transformLetter :: Char -> [Char] -> Char
+transformLetter ' ' _ = ' '
+transformLetter letter correctGuesses
+  | letter `elem` correctGuesses  = letter
+  | otherwise                     = '_'
 
 intercalate :: Char -> [Char] -> [Char]
 intercalate _ [] = []

@@ -16,5 +16,5 @@ compiler.callPackage ./project.nix {
     inherit haskell-src-exts-simple hoogle;
     lambdabot-core = (import ../lambdabot-core { inherit compiler; });
     lambdabot-reference-plugins = (import ../lambdabot-reference-plugins { inherit compiler;}); 
-    lambdabot-trusted = (import ../lambdabot-trusted { inherit compiler; });
+    lambdabot-trusted-plugins = (import ../lambdabot-trusted-plugins { inherit compiler; });
 }

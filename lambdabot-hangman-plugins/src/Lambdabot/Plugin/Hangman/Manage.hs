@@ -9,11 +9,11 @@ import Data.List.Split (splitOn)
 
 addPhrase :: Game -> String -> Result
 addPhrase previous phrase
-  | null invalidCharacters = Result [messagePhraseAdded configuration] $ addPhraseToGame previous upperPhrase
+  | isValid   = Result [messagePhraseAdded configuration] $ addPhraseToGame previous upperPhrase
   | otherwise = Result ["The phrase contains one or more invalid characters, therefore, it was not added."] previous
   where configuration = getConfiguration previous
         upperPhrase = map toUpper phrase
-        invalidCharacters = filter (`notElem` validCharacters) upperPhrase
+        isValid = not $ any (`notElem` validCharacters) upperPhrase
 
 addPhraseToGame :: Game -> String -> Game
 addPhraseToGame (NoGame configuration) phrase = NoGame $ addPhraseToConfiguration configuration phrase

@@ -1,5 +1,3 @@
-{-# LANGUAGE DeriveGeneric #-}
-
 module Lambdabot.Plugin.Hangman.Logic where
 
 import Lambdabot.Plugin.Hangman.Configuration
@@ -11,7 +9,7 @@ import Data.Char (toUpper)
 addGuess :: Game -> Char -> Result
 addGuess previous letter = if isValid then Result [] finalState else Result [messageNotRecognized] previous
   where finalState = modifyState previous upperLetter
-        isValid = elem upperLetter validCharacters
+        isValid = upperLetter `elem` validCharacters
         messageNotRecognized = ['[', upperLetter, ']'] ++ " is not recognized."
         upperLetter = toUpper letter
 
@@ -30,9 +28,9 @@ applyGuess :: GameState -> Configuration -> Char -> Result
 applyGuess gameState configuration popular = Result output updatedGame
   where correct = isCorrect gameState popular
         result = case correct of
-          Just True -> messageCorrect configuration
-          Just False -> messageIncorrect configuration
-          Nothing -> messageAlreadyGuessed configuration
+          Correct -> messageCorrect configuration
+          Incorrect -> messageIncorrect configuration
+          AlreadyGuessed -> messageAlreadyGuessed configuration
         outcome = substituteTokens (messageOutcome configuration) "@" [[popular], result]
         updatedGameState = updateGameState gameState popular correct
         (evaluation, maybeGameState) = evaluateGame updatedGameState configuration
@@ -56,28 +54,22 @@ getMostPopularGuess gameState
   | otherwise = Just $ last $ concat $ sortOn length $ group $ sort letters
   where letters = userLetters gameState
 
-isCorrect :: GameState -> Char -> Maybe Bool
-isCorrect gameState letter = case foundInTarget of
-  True -> case foundInCorrectLetters of
-    True -> Nothing
-    False -> Just True
-  False -> Just False
-  where foundInTarget = elem letter answer
-        foundInCorrectLetters = elem letter correct
-        correct = correctLetters gameState
-        answer = target gameState
+data MaybeCorrect = AlreadyGuessed | Incorrect | Correct
 
-type MaybeCorrect = Maybe Bool
+isCorrect :: GameState -> Char -> MaybeCorrect
+isCorrect gameState letter
+  | alreadyGuessed = AlreadyGuessed
+  | foundInTarget = Correct
+  | otherwise = Incorrect
+  where foundInTarget = elem letter $ target gameState
+        alreadyGuessed = elem letter $ correctLetters gameState
 
 updateGameState :: GameState -> Char -> MaybeCorrect -> GameState
-updateGameState gameState letter maybeIsCorrect
-  | maybeIsCorrect == Just True = gameState {
-    userLetters = [],
-    correctLetters = letter: correct
-  }
-  | otherwise = gameState {
-    userLetters = [],
-    incorrectLetters = letter: incorrect
-  }
-  where correct = correctLetters gameState
-        incorrect = incorrectLetters gameState
+updateGameState gameState letter Correct = gameState {
+  userLetters = [],
+  correctLetters = letter: correctLetters gameState
+}
+updateGameState gameState letter _ = gameState {
+  userLetters = [],
+  incorrectLetters = letter: incorrectLetters gameState
+}

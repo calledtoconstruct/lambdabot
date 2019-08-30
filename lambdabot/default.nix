@@ -10,6 +10,6 @@ compiler.callPackage ./project.nix {
     lambdabot-reference-plugins  = (import ../lambdabot-reference-plugins { inherit compiler; });
     lambdabot-social-plugins = (import ../lambdabot-social-plugins { inherit compiler; });
     lambdabot-suggest-plugins  = (import ../lambdabot-suggest-plugins { inherit compiler; });
-    lambdabot-trusted-plugins  = (import ../lambdabot-trusted { inherit compiler; });
+    lambdabot-trusted-plugins  = (import ../lambdabot-trusted-plugins { inherit compiler; });
     lambdabot-twitch-plugins  = (import ../lambdabot-twitch-plugins { inherit compiler; });
 }
