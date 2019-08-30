@@ -36,7 +36,7 @@ import           System.Console.Haskeline       ( InputT
                                                 , getInputLine
                                                 )
 import           System.IO
-import           System.Timeout.Lifted
+import           System.Timeout.Lifted (timeout)
 import           Codec.Binary.UTF8.String
 
 -- We need to track the number of active sourcings so that we can
@@ -71,7 +71,7 @@ offlineRCPlugin = newModule
       ]
   }
 
-initializeModule :: ModuleT OfflineRCState LB ()
+initializeModule :: OfflineRC ()
 initializeModule = do
   lb . modify $ loadPrivilegedUsers
   void . forkUnmasked $ do
@@ -86,19 +86,34 @@ loadPrivilegedUsers moduleState = moduleState
                                   (ircPrivilegedUsers moduleState)
   }
 
-finalizeModule :: ModuleT OfflineRCState LB ()
+finalizeModule :: OfflineRC ()
 finalizeModule = void . forkUnmasked $ do
   lockRC
   cmds <- getConfig onShutdownCmds
   mapM_ feed cmds `finally` unlockRC
 
-startOfflineConsole :: b -> Cmd (ModuleT OfflineRCState LB) ()
+startOfflineConsole :: b -> Cmd OfflineRC ()
 startOfflineConsole = const . lift $ do
   lockRC
   histFile <- lb $ findLBFileForWriting "offlinerc"
   let settings = defaultSettings { historyFile = Just histFile }
   _ <- fork (runInputT settings replLoop `finally` unlockRC)
+  _ <- fork timerLoop
   return ()
+
+timerLoop :: OfflineRC ()
+timerLoop = do
+  threadDelay $ 30 * 1000 * 1000
+  cmdPrefix <- fmap head (getConfig commandPrefixes)
+  lb . void . timeout (15 * 1000 * 1000) . received $ IrcMessage {
+    ircMsgServer  = "offlinerc",
+    ircMsgLBName  = "offline",
+    ircMsgPrefix  = "null!n=user@null",
+    ircMsgCommand = "PRIVMSG",
+    ircMsgParams  = ["offline", ":" ++ cmdPrefix ++ "flush"]
+  }
+  continue <- lift $ gets (M.member "offlinerc" . ircPersists)
+  when continue timerLoop
 
 stopOfflineConsole :: p -> Cmd OfflineRC ()
 stopOfflineConsole _ = do
