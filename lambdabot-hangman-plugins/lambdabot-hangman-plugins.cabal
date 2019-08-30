@@ -40,6 +40,8 @@ library
   -- other-modules:
 
   build-depends:        base                    >= 4.4 && < 5,
+                        lifted-base             >= 0.2,
+                        monad-control           >= 1.0,
                         universe-base           >= 1.1.1,
                         binary                  >= 0.5,
                         bytestring              >= 0.9,

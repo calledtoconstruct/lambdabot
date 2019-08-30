@@ -7,6 +7,19 @@ module Lambdabot.Plugin.Hangman.Hangman (
   hangmanPlugin
 ) where
 
+import Lambdabot.Monad (received)
+
+import Lambdabot.Module (ircPersists)
+
+import Lambdabot.IRC (
+  IrcMessage (IrcMessage),
+  ircMsgCommand,
+  ircMsgLBName,
+  ircMsgParams,
+  ircMsgParams,
+  ircMsgPrefix,
+  ircMsgServer)
+
 import Lambdabot.Plugin (
   ModuleT
   , Cmd
@@ -22,10 +35,17 @@ import Lambdabot.Plugin (
   , privileged
   , Module
   , LB
+  , lb
   , newModule
   , stdSerial
-  , withMS
-  )
+  , withMS)
+  
+import Data.Map (member, insert, delete)
+import Control.Monad (void, when, unless)
+import Control.Monad.State (gets, modify)
+import Control.Monad.Trans (lift)
+import Control.Concurrent.Lifted (fork, threadDelay)
+import System.Timeout.Lifted (timeout)
 
 import Lambdabot.Plugin.Hangman.Configuration
 import Lambdabot.Plugin.Hangman.Game
@@ -39,19 +59,24 @@ hangmanPlugin :: Module HangmanState
 hangmanPlugin = newModule {
   moduleSerialize = Just stdSerial,
   moduleDefState  = return (NoGame newConfiguration),
-  moduleInit      = return (),
+  moduleInit      = startup,
   moduleCmds      = return [
     (command "hangman-start") {
       help = say "hangman-start - Starts the game.",
       process = commandStartGame
     },
     (command "hangman-status") {
+      aliases = ["hangman-state"],
       help = say "hangman-status - Prints the current state of the game.",
       process = commandStatus
     },
     (command "hangman-final-answer") {
       help = say "hangman-final-answer - Tallies the guesses and applies the most popular one.",
       process = commandFinalAnswer
+    },
+    (command "hangman-timer-tick") {
+      help = say "hangman-timer-tick - For internal use only.",
+      process = progress
     },
     (command "hangman-guess") {
       aliases = ["hg"],
@@ -76,13 +101,49 @@ hangmanPlugin = newModule {
   ]
 }
 
+startup :: Hangman ()
+startup = withMS $ \game _ -> maybeStartTimer game
+
+maybeStartTimer :: Game -> Hangman ()
+maybeStartTimer (InGame _ _) = do
+  _ <- fork timerLoop
+  lift $ modify (\state -> state {
+    ircPersists = insert "hangman-timer-loop" True $ ircPersists state
+  })
+  return ()
+maybeStartTimer _ = return ()
+
+timerLoop :: Hangman ()
+timerLoop = do
+  threadDelay $ 15 * 1000 * 1000
+  run <- lift $ gets (member "hangman-timer-loop" . ircPersists)
+  when run $ lb . void . timeout (15 * 1000 * 1000) . received $ IrcMessage {
+    ircMsgServer  = "twitch",
+    ircMsgLBName  = "swarmcollective",
+    ircMsgPrefix  = "hiveworker!n=hiveworker@hiveworker.tmi.twitch.tv",
+    ircMsgCommand = "PRIVMSG",
+    ircMsgParams  = ["#swarmcollective", ":?hangman-timer-tick"]
+  }
+  when run $ do
+    _ <- fork timerLoop
+    return ()
+
 commandStartGame :: String -> Cmd Hangman ()
 commandStartGame [] = 
   withMS $ \previous writer -> do
+    wasRunning <- lift $ lift $ gets (member "hangman-timer-loop" . ircPersists)
     let result = initializeGame previous
     writer $ game result
     sayMessages $ messages result
+    unless wasRunning startTimer
 commandStartGame _ = say incorrectArgumentsForStart
+
+startTimer :: Cmd Hangman ()
+startTimer = do
+  _ <- lift $ fork timerLoop
+  lift $ lift $ modify (\state -> state {
+    ircPersists = insert "hangman-timer-loop" True $ ircPersists state
+  })
 
 commandStatus :: String -> Cmd Hangman ()
 commandStatus [] = withMS $ \current _ -> sayMessages $ showGame current
@@ -94,7 +155,22 @@ commandFinalAnswer [] =
     let result = progressGame previous
     writer $ game result
     sayMessages $ messages result
+    maybeStopTimer updatedState
 commandFinalAnswer _ = say incorrectArgumentsForProgress
+
+maybeStopTimer :: Game -> Cmd Hangman ()
+maybeStopTimer (NoGame _) = lift $ lift $ modify (\state -> state {
+  ircPersists = delete "hangman-timer-loop" $ ircPersists state
+})
+maybeStopTimer (InGame _ _) = return ()
+
+appendState :: String -> Cmd Hangman ()
+appendState [] = say incorrectArgumentsForAppend
+appendState (letter: _) =
+  withMS $ \game writer -> do
+    let (messages, updatedState) = addGuess game letter
+    writer updatedState
+    sayMessages messages
 
 commandAppendGuess :: String -> Cmd Hangman ()
 commandAppendGuess [] = say incorrectArgumentsForAppend
