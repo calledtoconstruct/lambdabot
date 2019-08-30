@@ -38,5 +38,11 @@ pkgs.vscode-with-extensions.override {
       version = "2.6.0";
       sha256 = "1891pg4x5qkh151pylvn93c4plqw6vgasa4g40jbma5xzq8pygr4";
     }
+    {
+      name = "brittany";
+      publisher = "MaxGabriel";
+      version = "0.0.6";
+      sha256 = "1v47an1bad5ss4j5sajxia94r1r4yfyvbim5wax4scr0d5bdgv54";
+    }
   ];
 }

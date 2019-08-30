@@ -1,5 +1,5 @@
 {
-  nixpkgs ? (import ./nixpkgs.nix) {}
+  pkgs ? import ./nixpkgs.nix {}
 , version ? "ghc864"
 }:
-nixpkgs.haskell.packages.${version}
+pkgs.haskell.packages.${version}

@@ -1,3 +1,4 @@
+{ compiler ? import ./compiler.nix {} }:
 import ./lambdabot {
-    compiler = import ./compiler.nix {};
+    inherit compiler;
 }
