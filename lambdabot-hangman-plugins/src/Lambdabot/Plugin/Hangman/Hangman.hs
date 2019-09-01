@@ -7,7 +7,7 @@ module Lambdabot.Plugin.Hangman.Hangman (
   hangmanPlugin
 ) where
 
-import Lambdabot.Monad (received)
+import Lambdabot.Monad (send, received)
 
 import Lambdabot.Module (ircPersists)
 
@@ -19,6 +19,12 @@ import Lambdabot.IRC (
   ircMsgParams,
   ircMsgPrefix,
   ircMsgServer)
+
+import qualified Lambdabot.Message as Msg (
+  server,
+  nick,
+  channels,
+  lambdabotName)
 
 import Lambdabot.Plugin (
   ModuleT
@@ -38,7 +44,9 @@ import Lambdabot.Plugin (
   , lb
   , newModule
   , stdSerial
-  , withMS)
+  , withMS
+  , readMS
+  , withMsg)
   
 import Data.Map (member, insert, delete)
 import Control.Monad (void, when, unless)
@@ -115,27 +123,48 @@ maybeStartTimer _ = return ()
 
 timerLoop :: Hangman ()
 timerLoop = do
-  threadDelay $ 15 * 1000 * 1000
+  delayThen sendReply 10 "5 seconds left"
+  delayThen sendReply 2 "3 seconds"
+  delayThen sendReply 1 "2 seconds"
+  delayThen sendReply 1 "1 seconds"
+  delayThen receiveCommand 1 "?hangman-timer-tick"
   run <- lift $ gets (member "hangman-timer-loop" . ircPersists)
-  when run $ lb . void . timeout (15 * 1000 * 1000) . received $ IrcMessage {
-    ircMsgServer  = "twitch",
-    ircMsgLBName  = "swarmcollective",
-    ircMsgPrefix  = "hiveworker!n=hiveworker@hiveworker.tmi.twitch.tv",
-    ircMsgCommand = "PRIVMSG",
-    ircMsgParams  = ["#swarmcollective", ":?hangman-timer-tick"]
-  }
-  when run $ do
-    _ <- fork timerLoop
-    return ()
+  when run $ void $ fork timerLoop
+
+delayThen :: (IrcMessage -> Hangman ()) -> Int -> String -> Hangman ()
+delayThen sendOrReceive delay text = do
+  threadDelay $ delay * 1000 * 1000
+  run <- lift $ gets (member "hangman-timer-loop" . ircPersists)
+  currentGame <- readMS
+  when run $ case gameInProgress' currentGame of
+    Just gameState -> sendOrReceive $ IrcMessage {
+      ircMsgServer  = server gameState,
+      ircMsgLBName  = initiator gameState,
+      ircMsgPrefix  = botName gameState ++ "!n=" ++ botName gameState ++ "@" ++ botName gameState ++ ".tmi.twitch.tv",
+      ircMsgCommand = "PRIVMSG",
+      ircMsgParams  = [channel gameState, ":" ++ text]
+    }
+    Nothing -> return ()
+
+receiveCommand :: IrcMessage -> Hangman ()
+receiveCommand = lb . void . timeout (10 * 1000 * 1000) . received
+
+sendReply :: IrcMessage -> Hangman ()
+sendReply = lift . send
+
+gameInProgress' :: Game -> Maybe GameState
+gameInProgress' (NoGame _) = Nothing
+gameInProgress' (InGame gameState _) = Just gameState
 
 commandStartGame :: String -> Cmd Hangman ()
 commandStartGame [] = 
   withMS $ \previous writer -> do
     wasRunning <- lift $ lift $ gets (member "hangman-timer-loop" . ircPersists)
-    let result = initializeGame previous
-    writer $ game result
-    sayMessages $ messages result
-    unless wasRunning startTimer
+    withMsg $ \msg -> do
+      let result = initializeGame previous (Msg.server msg) (head $ Msg.channels msg) (Msg.nick msg) (Msg.lambdabotName msg)
+      writer $ game result
+      sayMessages $ messages result
+      unless wasRunning startTimer
 commandStartGame _ = say incorrectArgumentsForStart
 
 startTimer :: Cmd Hangman ()

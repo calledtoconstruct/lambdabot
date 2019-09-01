@@ -17,6 +17,10 @@ module Lambdabot.Plugin.Hangman.Game (
   correctLetters,
   incorrectLetters,
   target,
+  server,
+  channel,
+  initiator,
+  botName,
   Messages,
   gameInProgress,
   noGameInProgress,
@@ -37,6 +41,7 @@ import Data.Universe.Helpers ((+++))
 import Data.List.Split (splitOn)
 
 import Lambdabot.Plugin.Hangman.Configuration
+import Lambdabot.Nick (Nick, fmtNick)
 
 data Game =
   NoGame Configuration
@@ -47,7 +52,11 @@ data GameState = GameState {
   userLetters :: String,
   correctLetters :: String,
   incorrectLetters :: String,
-  target :: String
+  target :: String,
+  server :: String,
+  channel :: String,
+  initiator :: String,
+  botName :: String
 }
   deriving (Generic, Show, Read)
 
@@ -58,25 +67,29 @@ data Result = Result {
   game :: Game
 }
 
-newGame :: String -> Configuration -> Game
-newGame answer = InGame (GameState {
+newGame :: String -> Configuration -> String -> Nick -> Nick -> Nick -> Game
+newGame answer configuration serverName channelName userName lambdabotName = InGame (GameState {
   target = answer,
   userLetters = "",
   correctLetters = "",
-  incorrectLetters = ""
-})
+  incorrectLetters = "",
+  server = serverName,
+  channel = fmtNick serverName channelName,
+  initiator = fmtNick serverName userName,
+  botName = fmtNick serverName lambdabotName
+}) configuration
 
 getConfiguration :: Game -> Configuration
 getConfiguration (NoGame configuration) = configuration
 getConfiguration (InGame _ configuration) = configuration
 
-initializeGame :: Game -> Result
-initializeGame (NoGame configuration) = Result output updatedGame
-    where updatedGame = newGame phrase updatedConfiguration
+initializeGame :: Game -> String -> Nick -> Nick -> Nick -> Result
+initializeGame (NoGame configuration) serverName channelName userName lambdabotName = Result output updatedGame
+    where updatedGame = newGame phrase updatedConfiguration serverName channelName userName lambdabotName
           (updatedConfiguration, phrase) = selectPhrase configuration
           begun = messageNewGameHasBegun configuration
           output = (:) begun $ showGame updatedGame
-initializeGame previous = Result [gameInProgress] previous
+initializeGame previous _ _ _ _ = Result [gameInProgress] previous
 
 showGame :: Game -> Messages
 showGame (NoGame _) = [noGameInProgress]
@@ -85,7 +98,7 @@ showGame (InGame gameState configuration) = board: guesses
           guesses = showGuesses gameState configuration
 
 showBoard :: GameState -> Configuration -> String
-showBoard (GameState _ correct _ answer) configuration = message
+showBoard (GameState _ correct _ answer _ _ _ _) configuration = message
   where message = substituteTokens (messageGuessing configuration) "@" [board]
         board = intercalate '.' boardState
         boardState = map (`transformLetter` correct) answer

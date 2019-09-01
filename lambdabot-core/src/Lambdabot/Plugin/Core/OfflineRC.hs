@@ -103,7 +103,7 @@ startOfflineConsole = const . lift $ do
 
 timerLoop :: OfflineRC ()
 timerLoop = do
-  threadDelay $ 30 * 1000 * 1000
+  threadDelay $ 30 * 60 * 1000 * 1000
   cmdPrefix <- fmap head (getConfig commandPrefixes)
   lb . void . timeout (15 * 1000 * 1000) . received $ IrcMessage {
     ircMsgServer  = "offlinerc",
