@@ -1,4 +1,4 @@
-{ compiler ? import ./compiler.nix {} }:
-import ./lambdabot {
-    inherit compiler;
-}
+{ pkgs ? import ./nixpkgs.nix {}
+, compiler ? import ./compiler.nix { inherit pkgs; }
+}:
+import ./lambdabot { inherit compiler;} #lambdabot executeable
