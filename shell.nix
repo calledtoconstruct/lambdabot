@@ -30,8 +30,9 @@ in shellDrv.env.overrideAttrs ( shellEnv: {
     pkgs.figlet
     vscode
     hie
+    (import ./cabal2nix-all.nix {})
   ];
   shellHook = ''
-    figlet Lambdabot
+    figlet ${drv.pname}
   '';
 } )
