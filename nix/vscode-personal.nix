@@ -1,8 +1,7 @@
 { pkgs ? import ./nixpkgs.nix }:
 let 
   #VSCode Settings file
-  #relative path from nix folder
-  vscodeSettingsFile = builtins.toString ./.vscode/settings.json;
+  vscodeSettingsFile = builtins.toString ../.vscode/settings.json;
   #uses jq to beautify the json coming out of builtins.toJSON
   vscodeUpdateSettingsCmd = _nixpkgs : with _nixpkgs;
   writeShellScriptBin "vscodeNixUpdateSettings" (lib.optionalString (lib.pathExists vscodeSettingsFile) ''

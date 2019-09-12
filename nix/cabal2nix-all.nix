@@ -3,7 +3,7 @@ with pkgs;
 
 let 
   drv = import ./default.nix {};
-  projectFolders =  lib.filterAttrs (k: v: v == "directory" && (lib.hasPrefix drv.pname k)) (builtins.readDir ./.);
+  projectFolders =  lib.filterAttrs (k: v: v == "directory" && (lib.hasPrefix drv.pname k)) (builtins.readDir ../.);
   script = lib.concatStrings ( lib.mapAttrsToList (n: v: ''
   echo 'running cabal2nix into project.nix for ./${n}/'
   cd ./${n}
