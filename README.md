@@ -14,3 +14,18 @@ cabal install network happy
 sudo apt -y install zlib1g-dev
 sudo apt -y install libpcre2-dev libpcre3-dev
 sudo apt -y install libghc-curl-dev
+
+# Create Template base on this project (Using nix)
+
+In order to create a template for a new project base on this project 
+you could run:
+
+```
+nix-env install -E 'with import <nixpkgs> {}; 
+                     import "${fetchFromGitHub {
+                            owner = "countoren";
+                            repo = "lambdabot";
+                            rev = "b63aa61";
+                            sha256 = "05z7i9hlhl4brlrhwn85jgrw1zd8ya83klqkp13170fd3cnwjhy9";
+                        }}/nix/template.nix"' && ./result/bin/template-haskell;
+```
