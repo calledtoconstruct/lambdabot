@@ -21,7 +21,7 @@ In order to create a template for a new project base on this project
 you could run:
 
 ```
-nix-env install -E 'with import <nixpkgs> {}; 
+nix-build  -E 'with import <nixpkgs> {}; 
                      import "${fetchFromGitHub {
                             owner = "countoren";
                             repo = "lambdabot";
