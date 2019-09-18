@@ -25,7 +25,7 @@ nix-build  -E 'with import <nixpkgs> {};
                      import "${fetchFromGitHub {
                             owner = "countoren";
                             repo = "lambdabot";
-                            rev = "b63aa61";
-                            sha256 = "05z7i9hlhl4brlrhwn85jgrw1zd8ya83klqkp13170fd3cnwjhy9";
+                            rev = "3c925a242f79f8d3dc47d779a6ca31e836837ece";
+                            sha256 = "0yldd5s3l6pcimf1l6kdvd1g7l8lhcmylfv0q6fgazlpnca0z92v";
                         }}/nix/template.nix"' && ./result/bin/template-haskell;
 ```
