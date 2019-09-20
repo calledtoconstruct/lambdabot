@@ -24,16 +24,10 @@ in
   inherit vscodeUpdateSettingsCmd;
   extensions = [
         {
-          name = "vim";
-          publisher = "vscodevim";
-          version = "0.16.13";
-          sha256 = "02bfld819nrsik17zyzckbv8vfz28hdlnkx4id7kx54f41y5kx0v";
-        }
-        {
-          name = "theme-obsidian";
-          publisher = "rprouse";
-          version = "0.3.1";
-          sha256 = "17a1m4mmsn80ai9vrh9zilrwh2jxfxj09fk2w857i68a7yvyhf7c";
+          name = "theme-dracula-at-night";
+          publisher = "bceskavich";
+          version = "2.5.0";
+          sha256 = "03wxaizmhsq8k1mlfz246g8p8kkd21h2ajqvvcqfc78978cwvx3p";
         }
         {
           name = "material-icon-theme";

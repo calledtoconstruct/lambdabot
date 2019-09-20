@@ -1,8 +1,8 @@
 {
-    "[haskell]": {
-        "editor.tabSize": 2,
-        "editor.detectIndentation": false
-    },
-    "languageServerHaskell.useCustomHieWrapper": true,
-    "languageServerHaskell.useCustomHieWrapperPath": "hie-wrapper"
+  "[haskell]": {
+    "editor.detectIndentation": false,
+    "editor.tabSize": 2
+  },
+  "languageServerHaskell.useCustomHieWrapper": true,
+  "languageServerHaskell.useCustomHieWrapperPath": "hie-wrapper"
 }

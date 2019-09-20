@@ -1,5 +1,5 @@
 {
   pkgs ? import ./nixpkgs.nix {}
-, version ? "ghc865"
+, version ? "ghc864"
 }:
 pkgs.haskell.packages.${version}
