@@ -1,63 +1,66 @@
 -- {-# LANGUAGE TemplateHaskell #-}
 
-module Modules
-  ( modulesInfo
-  )
-where
+module Modules (modulesInfo) where
 
-import           Lambdabot.Main
+import Lambdabot.Main (Modules, basePlugin, composePlugin, helpPlugin, morePlugin, offlineRCPlugin, systemPlugin, versionPlugin)
 
 -- to add a new plugin, one must first add a qualified import here, and also
 -- add a string in the list below
 -- import Lambdabot.Plugin.Haskell
-import           Lambdabot.Plugin.IRC
-import           Lambdabot.Plugin.Twitch
-import           Lambdabot.Plugin.Points
-import           Lambdabot.Plugin.Hangman
-import           Lambdabot.Plugin.Suggest
-import           Lambdabot.Plugin.Misc
-import           Lambdabot.Plugin.Novelty
-import           Lambdabot.Plugin.Reference
-import           Lambdabot.Plugin.Social
-import           Data.Some
+
+import Lambdabot.Plugin.Hangman (hangmanPlugin)
+import Lambdabot.Plugin.IRC (ircPlugin, localtimePlugin, topicPlugin)
+import Lambdabot.Plugin.Misc (dummyPlugin, freshPlugin, todoPlugin)
+import Lambdabot.Plugin.Novelty (bfPlugin, dicePlugin, elitePlugin, filterPlugin, numberwangPlugin, quotePlugin, slapPlugin, unlambdaPlugin, vixenPlugin)
+import Lambdabot.Plugin.Points (pointsPlugin)
+import Lambdabot.Plugin.Reference (dictPlugin, metarPlugin, oeisPlugin, searchPlugin, spellPlugin, tickerPlugin, urlPlugin, wherePlugin)
+import Lambdabot.Plugin.Social (activityPlugin, karmaPlugin, pollPlugin, seenPlugin, tellPlugin)
+import Lambdabot.Plugin.Suggest (suggestPlugin)
+import Lambdabot.Plugin.Twitch (twitchPlugin)
+
+import Data.Some (Some (Some))
+import Lambdabot.Plugin.Haskell (typePlugin)
 
 modulesInfo :: Modules
 modulesInfo =
-  [ ("twitch"   , This twitchPlugin)
-  , ("points"   , This pointsPlugin)
-  , ("hangman"  , This hangmanPlugin)
-  , ("suggest"  , This suggestPlugin)
-  , ("irc"      , This ircPlugin)
-  , ("localtime", This localtimePlugin)
-  , ("topic"    , This topicPlugin)
-  , ("dummy"    , This dummyPlugin)
-  , ("fresh"    , This freshPlugin)
-  , ("todo"     , This todoPlugin)
-  , ("bf"       , This bfPlugin)
-  , ("dice"     , This dicePlugin)
-  , ("elite"    , This elitePlugin)
-  , ("filter"   , This filterPlugin)
-  , ("quote"    , This quotePlugin)
-  , ("slap"     , This slapPlugin)
-  , ("unlambda" , This unlambdaPlugin)
-  , ("dict"     , This dictPlugin)
-  , ("metar"    , This metarPlugin)
-  , ("oeis"     , This oeisPlugin)
-  , ("search"   , This searchPlugin)
-  , ("spell"    , This spellPlugin)
-  , ("ticker"   , This tickerPlugin)
-  , ("url"      , This urlPlugin)
-  , ("where"    , This wherePlugin)
-  , ("activity" , This activityPlugin)
-  , ("karma"    , This karmaPlugin)
-  , ("poll"     , This pollPlugin)
-  , ("seen"     , This seenPlugin)
-  , ("tell"     , This tellPlugin)
-  , ("base"     , This basePlugin)
-  , ("system"   , This systemPlugin)
-  , ("offlineRC", This offlineRCPlugin)
-  , ("compose"  , This composePlugin)
-  , ("help"     , This helpPlugin)
-  , ("more"     , This morePlugin)
-  , ("version"  , This versionPlugin)
+  [ ("twitch", Some twitchPlugin)
+  , ("points", Some pointsPlugin)
+  , ("hangman", Some hangmanPlugin)
+  , ("suggest", Some suggestPlugin)
+  , ("irc", Some ircPlugin)
+  , ("localtime", Some localtimePlugin)
+  , ("topic", Some topicPlugin)
+  , ("dummy", Some dummyPlugin)
+  , ("fresh", Some freshPlugin)
+  , ("todo", Some todoPlugin)
+  , ("bf", Some bfPlugin)
+  , ("dice", Some dicePlugin)
+  , ("elite", Some elitePlugin)
+  , ("filter", Some filterPlugin)
+  , ("quote", Some quotePlugin)
+  , ("slap", Some slapPlugin)
+  , ("unlambda", Some unlambdaPlugin)
+  , ("dict", Some dictPlugin)
+  , ("metar", Some metarPlugin)
+  , ("oeis", Some oeisPlugin)
+  , ("search", Some searchPlugin)
+  , ("spell", Some spellPlugin)
+  , ("ticker", Some tickerPlugin)
+  , ("url", Some urlPlugin)
+  , ("where", Some wherePlugin)
+  , ("activity", Some activityPlugin)
+  , ("karma", Some karmaPlugin)
+  , ("poll", Some pollPlugin)
+  , ("seen", Some seenPlugin)
+  , ("tell", Some tellPlugin)
+  , ("base", Some basePlugin)
+  , ("system", Some systemPlugin)
+  , ("offlineRC", Some offlineRCPlugin)
+  , ("compose", Some composePlugin)
+  , ("help", Some helpPlugin)
+  , ("more", Some morePlugin)
+  , ("version", Some versionPlugin)
+  , ("numberwang", Some numberwangPlugin)
+  , ("vixen", Some vixenPlugin)
+  , ("type", Some typePlugin)
   ]

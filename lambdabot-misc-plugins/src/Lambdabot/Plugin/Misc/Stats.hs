@@ -1,19 +1,27 @@
-
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE GADTs #-}
 
 module Lambdabot.Plugin.Misc.Stats (statsPlugin) where
 
-import Lambdabot.Plugin
-import Lambdabot.Util
-
-import Network.StatsD
-
+import Lambdabot.Plugin (
+  Cmd,
+  LB,
+  Module (contextual, moduleDefState),
+  ModuleT,
+  getSender,
+  getTarget,
+  newModule,
+  readMS,
+  showNick,
+ )
+import Lambdabot.Util (io)
+import Network.StatsD (Stat, StatsD, openStatsD, push, stat)
 
 type Stats = ModuleT StatsD LB
 
 statsPlugin :: Module StatsD
-statsPlugin = newModule
+statsPlugin =
+  newModule
     { moduleDefState = io (openStatsD host port prefix)
     , contextual = \msg -> do
         let n = length msg
@@ -22,10 +30,10 @@ statsPlugin = newModule
         chan <- showNick =<< getTarget
 
         counts
-            [ (grp ++ [stat'], val')
-            | grp <- [["user", user], ["channel", chan]]
-            , (stat', val') <- [("lines", 1), ("chars", toInteger n) ]
-            ]
+          [ (grp ++ [stat'], val')
+          | grp <- [["user", user], ["channel", chan]]
+          , (stat', val') <- [("lines", 1), ("chars", toInteger n)]
+          ]
     }
 
 -- various helpers
@@ -40,8 +48,8 @@ prefix = ["lambdabot"]
 
 report :: [Stat] -> Cmd Stats ()
 report xs = do
-    st <- readMS
-    io (push st xs)
+  st <- readMS
+  io (push st xs)
 
 counts :: [([String], Integer)] -> Cmd Stats ()
 counts xs = report [stat bucket' val' "c" Nothing | (bucket', val') <- xs]

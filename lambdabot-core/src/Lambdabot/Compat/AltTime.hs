@@ -1,39 +1,54 @@
--- | Time compatibility layer
--- (stuff to support old lambdabot state serialization formats)
---
--- TODO: trim this down to just the explicitly serialization-related stuff
-module Lambdabot.Compat.AltTime
-  ( ClockTime
-  , getClockTime
-  , diffClockTimes
-  , addToClockTime
-  , timeDiffPretty
-  , TimeDiff(..)
-  , noTimeDiff
-  )
-where
+{- | Time compatibility layer
+ (stuff to support old lambdabot state serialization formats)
 
-import           Control.Arrow                  ( first )
+ TODO: trim this down to just the explicitly serialization-related stuff
+-}
+module Lambdabot.Compat.AltTime (
+  ClockTime,
+  getClockTime,
+  diffClockTimes,
+  addToClockTime,
+  timeDiffPretty,
+  TimeDiff (..),
+  noTimeDiff,
+) where
 
-import           Data.Binary
+import Control.Arrow (first)
 
-import           Data.List
-import           Data.Time
-import           Text.Read               hiding ( get
-                                                , lexP
-                                                , readPrec
-                                                )
-import           Text.Read.Lex
+import Data.Binary (Binary (get, put))
 
--- | Wrapping ClockTime (which doesn't provide a Read instance!) seems
--- easier than talking care of the serialization of UserStatus
--- ourselves.
---
+import Data.Time (
+  NominalDiffTime,
+  UTCTime (UTCTime),
+  addUTCTime,
+  diffUTCTime,
+  fromGregorian,
+  getCurrentTime,
+ )
+import Text.Read (
+  Lexeme (Ident, Punc),
+  Read (readListPrec),
+  ReadPrec,
+  lift,
+  parens,
+  prec,
+  readListDefault,
+  readListPrecDefault,
+  readPrec_to_S,
+  readS_to_Prec,
+  reset,
+ )
+import Text.Read.Lex (lex)
+
+{- | Wrapping ClockTime (which doesn't provide a Read instance!) seems
+ easier than talking care of the serialization of UserStatus
+ ourselves.
+-}
 newtype ClockTime = ClockTime UTCTime
-    deriving Eq
+  deriving (Eq)
 
 newtype TimeDiff = TimeDiff NominalDiffTime
-    deriving (Eq, Ord)
+  deriving (Eq, Ord)
 
 noTimeDiff :: TimeDiff
 noTimeDiff = TimeDiff 0
@@ -41,7 +56,7 @@ noTimeDiff = TimeDiff 0
 epoch :: UTCTime
 epoch = UTCTime (fromGregorian 1970 1 1) 0
 
--- convert to/from the format in old-time, so we can serialize things 
+-- convert to/from the format in old-time, so we can serialize things
 -- in the same way as older versions of lambdabot.
 toOldTime :: ClockTime -> (Integer, Integer)
 toOldTime (ClockTime t) =
@@ -59,67 +74,70 @@ instance Read ClockTime where
 
 instance Show TimeDiff where
   showsPrec p td =
-    showParen (p > 10)
-      $ ( showString "TimeDiff {tdYear = "
-        . showsPrec 11 ye
-        . showString ", tdMonth = "
-        . showsPrec 11 mo
-        . showString ", tdDay = "
-        . showsPrec 11 da
-        . showString ", tdHour = "
-        . showsPrec 11 ho
-        . showString ", tdMin = "
-        . showsPrec 11 mi
-        . showString ", tdSec = "
-        . showsPrec 11 se
-        . showString ", tdPicosec = "
-        . showsPrec 11 ps
-        . showString "}"
-        )
-    where (ye, mo, da, ho, mi, se, ps) = toOldTimeDiff td
+    showParen (p > 10) $
+      ( showString "TimeDiff {tdYear = "
+          . showsPrec 11 ye
+          . showString ", tdMonth = "
+          . showsPrec 11 mo
+          . showString ", tdDay = "
+          . showsPrec 11 da
+          . showString ", tdHour = "
+          . showsPrec 11 ho
+          . showString ", tdMin = "
+          . showsPrec 11 mi
+          . showString ", tdSec = "
+          . showsPrec 11 se
+          . showString ", tdPicosec = "
+          . showsPrec 11 ps
+          . showString "}"
+      )
+   where
+    (ye, mo, da, ho, mi, se, ps) = toOldTimeDiff td
 
 instance Read TimeDiff where
-  readsPrec = readPrec_to_S $ parens
-    (prec
-      11
-      (do
-        let lexP = lift Text.Read.Lex.lex
-            readPrec :: Read a => ReadPrec a
-            readPrec = readS_to_Prec readsPrec
-        Ident "TimeDiff"  <- lexP
-        Punc  "{"         <- lexP
-        Ident "tdYear"    <- lexP
-        Punc  "="         <- lexP
-        ye                <- reset readPrec
-        Punc  ","         <- lexP
-        Ident "tdMonth"   <- lexP
-        Punc  "="         <- lexP
-        mo                <- reset readPrec
-        Punc  ","         <- lexP
-        Ident "tdDay"     <- lexP
-        Punc  "="         <- lexP
-        da                <- reset readPrec
-        Punc  ","         <- lexP
-        Ident "tdHour"    <- lexP
-        Punc  "="         <- lexP
-        ho                <- reset readPrec
-        Punc  ","         <- lexP
-        Ident "tdMin"     <- lexP
-        Punc  "="         <- lexP
-        mi                <- reset readPrec
-        Punc  ","         <- lexP
-        Ident "tdSec"     <- lexP
-        Punc  "="         <- lexP
-        se                <- reset readPrec
-        Punc  ","         <- lexP
-        Ident "tdPicosec" <- lexP
-        Punc  "="         <- lexP
-        ps                <- reset readPrec
-        Punc "}"          <- lexP
-        return (fromOldTimeDiff ye mo da ho mi se ps)
-      )
-    )
-  readList     = readListDefault
+  readsPrec =
+    readPrec_to_S $
+      parens
+        ( prec
+            11
+            ( do
+                let lexP = lift Text.Read.Lex.lex
+                    readPrec :: Read a => ReadPrec a
+                    readPrec = readS_to_Prec readsPrec
+                Ident "TimeDiff" <- lexP
+                Punc "{" <- lexP
+                Ident "tdYear" <- lexP
+                Punc "=" <- lexP
+                ye <- reset readPrec
+                Punc "," <- lexP
+                Ident "tdMonth" <- lexP
+                Punc "=" <- lexP
+                mo <- reset readPrec
+                Punc "," <- lexP
+                Ident "tdDay" <- lexP
+                Punc "=" <- lexP
+                da <- reset readPrec
+                Punc "," <- lexP
+                Ident "tdHour" <- lexP
+                Punc "=" <- lexP
+                ho <- reset readPrec
+                Punc "," <- lexP
+                Ident "tdMin" <- lexP
+                Punc "=" <- lexP
+                mi <- reset readPrec
+                Punc "," <- lexP
+                Ident "tdSec" <- lexP
+                Punc "=" <- lexP
+                se <- reset readPrec
+                Punc "," <- lexP
+                Ident "tdPicosec" <- lexP
+                Punc "=" <- lexP
+                ps <- reset readPrec
+                Punc "}" <- lexP
+                return (fromOldTimeDiff ye mo da ho mi se ps)
+            )
+        )
+  readList = readListDefault
   readListPrec = readListPrecDefault
 
 -- | Retrieve the current clocktime
@@ -130,26 +148,29 @@ getClockTime = ClockTime `fmap` getCurrentTime
 diffClockTimes :: ClockTime -> ClockTime -> TimeDiff
 diffClockTimes (ClockTime ct1) (ClockTime ct2) = TimeDiff (diffUTCTime ct1 ct2)
 
--- | @'addToClockTime' d t@ adds a time difference @d@ and a -- clock
--- time @t@ to yield a new clock time.
+{- | @'addToClockTime' d t@ adds a time difference @d@ and a -- clock
+ time @t@ to yield a new clock time.
+-}
 addToClockTime :: TimeDiff -> ClockTime -> ClockTime
 addToClockTime (TimeDiff td) (ClockTime ct) = ClockTime (addUTCTime td ct)
 
--- | Pretty-print a TimeDiff. Both positive and negative Timediffs produce
---   the same output.
---
--- 14d 17h 8m 53s
---
+{- | Pretty-print a TimeDiff. Both positive and negative Timediffs produce
+   the same output.
+
+ 14d 17h 8m 53s
+-}
 timeDiffPretty :: TimeDiff -> String
-timeDiffPretty td = concat . intersperse " " $ filter
-  (not . null)
-  [ prettyP ye "y"
-  , prettyP mo "m"
-  , prettyP da "d"
-  , prettyP ho "h"
-  , prettyP mi "m"
-  , prettyP se "s"
-  ]
+timeDiffPretty td =
+  unwords $
+    filter
+      (not . null)
+      [ prettyP ye "y"
+      , prettyP mo "m"
+      , prettyP da "d"
+      , prettyP ho "h"
+      , prettyP mi "m"
+      , prettyP se "s"
+      ]
  where
   prettyP 0 _ = []
   prettyP i s = show i ++ s
@@ -167,30 +188,32 @@ toOldTimeDiff (TimeDiff td) =
   , ps
   )
  where
-  (a , ps) = round (td * 1e12) `divMod` 1000000000000
-  (b , se) = a `divMod` 60
-  (c , mi) = b `divMod` 60
-  (d , ho) = c `divMod` 24
-  (e , da) = d `divMod` 28
+  (a, ps) = round (td * 1e12) `divMod` 1000000000000
+  (b, se) = a `divMod` 60
+  (c, mi) = b `divMod` 60
+  (d, ho) = c `divMod` 24
+  (e, da) = d `divMod` 28
   (ye, mo) = e `divMod` 12
 
 fromOldTimeDiff :: Int -> Int -> Int -> Int -> Int -> Int -> Integer -> TimeDiff
-fromOldTimeDiff ye mo da ho mi se ps = TimeDiff
-  (1e-12 * fromIntegral
-    ( ps
-    + 1000000000000
-    * ( toInteger se
-      + 60
-      * ( toInteger mi
-        + 60
-        * ( toInteger ho
-          + 24
-          * (toInteger da + 28 * (toInteger mo + 12 * toInteger ye))
+fromOldTimeDiff ye mo da ho mi se ps =
+  TimeDiff
+    ( 1e-12
+        * fromIntegral
+          ( ps
+              + 1000000000000
+              * ( toInteger se
+                    + 60
+                    * ( toInteger mi
+                          + 60
+                          * ( toInteger ho
+                                + 24
+                                * (toInteger da + 28 * (toInteger mo + 12 * toInteger ye))
+                            )
+                      )
+                )
           )
-        )
-      )
     )
-  )
 
 ------------------------------------------------------------------------
 
@@ -209,7 +232,8 @@ instance Binary TimeDiff where
     put mi
     put se
     put ps
-    where (ye, mo, da, ho, mi, se, ps) = toOldTimeDiff td
+   where
+    (ye, mo, da, ho, mi, se, ps) = toOldTimeDiff td
   get = do
     ye <- get
     mo <- get
@@ -218,5 +242,3 @@ instance Binary TimeDiff where
     mi <- get
     se <- get
     fromOldTimeDiff ye mo da ho mi se <$> get
-
-

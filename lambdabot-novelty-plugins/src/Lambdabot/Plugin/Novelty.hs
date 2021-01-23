@@ -1,4 +1,3 @@
-
 module Lambdabot.Plugin.Novelty (
   bfPlugin,
   dicePlugin,
@@ -8,21 +7,21 @@ module Lambdabot.Plugin.Novelty (
   quotePlugin,
   slapPlugin,
   unlambdaPlugin,
-  -- vixenPlugin,
+  vixenPlugin,
   noveltyPlugins,
-  module Lambdabot.Config.Novelty
+  module Lambdabot.Config.Novelty,
 ) where
 
-import Lambdabot.Config.Novelty
-import Lambdabot.Plugin.Novelty.BF
-import Lambdabot.Plugin.Novelty.Dice
-import Lambdabot.Plugin.Novelty.Elite
-import Lambdabot.Plugin.Novelty.Filter
-import Lambdabot.Plugin.Novelty.Numberwang
-import Lambdabot.Plugin.Novelty.Quote
-import Lambdabot.Plugin.Novelty.Slap
-import Lambdabot.Plugin.Novelty.Unlambda
--- import Lambdabot.Plugin.Novelty.Vixen
+import Lambdabot.Config.Novelty (bfBinary, unlambdaBinary)
+import Lambdabot.Plugin.Novelty.BF (bfPlugin)
+import Lambdabot.Plugin.Novelty.Dice (dicePlugin)
+import Lambdabot.Plugin.Novelty.Elite (elitePlugin)
+import Lambdabot.Plugin.Novelty.Filter (filterPlugin)
+import Lambdabot.Plugin.Novelty.Numberwang (numberwangPlugin)
+import Lambdabot.Plugin.Novelty.Quote (quotePlugin)
+import Lambdabot.Plugin.Novelty.Slap (slapPlugin)
+import Lambdabot.Plugin.Novelty.Unlambda (unlambdaPlugin)
+import Lambdabot.Plugin.Novelty.Vixen (vixenPlugin)
 
 noveltyPlugins :: [String]
-noveltyPlugins = ["bf", "dice", "elite", "filter", "numberwang", "quote", "slap", "unlambda"] -- , "vixen"]
+noveltyPlugins = ["bf", "dice", "elite", "filter", "numberwang", "quote", "slap", "unlambda", "vixen"]

@@ -5,20 +5,60 @@
 
 module Lambdabot.Plugin.Haskell.Pl.Parser (parsePF) where
 
-import Lambdabot.Plugin.Haskell.Pl.Common
-
-import Text.ParserCombinators.Parsec
-import Text.ParserCombinators.Parsec.Expr
-import Text.ParserCombinators.Parsec.Language
+import Data.List (intercalate)
+import Data.Maybe (isNothing)
+import Lambdabot.Plugin.Haskell.Pl.Common (
+  Assoc (..),
+  Decl (Define),
+  Expr (..),
+  Fixity (Inf, Pref),
+  Pattern (..),
+  TopLevel (..),
+  assert,
+  bt,
+  cons,
+  flip',
+  guard,
+  if',
+  lookupOp,
+  makeList,
+  mapTopLevel,
+  msum,
+  nil,
+  opchars,
+  operators,
+  reservedOps,
+ )
+import Text.ParserCombinators.Parsec (
+  CharParser,
+  Parser,
+  alphaNum,
+  between,
+  char,
+  eof,
+  letter,
+  lookAhead,
+  many,
+  many1,
+  noneOf,
+  notFollowedBy,
+  oneOf,
+  option,
+  runParser,
+  sepBy,
+  spaces,
+  string,
+  try,
+  (<?>),
+  (<|>),
+ )
+import Text.ParserCombinators.Parsec.Expr (Operator (Infix), buildExpressionParser)
+import Text.ParserCombinators.Parsec.Language (GenLanguageDef (reservedNames), haskellStyle)
 import qualified Text.ParserCombinators.Parsec.Token as T
-import Control.Applicative ((<*))
-import Data.List
 
 -- is that supposed to be done that way?
 tp :: T.TokenParser st
-tp = T.makeTokenParser $ haskellStyle {
-  reservedNames = ["if","then","else","let","in"]
-}
+tp = T.makeTokenParser $ haskellStyle{reservedNames = ["if", "then", "else", "let", "in"]}
 
 parens :: Parser a -> Parser a
 parens = T.parens tp
@@ -31,9 +71,9 @@ symbol = T.symbol tp
 
 modName :: CharParser st String
 modName = do
-  c <- oneOf ['A'..'Z']
+  c <- oneOf ['A' .. 'Z']
   cs <- many (alphaNum <|> oneOf "_'")
-  return (c:cs)
+  return (c : cs)
 
 qualified :: CharParser st String -> CharParser st String
 qualified p = do
@@ -54,116 +94,152 @@ stringLiteral :: Parser String
 stringLiteral = T.stringLiteral tp
 
 table :: [[Operator Char st Expr]]
-table = addToFirst def $ map (map inf) operators where
-  addToFirst y (x:xs) = ((y:x):xs)
+table = addToFirst def $ map (map inf) operators
+ where
+  addToFirst y (x : xs) = (y : x) : xs
   addToFirst _ _ = assert False bt
 
   def :: Operator Char st Expr
-  def = Infix (try $ do
-      name <- parseOp
-      guard $ not $ isJust $ lookupOp name
-      spaces
-      return $ \e1 e2 -> App (Var Inf name) e1 `App` e2
-    ) AssocLeft
+  def =
+    Infix
+      ( try $ do
+          name <- parseOp
+          guard $ isNothing (lookupOp name)
+          spaces
+          return $ \e1 e2 -> App (Var Inf name) e1 `App` e2
+      )
+      AssocLeft
 
   inf :: (String, (Assoc, Int)) -> Operator Char st Expr
-  inf (name, (assoc, _)) = Infix (try $ do
-      _ <- string name
-      notFollowedBy $ oneOf opchars
-      spaces
-      let name' = if head name == '`'
-                  then tail . reverse . tail . reverse $ name
+  inf (name, (assoc, _)) =
+    Infix
+      ( try $ do
+          _ <- string name
+          notFollowedBy $ oneOf opchars
+          spaces
+          let name' =
+                if head name == '`'
+                  then tail . init $ name
                   else name
-      return $ \e1 e2 -> App (Var Inf name') e1 `App` e2
-    ) assoc
-
+          return $ \e1 e2 -> App (Var Inf name') e1 `App` e2
+      )
+      assoc
 
 parseOp :: CharParser st String
-parseOp = (between (char '`') (char '`') $ qualified (T.identifier tp))
-  <|> try (do
-    op <- qualified $ many1 $ oneOf opchars
-    guard $ not $ op `elem` reservedOps
-    return op)
+parseOp =
+  between (char '`') (char '`') (qualified (T.identifier tp))
+    <|> try
+      ( do
+          op <- qualified $ many1 $ oneOf opchars
+          guard $ notElem op reservedOps
+          return op
+      )
 
 pattern :: Parser Pattern
-pattern = buildExpressionParser ptable ((PVar `fmap`
-                       (    atomic
-                        <|> (symbol "_" >> return "")))
-                        <|> parens pattern)
-    <?> "pattern" where
-  ptable = [[Infix (symbol ":" >> return PCons) AssocRight],
-            [Infix (symbol "," >> return PTuple) AssocNone]]
+pattern =
+  buildExpressionParser
+    ptable
+    ( ( PVar
+          `fmap` ( atomic
+                    <|> (symbol "_" >> return "")
+                 )
+      )
+        <|> parens pattern
+    )
+    <?> "pattern"
+ where
+  ptable =
+    [ [Infix (symbol ":" >> return PCons) AssocRight]
+    , [Infix (symbol "," >> return PTuple) AssocNone]
+    ]
 
 lambda :: Parser Expr
-lambda = do
-    _  <- symbol "\\"
+lambda =
+  do
+    _ <- symbol "\\"
     vs <- many1 pattern
-    _  <- symbol "->"
-    e  <- myParser False
+    _ <- symbol "->"
+    e <- myParser False
     return $ foldr Lambda e vs
-  <?> "lambda abstraction"
+    <?> "lambda abstraction"
 
 var :: Parser Expr
-var = try (makeVar `fmap` atomic <|>
-           parens (try unaryNegation <|> try rightSection
-                   <|> try (makeVar `fmap` many1 (char ','))
-                   <|> tuple) <|> list <|> (Var Pref . show) `fmap` charLiteral
-                   <|> stringVar `fmap` stringLiteral)
-        <?> "variable" where
-  makeVar v | Just _ <- lookupOp v = Var Inf v -- operators always want to
-                                               -- be infixed
-            | otherwise            = Var Pref v
+var =
+  try
+    ( makeVar `fmap` atomic
+        <|> parens
+          ( try unaryNegation <|> try rightSection
+              <|> try (makeVar `fmap` many1 (char ','))
+              <|> tuple
+          )
+        <|> list
+        <|> (Var Pref . show) `fmap` charLiteral
+        <|> stringVar `fmap` stringLiteral
+    )
+    <?> "variable"
+ where
+  makeVar v
+    | Just _ <- lookupOp v = Var Inf v -- operators always want to
+    -- be infixed
+    | otherwise = Var Pref v
   stringVar :: String -> Expr
   stringVar str = makeList $ (Var Pref . show) `map` str
 
 list :: Parser Expr
-list = msum (map (try . brackets) plist) <?> "list" where
-  plist = [
-    foldr (\e1 e2 -> cons `App` e1 `App` e2) nil `fmap`
-      (myParser False `sepBy` symbol ","),
-    do e <- myParser False
-       _ <- symbol ".."
-       return $ Var Pref "enumFrom" `App` e,
-    do e  <- myParser False
-       _  <- symbol ","
-       e' <- myParser False
-       _  <- symbol ".."
-       return $ Var Pref "enumFromThen" `App` e `App` e',
-    do e  <- myParser False
-       _  <- symbol ".."
-       e' <- myParser False
-       return $ Var Pref "enumFromTo" `App` e `App` e',
-    do e   <- myParser False
-       _   <- symbol ","
-       e'  <- myParser False
-       _   <- symbol ".."
-       e'' <- myParser False
-       return $ Var Pref "enumFromThenTo" `App` e `App` e' `App` e''
+list = msum (map (try . brackets) plist) <?> "list"
+ where
+  plist =
+    [ foldr (\e1 e2 -> cons `App` e1 `App` e2) nil
+        `fmap` (myParser False `sepBy` symbol ",")
+    , do
+        e <- myParser False
+        _ <- symbol ".."
+        return $ Var Pref "enumFrom" `App` e
+    , do
+        e <- myParser False
+        _ <- symbol ","
+        e' <- myParser False
+        _ <- symbol ".."
+        return $ Var Pref "enumFromThen" `App` e `App` e'
+    , do
+        e <- myParser False
+        _ <- symbol ".."
+        e' <- myParser False
+        return $ Var Pref "enumFromTo" `App` e `App` e'
+    , do
+        e <- myParser False
+        _ <- symbol ","
+        e' <- myParser False
+        _ <- symbol ".."
+        e'' <- myParser False
+        return $ Var Pref "enumFromThenTo" `App` e `App` e' `App` e''
     ]
 
 tuple :: Parser Expr
-tuple = do
+tuple =
+  do
     elts <- myParser False `sepBy` symbol ","
     guard $ length elts /= 1
     let name = Var Pref $ replicate (length elts - 1) ','
     return $ foldl App name elts
-  <?> "tuple"
+    <?> "tuple"
 
 unaryNegation :: Parser Expr
-unaryNegation = do
+unaryNegation =
+  do
     _ <- symbol "-"
     e <- myParser False
     return $ Var Pref "negate" `App` e
-  <?> "unary negation"
+    <?> "unary negation"
 
 rightSection :: Parser Expr
-rightSection = do
+rightSection =
+  do
     v <- Var Inf `fmap` parseOp
     spaces
     let rs e = flip' `App` v `App` e
     option v (rs `fmap` myParser False)
-  <?> "right section"
-
+    <?> "right section"
 
 myParser :: Bool -> Parser Expr
 myParser b = lambda <|> expr b
@@ -197,46 +273,51 @@ ifexpr = do
   return $ if' `App` p `App` e1 `App` e2
 
 term :: Bool -> Parser Expr
-term b = application <|> lambda <|> letbind <|> ifexpr <|>
-    (guard b >> (notFollowedBy (noneOf ")") >> return (Var Pref "")))
-  <?> "simple term"
+term b =
+  application <|> lambda <|> letbind <|> ifexpr
+    <|> (guard b >> (notFollowedBy (noneOf ")") >> return (Var Pref "")))
+    <?> "simple term"
 
 application :: Parser Expr
-application = do
-    e:es <- many1 $ var <|> parens (myParser True)
+application =
+  do
+    e : es <- many1 $ var <|> parens (myParser True)
     return $ foldl App e es
-  <?> "application"
+    <?> "application"
 
 endsIn :: Parser a -> Parser b -> Parser [a]
 endsIn p end = do
   xs <- many p
-  _  <- end
-  return $ xs
+  _ <- end
+  return xs
 
 input :: Parser TopLevel
 input = do
   spaces
-  tl <- try (do
-      f    <- atomic
-      args <- pattern `endsIn` symbol "="
-      e    <- myParser False
-      return $ TLD True $ Define f (foldr Lambda e args)
-    ) <|> TLE `fmap` myParser False
+  tl <-
+    try
+      ( do
+          f <- atomic
+          args <- pattern `endsIn` symbol "="
+          e <- myParser False
+          return $ TLD True $ Define f (foldr Lambda e args)
+      )
+      <|> TLE
+      `fmap` myParser False
   eof
   return tl
 
 parsePF :: String -> Either String TopLevel
 parsePF inp = case runParser input () "" inp of
-    Left err -> Left $ show err
-    Right e  -> Right $ mapTopLevel postprocess e
-
+  Left err -> Left $ show err
+  Right e -> Right $ mapTopLevel postprocess e
 
 postprocess :: Expr -> Expr
-postprocess (Var f v) = (Var f v)
+postprocess (Var f v) = Var f v
 postprocess (App e1 (Var Pref "")) = postprocess e1
 postprocess (App e1 e2) = App (postprocess e1) (postprocess e2)
 postprocess (Lambda v e) = Lambda v (postprocess e)
-postprocess (Let ds e) = Let (mapDecl postprocess `map` ds) $ postprocess e where
+postprocess (Let ds e) = Let (mapDecl postprocess `map` ds) $ postprocess e
+ where
   mapDecl :: (Expr -> Expr) -> Decl -> Decl
   mapDecl f (Define foo e') = Define foo $ f e'
-

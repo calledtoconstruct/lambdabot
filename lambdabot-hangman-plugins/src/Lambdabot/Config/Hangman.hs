@@ -1,15 +1,24 @@
-
--- {-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE GADTs #-}
--- {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TemplateHaskell #-}
 {-# OPTIONS_GHC -fno-warn-overlapping-patterns #-}
 
 module Lambdabot.Config.Hangman (
-  -- suggestion,
-  -- suggestions
+  hangmanPhrases,
 ) where
 
-import Lambdabot.Config
+import Lambdabot.Config (config)
 
--- config "bfBinary"       [t| String |] [| "bf"       |]
--- config "unlambdaBinary" [t| String |] [| "unlambda" |]
+config
+  "hangmanPhrases"
+  [t|[String]|]
+  [|
+    [ "MONKATOS"
+    , "TWITCH SINGS"
+    , "BEST STREAMER"
+    , "IN REAL LIFE"
+    , "SCIENCE AND TECHNOLOGY"
+    , "SOFTWARE ENGINEERING"
+    , "HASKELL RULEZ"
+    ]
+    |]

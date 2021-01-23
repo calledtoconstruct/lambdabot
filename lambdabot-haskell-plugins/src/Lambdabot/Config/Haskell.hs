@@ -2,52 +2,49 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# OPTIONS_GHC -fno-warn-overlapping-patterns #-}
-module Lambdabot.Config.Haskell
-    ( evalPrefixes
-    , languageExts
-    , trustedPackages
-    
-    , djinnBinary
-    , ghcBinary
-    , ghciBinary
-    , hoogleBinary
-    , muevalBinary
 
-    , maxPasteLength
-    ) where
+module Lambdabot.Config.Haskell (
+  evalPrefixes,
+  languageExts,
+  trustedPackages,
+  djinnBinary,
+  ghcBinary,
+  ghciBinary,
+  hoogleBinary,
+  muevalBinary,
+  maxPasteLength,
+) where
 
-import Lambdabot.Config
+import Lambdabot.Config (config, configWithMerge)
 
-config "evalPrefixes"       [t| [String]                |] [| [">"]         |]
+config "evalPrefixes" [t|[String]|] [|[">"]|]
 
 trustedPkgs :: [String]
 trustedPkgs =
-    [ "array"
-    , "base"
-    , "bytestring"
-    , "containers"
-    , "lambdabot-trusted-plugins"
-    , "random"
-    ]
+  [ "array"
+  , "base"
+  , "bytestring"
+  , "containers"
+  , "lambdabot-trusted-plugins"
+  , "random"
+  ]
 
-configWithMerge [| (++) |] "trustedPackages"    [t| [String] |] [| trustedPkgs   |]
+configWithMerge [|(++)|] "trustedPackages" [t|[String]|] [|trustedPkgs|]
 
 -- extensions to enable for the interpreted expression
 -- (and probably also L.hs if it doesn't already have these set)
 defaultExts :: [String]
 defaultExts =
-    [ "ImplicitPrelude" -- workaround for bug in hint package
-    , "ExtendedDefaultRules"
-    ]
+  [ "ImplicitPrelude" -- workaround for bug in hint package
+  , "ExtendedDefaultRules"
+  ]
 
-configWithMerge [| (++) |] "languageExts"   [t| [String] |] [| defaultExts |]
+configWithMerge [|(++)|] "languageExts" [t|[String]|] [|defaultExts|]
 
+config "djinnBinary" [t|String|] [|"djinn"|]
+config "ghcBinary" [t|String|] [|"ghc"|]
+config "ghciBinary" [t|String|] [|"ghci"|]
+config "hoogleBinary" [t|String|] [|"hoogle"|]
+config "muevalBinary" [t|String|] [|"mueval"|]
 
-config "djinnBinary"        [t| String                  |] [| "djinn"       |]
-config "ghcBinary"          [t| String                  |] [| "ghc"         |]
-config "ghciBinary"         [t| String                  |] [| "ghci"        |]
-config "hoogleBinary"       [t| String                  |] [| "hoogle"      |]
-config "muevalBinary"       [t| String                  |] [| "mueval"      |]
-
-config "maxPasteLength"     [t| Int                     |] [| 4096 :: Int   |]
-
+config "maxPasteLength" [t|Int|] [|4096 :: Int|]

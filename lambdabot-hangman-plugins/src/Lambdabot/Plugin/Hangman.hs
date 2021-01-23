@@ -1,18 +1,7 @@
-
 module Lambdabot.Plugin.Hangman (
+  module Lambdabot.Config.Hangman,
   hangmanPlugin,
-  module Lambdabot.Config.Hangman
 ) where
 
-import Lambdabot.Config.Hangman
-import Lambdabot.Plugin.Hangman.Hangman
-
-hangmanPlugins :: [String]
-hangmanPlugins = [
-  "hangman-start",
-  "hangman-status",
-  "hangman-guess",
-  "hangman-final-answer",
-  "hangman-add",
-  "hangman-remove"
-  ]
+import Lambdabot.Config.Hangman (hangmanPhrases)
+import Lambdabot.Plugin.Hangman.Hangman (hangmanPlugin)

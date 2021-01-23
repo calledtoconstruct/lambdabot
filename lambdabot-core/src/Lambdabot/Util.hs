@@ -1,43 +1,42 @@
 -- Copyright (c) 2006 Don Stewart - http://www.cse.unsw.edu.au/~dons
 -- GPL version 2 or later (see http://www.gnu.org/copyleft/gpl.html)
-
 {-# LANGUAGE FlexibleContexts #-}
 
 -- | String and other utilities
-module Lambdabot.Util
-  ( strip
-  , dropFromEnd
-  , splitFirstWord
-  , limitStr
-  , listToStr
-  , showClean
-  , expandTab
-  , arePrefixesWithSpaceOf
-  , arePrefixesOf
-  , io
-  , forkUnmasked
-  , random
-  , randomFailureMsg
-  , randomSuccessMsg
-  , readPackedEntry
-  )
-where
+module Lambdabot.Util (
+  strip,
+  dropFromEnd,
+  splitFirstWord,
+  limitStr,
+  listToStr,
+  showClean,
+  expandTab,
+  arePrefixesWithSpaceOf,
+  arePrefixesOf,
+  io,
+  forkUnmasked,
+  random,
+  randomFailureMsg,
+  randomSuccessMsg,
+  readPackedEntry,
+) where
 
-import           Control.Monad.Trans
-import           Data.Char
-import           Data.List
-import           Data.Random
-import           Control.Concurrent.Lifted
-import           Control.Monad.Trans.Control
-import           Lambdabot.Config
-import           Lambdabot.Config.Core
-import           Lambdabot.Util.Serial
+import Control.Concurrent.Lifted (ThreadId, forkWithUnmask)
+import Control.Monad.Trans (MonadIO (..))
+import Control.Monad.Trans.Control (MonadBaseControl)
+import Data.Char (isSpace)
+import Data.List (isPrefixOf)
+import Data.Random (randomElement, sample)
+import Lambdabot.Config (MonadConfig (..))
+import Lambdabot.Config.Core (enableInsults)
+import Lambdabot.Util.Serial (readPackedEntry)
 
 ------------------------------------------------------------------------
 
 splitFirstWord :: String -> (String, String)
 splitFirstWord xs = (w, dropWhile isSpace xs')
-  where (w, xs') = break isSpace xs
+ where
+  (w, xs') = break isSpace xs
 
 limitStr :: Int -> String -> String
 limitStr n s =
@@ -46,10 +45,10 @@ limitStr n s =
 listToStr :: String -> [String] -> String
 listToStr _ [] = []
 listToStr conj (item : items) =
-  let listToStr' []       = []
-      listToStr' [y     ] = concat [" ", conj, " ", y]
+  let listToStr' [] = []
+      listToStr' [y] = concat [" ", conj, " ", y]
       listToStr' (y : ys) = concat [", ", y, listToStr' ys]
-  in  item ++ listToStr' items
+   in item ++ listToStr' items
 
 ------------------------------------------------------------------------
 
@@ -59,11 +58,12 @@ random = io . sample . randomElement
 
 ------------------------------------------------------------------------
 
--- | 'strip' takes as input a predicate and a list and strips
---   elements matching the predicate from the prefix as well as
---   the suffix of the list. Example:
---
--- > strip isSpace "   abc  " ===> "abc"
+{- | 'strip' takes as input a predicate and a list and strips
+   elements matching the predicate from the prefix as well as
+   the suffix of the list. Example:
+
+ > strip isSpace "   abc  " ===> "abc"
+-}
 strip :: (a -> Bool) -> [a] -> [a]
 strip p = let f = reverse . dropWhile p in f . f
 
@@ -73,9 +73,10 @@ dropFromEnd p = reverse . dropWhile p . reverse
 
 ------------------------------------------------------------------------
 
--- | show a list without heavyweight formatting
--- NB: assumes show instance outputs a quoted 'String'.
--- under that assumption, strips the outer quotes.
+{- | show a list without heavyweight formatting
+ NB: assumes show instance outputs a quoted 'String'.
+ under that assumption, strips the outer quotes.
+-}
 showClean :: (Show a) => [a] -> String
 showClean = unwords . map (init . tail . show)
 
@@ -83,9 +84,9 @@ showClean = unwords . map (init . tail . show)
 expandTab :: Int -> String -> String
 expandTab w = go 0
  where
-  go _ []          = []
+  go _ [] = []
   go i ('\t' : xs) = replicate (w - i `mod` w) ' ' ++ go 0 xs
-  go i (x    : xs) = x : go (i + 1) xs
+  go i (x : xs) = x : go (i + 1) xs
 
 ------------------------------------------------------------------------
 
@@ -135,14 +136,10 @@ insult =
   , "I've seen penguins that can type better than that."
   , "Have you considered trying to match wits with a rutabaga?"
   , "You speak an infinite deal of nothing."
-  ,
-
-    -- other
+  , -- other
     "Are you typing with your feet?"
   , "Abort, Retry, Panic?"
-  ,
-
-    -- More haskellish insults
+  , -- More haskellish insults
     "You untyped fool!"
   , "My brain just exploded"
   ]

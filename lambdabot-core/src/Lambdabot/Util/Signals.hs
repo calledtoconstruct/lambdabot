@@ -2,22 +2,23 @@
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE FlexibleContexts #-}
 
--- | The signal story.
--- Posix signals are external events that invoke signal handlers in
--- Haskell. The signal handlers in turn throw dynamic exceptions.  Our
--- instance of MonadError for LB maps the dynamic exceptions to
--- SignalCaughts, which can then be caught by a normal catchError
-
 -- Here's where we do that.
+
+{- | The signal story.
+ Posix signals are external events that invoke signal handlers in
+ Haskell. The signal handlers in turn throw dynamic exceptions.  Our
+ instance of MonadError for LB maps the dynamic exceptions to
+ SignalCaughts, which can then be caught by a normal catchError
+-}
 module Lambdabot.Util.Signals (
-    Signal,
-    SignalException(..),
-    ircSignalMessage,
-    withIrcSignalCatch
+  Signal,
+  SignalException (..),
+  ircSignalMessage,
+  withIrcSignalCatch,
 ) where
 
-import Data.Typeable
 import Control.Exception (Exception)
+import Data.Typeable (Typeable)
 
 #ifdef mingw32_HOST_OS
 
@@ -37,12 +38,25 @@ withIrcSignalCatch m = m
 
 import Control.Concurrent.Lifted (myThreadId, newEmptyMVar, putMVar, MVar, ThreadId)
 import Control.Exception.Lifted (bracket, throwTo)
-import Control.Monad
-import Control.Monad.Base
-import Control.Monad.Trans.Control
+import Control.Monad ( ap )
+import Control.Monad.Base ( MonadBase(liftBase) )
+import Control.Monad.Trans.Control ( MonadBaseControl )
 
-import System.IO.Unsafe
+import System.IO.Unsafe ( unsafePerformIO )
 import System.Posix.Signals
+    ( Signal,
+      busError,
+      installHandler,
+      internalAbort,
+      keyboardSignal,
+      keyboardTermination,
+      lostConnection,
+      segmentationViolation,
+      sigALRM,
+      sigPIPE,
+      softwareTermination,
+      Handler(Ignore, CatchOnce, Default) )
+import Data.Maybe (fromMaybe)
 
 newtype SignalException = SignalException Signal deriving (Show, Typeable)
 instance Exception SignalException
@@ -67,7 +81,7 @@ withHandlerList sl h m = foldr (withHandler `ap` h) m sl
 -- installHandler just raises an exception if you try
 --
 ircSignalsToCatch :: [(Signal, String)]
-ircSignalsToCatch = 
+ircSignalsToCatch =
     [ (busError,              "SIGBUS"  )
     , (segmentationViolation, "SIGSEGV" )
     , (keyboardSignal,        "SIGINT"  )
@@ -81,9 +95,8 @@ ircSignalsToCatch =
 -- User friendly names for the signals that we can catch
 --
 ircSignalMessage :: Signal -> String
-ircSignalMessage sig = case lookup sig ircSignalsToCatch of
-    Just sigName -> sigName
-    Nothing      -> "killed by unknown signal"
+ircSignalMessage sig = fromMaybe
+  "killed by unknown signal" (lookup sig ircSignalsToCatch)
 
 --
 -- The actual signal handler. It is this function we register for each
@@ -103,7 +116,7 @@ ircSignalHandler threadid s
 -- | Release all signal handlers
 --
 releaseSignals :: IO ()
-releaseSignals = sequence_ 
+releaseSignals = sequence_
     [ installHandler sig Default Nothing
     | (sig, _) <- ircSignalsToCatch
     ]

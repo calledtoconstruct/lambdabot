@@ -1,64 +1,67 @@
 --
--- | The IRC module processes the IRC protocol and provides a nice API for sending
---   and receiving IRC messages with an IRC server.
---
-module Lambdabot.IRC
-  ( IrcMessage(..)
-  , joinChannel
-  , partChannel
-  , getTopic
-  , setTopic
-  , codepage
-  , privmsg
-  , quit
-  , timeReply
-  , pass
-  , user
-  , setNick
-  )
-where
 
-import           Lambdabot.Message
-import           Lambdabot.Nick
+{- | The IRC module processes the IRC protocol and provides a nice API for sending
+   and receiving IRC messages with an IRC server.
+-}
+module Lambdabot.IRC (
+  IrcMessage (..),
+  joinChannel,
+  partChannel,
+  getTopic,
+  setTopic,
+  codepage,
+  privmsg,
+  quit,
+  timeReply,
+  pass,
+  user,
+  setNick,
+) where
 
-import           Data.Char                      ( chr
-                                                , isSpace
-                                                )
-import           Data.List.Split
+import Lambdabot.Message (Message (..))
+import Lambdabot.Nick (Nick (..))
 
-import           Control.Monad                  ( liftM2 )
+import Data.Char (chr, isSpace)
+import Data.List.Split (splitOn)
 
--- | An IRC message is a server, a prefix, a command and a list of parameters.
---
--- Note that the strings here are treated as lists of bytes!
-data IrcMessage = IrcMessage {
-  ircMsgServer   :: !String,
-  ircMsgLBName   :: !String,
-  ircMsgPrefix   :: !String,
-  ircMsgCommand  :: !String,
-  ircMsgParams   :: ![String]
-} deriving (Show)
+import Control.Monad (liftM2)
+
+{- | An IRC message is a server, a prefix, a command and a list of parameters.
+
+ Note that the strings here are treated as lists of bytes!
+-}
+data IrcMessage = IrcMessage
+  { ircMsgServer :: !String
+  , ircMsgLBName :: !String
+  , ircMsgPrefix :: !String
+  , ircMsgCommand :: !String
+  , ircMsgParams :: ![String]
+  }
+  deriving (Show)
 
 instance Message IrcMessage where
-  nick     = liftM2 Nick ircMsgServer (takeWhile (/= '!') . ircMsgPrefix)
-  server   = ircMsgServer
+  nick = liftM2 Nick ircMsgServer (takeWhile (/= '!') . ircMsgPrefix)
+  server = ircMsgServer
   fullName = dropWhile (/= '!') . ircMsgPrefix
   channels msg =
     let cstr = head $ ircMsgParams msg
-    in  map
-          ((Nick (server msg)) . (\(x : xs) -> if x == ':' then xs else x : xs))
+     in map
+          (Nick (server msg) . (\(x : xs) -> if x == ':' then xs else x : xs))
           (splitOn "," cstr)
-           -- solves what seems to be an inconsistency in the parser
+
+  -- solves what seems to be an inconsistency in the parser
   lambdabotName msg = Nick (server msg) (ircMsgLBName msg)
 
 -- | 'mkMessage' creates a new message from server, command, and list of parameters.
 mkMessage :: String -> String -> [String] -> IrcMessage
-mkMessage svr cmd params = IrcMessage { ircMsgServer  = svr
-                                      , ircMsgPrefix  = ""
-                                      , ircMsgCommand = cmd
-                                      , ircMsgParams  = params
-                                      , ircMsgLBName  = "urk!<outputmessage>"
-                                      }
+mkMessage svr cmd params =
+  IrcMessage
+    { ircMsgServer = svr
+    , ircMsgPrefix = ""
+    , ircMsgCommand = cmd
+    , ircMsgParams = params
+    , ircMsgLBName = "urk!<outputmessage>"
+    }
 
 joinChannel :: Nick -> IrcMessage
 joinChannel loc = mkMessage (nTag loc) "JOIN" [nName loc]
@@ -73,42 +76,49 @@ setTopic :: Nick -> String -> IrcMessage
 setTopic chan topic = mkMessage (nTag chan) "TOPIC" [nName chan, ':' : topic]
 
 privmsg :: Nick -> String -> IrcMessage
-privmsg who msg = if action
-  then mk
-    [nName who, ':' : chr 0x1 : ("ACTION " ++ clean_msg ++ ((chr 0x1) : []))]
-  else mk [nName who, ':' : clean_msg]
+privmsg who msg =
+  if action
+    then
+      mk
+        [nName who, ':' : chr 0x1 : ("ACTION " ++ clean_msg ++ [chr 0x1])]
+    else mk [nName who, ':' : clean_msg]
  where
-  mk          = mkMessage (nTag who) "PRIVMSG"
+  mk = mkMessage (nTag who) "PRIVMSG"
   cleaned_msg = case filter (/= '\CR') msg of
     str@('@' : _) -> ' ' : str
-    str           -> str
+    str -> str
   (clean_msg, action) = case cleaned_msg of
     ('/' : 'm' : 'e' : r) -> (dropWhile isSpace r, True)
-    str                   -> (str, False)
+    str -> (str, False)
 
--- | 'codepage' creates a server CODEPAGE message. The input string given is the
---   codepage name for current session.
+{- | 'codepage' creates a server CODEPAGE message. The input string given is the
+   codepage name for current session.
+-}
 codepage :: String -> String -> IrcMessage
 codepage svr theCodePage = mkMessage svr "CODEPAGE" [' ' : theCodePage]
 
--- | 'quit' creates a server QUIT message. The input string given is the
---   quit message, given to other parties when leaving the network.
+{- | 'quit' creates a server QUIT message. The input string given is the
+   quit message, given to other parties when leaving the network.
+-}
 quit :: String -> String -> IrcMessage
 quit svr msg = mkMessage svr "QUIT" [':' : msg]
 
--- | Construct a privmsg from the CTCP TIME notice, to feed up to
--- the @localtime-reply plugin, which then passes the output to
--- the appropriate client.
+{- | Construct a privmsg from the CTCP TIME notice, to feed up to
+ the @localtime-reply plugin, which then passes the output to
+ the appropriate client.
+-}
 timeReply :: IrcMessage -> IrcMessage
-timeReply msg = msg
-  { ircMsgCommand = "PRIVMSG"
-  , ircMsgParams  = [ head (ircMsgParams msg)
-                    , ":@localtime-reply "
-                    ++ (nName $ nick msg)
-                    ++ ":"
-                    ++ (init $ drop 7 (last (ircMsgParams msg)))
-                    ]
-  }
+timeReply msg =
+  msg
+    { ircMsgCommand = "PRIVMSG"
+    , ircMsgParams =
+        [ head (ircMsgParams msg)
+        , ":@localtime-reply "
+            ++ nName (nick msg)
+            ++ ":"
+            ++ init (drop 7 $last $ ircMsgParams msg)
+        ]
+    }
 
 user :: String -> String -> String -> String -> IrcMessage
 user svr nick_ server_ ircname =

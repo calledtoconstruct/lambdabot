@@ -1,113 +1,119 @@
-
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 
-module Lambdabot.Plugin.Hangman.Hangman (
-  hangmanPlugin
-) where
-
-import Lambdabot.Monad (send, received)
+module Lambdabot.Plugin.Hangman.Hangman (hangmanPlugin) where
 
 import Lambdabot.Module (ircPersists)
+import Lambdabot.Monad (received, send)
 
-import Lambdabot.IRC (
-  IrcMessage (IrcMessage),
-  ircMsgCommand,
-  ircMsgLBName,
-  ircMsgParams,
-  ircMsgParams,
-  ircMsgPrefix,
-  ircMsgServer)
+import Lambdabot.IRC (IrcMessage (IrcMessage), ircMsgCommand, ircMsgLBName, ircMsgParams, ircMsgPrefix, ircMsgServer)
 
-import qualified Lambdabot.Message as Msg (
-  server,
-  nick,
-  channels,
-  lambdabotName)
+import qualified Lambdabot.Message as Msg (channels, lambdabotName, nick, server)
 
 import Lambdabot.Plugin (
-  ModuleT
-  , Cmd
-  , moduleDefState
-  , moduleSerialize
-  , moduleInit
-  , moduleCmds
-  , command
-  , help
-  , process
-  , aliases
-  , say
-  , privileged
-  , Module
-  , LB
-  , lb
-  , newModule
-  , stdSerial
-  , withMS
-  , readMS
-  , withMsg)
-  
-import Data.Map (member, insert, delete)
-import Control.Monad (void, when, unless)
+  Cmd,
+  LB,
+  Module,
+  ModuleT,
+  MonadConfig (getConfig),
+  aliases,
+  command,
+  help,
+  lb,
+  moduleCmds,
+  moduleDefState,
+  moduleInit,
+  moduleSerialize,
+  newModule,
+  privileged,
+  process,
+  readMS,
+  say,
+  stdSerial,
+  withMS,
+  withMsg,
+ )
+
+import Control.Concurrent.Lifted (fork, threadDelay)
+import Control.Monad (unless, void, when)
 import Control.Monad.State (gets, modify)
 import Control.Monad.Trans (lift)
-import Control.Concurrent.Lifted (fork, threadDelay)
+import Data.Map (delete, insert, member)
 import System.Timeout.Lifted (timeout)
 
-import Lambdabot.Plugin.Hangman.Configuration
-import Lambdabot.Plugin.Hangman.Game
-import Lambdabot.Plugin.Hangman.Logic
-import Lambdabot.Plugin.Hangman.Manage
+import Lambdabot.Config.Hangman (hangmanPhrases)
+import Lambdabot.Plugin.Hangman.Configuration (newConfiguration)
+import Lambdabot.Plugin.Hangman.Game (
+  Game (..),
+  GameState (botName, channel, initiator, server),
+  Messages,
+  Result (game, messages),
+  incorrectArgumentsForAddPhrase,
+  incorrectArgumentsForAppend,
+  incorrectArgumentsForProgress,
+  incorrectArgumentsForRemovePhrase,
+  incorrectArgumentsForShow,
+  incorrectArgumentsForStart,
+  initializeGame,
+  messageIncorrectArgumentsForConfigure,
+  showGame,
+ )
+import Lambdabot.Plugin.Hangman.Logic (addGuess, progressGame)
+import Lambdabot.Plugin.Hangman.Manage (addPhrase, configure, removePhrase)
 
 type HangmanState = Game
 type Hangman = ModuleT HangmanState LB
 
 hangmanPlugin :: Module HangmanState
-hangmanPlugin = newModule {
-  moduleSerialize = Just stdSerial,
-  moduleDefState  = return (NoGame newConfiguration),
-  moduleInit      = startup,
-  moduleCmds      = return [
-    (command "hangman-start") {
-      help = say "hangman-start - Starts the game.",
-      process = commandStartGame
-    },
-    (command "hangman-status") {
-      aliases = ["hangman-state"],
-      help = say "hangman-status - Prints the current state of the game.",
-      process = commandStatus
-    },
-    (command "hangman-final-answer") {
-      help = say "hangman-final-answer - Tallies the guesses and applies the most popular one.",
-      process = commandFinalAnswer
-    },
-    (command "hangman-timer-tick") {
-      help = say "hangman-timer-tick - For internal use only.",
-      process = commandFinalAnswer
-    },
-    (command "hangman-guess") {
-      aliases = ["hg"],
-      help = say "hangman-guess [letter] - Provide your guess.",
-      process = commandAppendGuess
-    },
-    (command "hangman-add") {
-      help = say "hangman-add [phrase] - Add a new phrase to the database.",
-      process = commandAddPhrase,
-      privileged = True
-    },
-    (command "hangman-remove") {
-      help = say "hangman-remove [phrase] - Remove a phrase from the database.",
-      process = commandRemovePhrase,
-      privileged = True
-    },
-    (command "hangman-configure") {
-      help = say "hangman-configure [option] [value] - Update the configuration option to the value provided.",
-      process = commandConfigure,
-      privileged = True
+hangmanPlugin =
+  newModule
+    { moduleSerialize = Just stdSerial
+    , moduleDefState = do
+        phrases <- getConfig hangmanPhrases
+        return $ NoGame $ newConfiguration phrases
+    , moduleInit = startup
+    , moduleCmds =
+        return
+          [ (command "hangman-start")
+              { help = say "hangman-start - Starts the game."
+              , process = commandStartGame
+              }
+          , (command "hangman-status")
+              { aliases = ["hangman-state"]
+              , help = say "hangman-status - Prints the current state of the game."
+              , process = commandStatus
+              }
+          , (command "hangman-final-answer")
+              { help = say "hangman-final-answer - Tallies the guesses and applies the most popular one."
+              , process = commandFinalAnswer
+              }
+          , (command "hangman-timer-tick")
+              { help = say "hangman-timer-tick - For internal use only."
+              , process = commandFinalAnswer
+              }
+          , (command "hangman-guess")
+              { aliases = ["hg"]
+              , help = say "hangman-guess [letter] - Provide your guess."
+              , process = commandAppendGuess
+              }
+          , (command "hangman-add")
+              { help = say "hangman-add [phrase] - Add a new phrase to the database."
+              , process = commandAddPhrase
+              , privileged = True
+              }
+          , (command "hangman-remove")
+              { help = say "hangman-remove [phrase] - Remove a phrase from the database."
+              , process = commandRemovePhrase
+              , privileged = True
+              }
+          , (command "hangman-configure")
+              { help = say "hangman-configure [option] [value] - Update the configuration option to the value provided."
+              , process = commandConfigure
+              , privileged = True
+              }
+          ]
     }
-  ]
-}
 
 startup :: Hangman ()
 startup = withMS $ \current _ -> maybeStartTimer current
@@ -115,9 +121,13 @@ startup = withMS $ \current _ -> maybeStartTimer current
 maybeStartTimer :: Game -> Hangman ()
 maybeStartTimer (InGame _ _) = do
   _ <- fork timerLoop
-  lift $ modify (\state -> state {
-    ircPersists = insert "hangman-timer-loop" True $ ircPersists state
-  })
+  lift $
+    modify
+      ( \state ->
+          state
+            { ircPersists = insert "hangman-timer-loop" True $ ircPersists state
+            }
+      )
   return ()
 maybeStartTimer _ = return ()
 
@@ -137,13 +147,15 @@ delayThen sendOrReceive delay text = do
   run <- lift $ gets (member "hangman-timer-loop" . ircPersists)
   currentGame <- readMS
   when run $ case gameInProgress' currentGame of
-    Just gameState -> sendOrReceive $ IrcMessage {
-      ircMsgServer  = server gameState,
-      ircMsgLBName  = initiator gameState,
-      ircMsgPrefix  = botName gameState ++ "!n=" ++ botName gameState ++ "@" ++ botName gameState ++ ".tmi.twitch.tv",
-      ircMsgCommand = "PRIVMSG",
-      ircMsgParams  = [channel gameState, ":" ++ text]
-    }
+    Just gameState ->
+      sendOrReceive $
+        IrcMessage
+          { ircMsgServer = server gameState
+          , ircMsgLBName = initiator gameState
+          , ircMsgPrefix = botName gameState ++ "!n=" ++ botName gameState ++ "@" ++ botName gameState ++ ".tmi.twitch.tv"
+          , ircMsgCommand = "PRIVMSG"
+          , ircMsgParams = [channel gameState, ":" ++ text]
+          }
     Nothing -> return ()
 
 receiveCommand :: IrcMessage -> Hangman ()
@@ -157,7 +169,7 @@ gameInProgress' (NoGame _) = Nothing
 gameInProgress' (InGame gameState _) = Just gameState
 
 commandStartGame :: String -> Cmd Hangman ()
-commandStartGame [] = 
+commandStartGame [] =
   withMS $ \previous writer -> do
     wasRunning <- lift $ lift $ gets (member "hangman-timer-loop" . ircPersists)
     withMsg $ \msg -> do
@@ -170,9 +182,14 @@ commandStartGame _ = say incorrectArgumentsForStart
 startTimer :: Cmd Hangman ()
 startTimer = do
   _ <- lift $ fork timerLoop
-  lift $ lift $ modify (\state -> state {
-    ircPersists = insert "hangman-timer-loop" True $ ircPersists state
-  })
+  lift $
+    lift $
+      modify
+        ( \state ->
+            state
+              { ircPersists = insert "hangman-timer-loop" True $ ircPersists state
+              }
+        )
 
 commandStatus :: String -> Cmd Hangman ()
 commandStatus [] = withMS $ \current _ -> sayMessages $ showGame current
@@ -188,14 +205,20 @@ commandFinalAnswer [] =
 commandFinalAnswer _ = say incorrectArgumentsForProgress
 
 maybeStopTimer :: Game -> Cmd Hangman ()
-maybeStopTimer (NoGame _) = lift $ lift $ modify (\state -> state {
-  ircPersists = delete "hangman-timer-loop" $ ircPersists state
-})
+maybeStopTimer (NoGame _) =
+  lift $
+    lift $
+      modify
+        ( \state ->
+            state
+              { ircPersists = delete "hangman-timer-loop" $ ircPersists state
+              }
+        )
 maybeStopTimer (InGame _ _) = return ()
 
 commandAppendGuess :: String -> Cmd Hangman ()
 commandAppendGuess [] = say incorrectArgumentsForAppend
-commandAppendGuess (letter: _) =
+commandAppendGuess (letter : _) =
   withMS $ \previous writer -> do
     let result = addGuess previous letter
     writer $ game result
@@ -219,7 +242,7 @@ commandRemovePhrase phrase =
 
 commandConfigure :: String -> Cmd Hangman ()
 commandConfigure [] = say messageIncorrectArgumentsForConfigure
-commandConfigure input = 
+commandConfigure input =
   withMS $ \previous writer -> do
     let result = configure previous input
     writer $ game result

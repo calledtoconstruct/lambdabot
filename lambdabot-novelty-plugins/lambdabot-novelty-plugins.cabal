@@ -57,22 +57,22 @@ library
                         Lambdabot.Plugin.Novelty.Quote
                         Lambdabot.Plugin.Novelty.Slap
                         Lambdabot.Plugin.Novelty.Unlambda
-                        -- Lambdabot.Plugin.Novelty.Vixen
+                        Lambdabot.Plugin.Novelty.Vixen
 
   other-modules:        Lambdabot.Util.Process
 
-  build-depends:        base                    >= 4.4 && < 5,
-                        binary                  >= 0.5,
-                        bytestring              >= 0.9,
-                        containers              >= 0.4,
-                        dice                    >= 0.1,
-                        directory               >= 1.1,
-                        lambdabot-core          >= 5.1 && < 5.2,
-                        misfortune              >= 0.1,
-                        process                 >= 1.1,
-                        random-fu               >= 0.2.6.2,
-                        regex-tdfa              >= 1.1 && < 2,
+  build-depends:        base,
+                        binary,
+                        bytestring,
+                        containers,
+                        dice,
+                        directory,
+                        lambdabot-core == 5.1.0.4,
+                        misfortune,
+                        process,
+                        random-fu,
+                        regex-tdfa,
 
                         -- runtime dependencies
-                        -- brainfuck               >= 0.1,
-                        unlambda                >= 0.1
+                        -- brainfuck,
+                        unlambda

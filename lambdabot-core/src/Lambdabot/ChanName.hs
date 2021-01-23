@@ -1,13 +1,8 @@
-module Lambdabot.ChanName (
-  ChanName,
-  mkCN,
-  getCN
-) where
+module Lambdabot.ChanName (ChanName, mkCN, getCN) where
 
-import Lambdabot.Nick
-
-import Control.Applicative
-import Data.Char
+import Control.Applicative (Applicative (liftA2))
+import Data.Char (toLower)
+import Lambdabot.Nick (Nick (..))
 
 newtype ChanName = ChanName Nick -- always lowercase
   deriving (Eq, Ord)

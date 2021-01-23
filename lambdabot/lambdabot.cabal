@@ -52,20 +52,32 @@ executable lambdabot
   main-is:              Main.hs
   other-modules:        Modules
                         Paths_lambdabot
+                        -- Lambdabot.Core
+                        -- Lambdabot.Haskell.Plugins
+                        -- Lambdabot.Irc.Plugins
+                        -- Lambdabot.Twitch.Plugins
+                        -- Lambdabot.Hangman.Plugins
+                        -- Lambdabot.Points.Plugins
+                        -- Lambdabot.Suggest.Plugins
+                        -- Lambdabot.Misc.Plugins
+                        -- Lambdabot.Novelty.Plugins
+                        -- Lambdabot.Reference.Plugins
+                        -- Lambdabot.Social.Plugins
+                        -- Lambdabot.Trusted.Plugins
 
   ghc-options:          -Wall -threaded
-  build-depends:        base                          >= 3 && < 5,
-                        lambdabot-core                >= 5.1.0.1 && < 5.2,
-                        -- lambdabot-haskell-plugins     >= 5.1.0.1 && < 5.2,
-                        lambdabot-irc-plugins         >= 5.1.0.1 && < 5.2,
-                        lambdabot-twitch-plugins      >= 5.1.0.1 && < 5.2,
-                        lambdabot-hangman-plugins     >= 5.1.0.1 && < 5.2,
-                        lambdabot-points-plugins      >= 5.1.0.1 && < 5.2,
-                        lambdabot-suggest-plugins     >= 5.1.0.1 && < 5.2,
-                        lambdabot-misc-plugins        >= 5.1.0.1 && < 5.2,
-                        lambdabot-novelty-plugins     >= 5.1.0.1 && < 5.2,
-                        lambdabot-reference-plugins   >= 5.1.0.1 && < 5.2,
-                        lambdabot-social-plugins      >= 5.1.0.1 && < 5.2,
-                        lambdabot-trusted-plugins     >= 5.1.0.1 && < 5.2,
-                        mtl                           >= 2,
-                        dependent-sum                 >= 0.4
+  build-depends:        base,
+                        mtl,
+                        dependent-sum,
+                        lambdabot-core == 5.1.0.4,
+                        lambdabot-haskell-plugins == 5.1.0.4,
+                        lambdabot-irc-plugins == 5.1.0.4,
+                        lambdabot-twitch-plugins == 5.1.0.4,
+                        lambdabot-hangman-plugins == 5.1.0.4,
+                        lambdabot-points-plugins == 5.1.0.4,
+                        lambdabot-suggest-plugins == 5.1.0.4,
+                        lambdabot-misc-plugins == 5.1.0.4,
+                        lambdabot-novelty-plugins == 5.1.0.4,
+                        lambdabot-reference-plugins == 5.1.0.4,
+                        lambdabot-social-plugins == 5.1.0.4,
+                        lambdabot-trusted-plugins == 5.1.0.4

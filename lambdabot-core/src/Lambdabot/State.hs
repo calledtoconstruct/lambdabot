@@ -1,6 +1,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilies #-}
+
 -- | Support for the LB (LambdaBot) monad
 module Lambdabot.State
   ( -- ** Functions to access the module's state
@@ -25,25 +26,24 @@ module Lambdabot.State
   )
 where
 
-import           Lambdabot.File
-import           Lambdabot.Logging
-import           Lambdabot.Monad
-import           Lambdabot.Module
-import           Lambdabot.Nick
-import           Lambdabot.Command
-import           Lambdabot.Util
-import           Lambdabot.Util.Serial
+import Lambdabot.File ( findLBFileForReading, findLBFileForWriting )
+import Lambdabot.Logging ( debugM, errorM )
+import Lambdabot.Monad ( MonadLB(..) )
+import Lambdabot.Module ( LB, Module(moduleSerialize), ModuleInfo(moduleState, theModule, moduleName), ModuleT )
+import Lambdabot.Nick ( Nick )
+import Lambdabot.Command ( Cmd )
+import Lambdabot.Util ( io )
+import Lambdabot.Util.Serial ( Serial(serialize, deserialize) )
 
-import           Control.Concurrent.Lifted
-import           Control.Exception.Lifted      as E
-import           Control.Monad.Reader
-import           Control.Monad.Trans.Control
+import Control.Concurrent.Lifted ( MVar, newMVar, readMVar, takeMVar, tryPutMVar )
+import Control.Exception.Lifted as E ( SomeException(..), bracket, catch, evaluate )
+import Control.Monad.Reader ( MonadIO(liftIO), MonadTrans(lift), asks )
+import Control.Monad.Trans.Control ( MonadBaseControl, MonadTransControl(restoreT, liftWith) )
 import qualified Data.ByteString.Char8         as P
-import           Data.IORef.Lifted
+import Data.IORef.Lifted ( newIORef, readIORef, writeIORef )
 
 -- | Thread-safe modification of an MVar.
-withMWriter
-  :: MonadBaseControl IO m => MVar a -> (a -> (a -> m ()) -> m b) -> m b
+withMWriter :: MonadBaseControl IO m => MVar a -> (a -> (a -> m ()) -> m b) -> m b
 withMWriter mvar f = bracket
   (do
     x   <- takeMVar mvar

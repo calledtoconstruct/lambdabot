@@ -1,28 +1,26 @@
-module Lambdabot.Logging
-  ( L.Priority(..)
-  , MonadLogging(..)
-  , debugM
-  , infoM
-  , noticeM
-  , warningM
-  , errorM
-  , criticalM
-  , alertM
-  , emergencyM
-  )
-where
+module Lambdabot.Logging (
+  L.Priority (..),
+  MonadLogging (..),
+  debugM,
+  infoM,
+  noticeM,
+  warningM,
+  errorM,
+  criticalM,
+  alertM,
+  emergencyM,
+) where
 
-
-import           Data.List
-import qualified System.Log.Logger             as L
+import Data.List (intercalate)
+import qualified System.Log.Logger as L
 
 class Monad m => MonadLogging m where
-    getCurrentLogger :: m [String]
-    logM :: String -> L.Priority -> String -> m ()
+  getCurrentLogger :: m [String]
+  logM :: String -> L.Priority -> String -> m ()
 
 instance MonadLogging IO where
   getCurrentLogger = return []
-  logM             = L.logM
+  logM = L.logM
 
 getCurrentLoggerName :: MonadLogging m => m String
 getCurrentLoggerName =

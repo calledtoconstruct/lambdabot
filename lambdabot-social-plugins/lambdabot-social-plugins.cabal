@@ -50,11 +50,11 @@ library
                         Lambdabot.Plugin.Social.Tell
                         Lambdabot.Util.NickEq
 
-  build-depends:        base                    >= 4.4 && < 5,
-                        binary                  >= 0.5,
-                        bytestring              >= 0.9,
-                        containers              >= 0.4,
-                        lambdabot-core          >= 5.1 && < 5.2,
-                        mtl                     >= 2,
-                        split                   >= 0.2,
-                        time                    >= 1.4
+  build-depends:        base,
+                        binary,
+                        bytestring,
+                        containers,
+                        lambdabot-core == 5.1.0.4,
+                        mtl,
+                        split,
+                        time

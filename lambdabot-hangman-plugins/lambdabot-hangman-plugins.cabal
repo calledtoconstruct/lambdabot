@@ -37,24 +37,22 @@ library
                         Lambdabot.Plugin.Hangman.Configuration
                         Lambdabot.Plugin.Hangman.Manage
 
-  -- other-modules:
-
-  build-depends:        base                    >= 4.4 && < 5,
-                        lifted-base             >= 0.2,
-                        monad-control           >= 1.0,
-                        universe-base           >= 1.1.1,
-                        binary                  >= 0.5,
-                        bytestring              >= 0.9,
-                        containers              >= 0.4,
-                        dice                    >= 0.1,
-                        directory               >= 1.1,
-                        lambdabot-core          >= 5.1 && < 5.2,
-                        mtl                     >= 2,
-                        misfortune              >= 0.1,
-                        process                 >= 1.1,
-                        random-fu               >= 0.2.6.2,
-                        regex-tdfa              >= 1.1,
-                        split                   >= 0.2,
-                        extra                   >= 1.0,
-                        random                  >= 1.1,
-                        split                   >= 0.2.3.3
+  build-depends:        base,
+                        lifted-base,
+                        monad-control,
+                        universe-base,
+                        binary,
+                        bytestring,
+                        containers,
+                        dice,
+                        directory,
+                        lambdabot-core == 5.1.0.4,
+                        mtl,
+                        misfortune,
+                        process,
+                        random-fu,
+                        regex-tdfa,
+                        split,
+                        extra,
+                        random,
+                        split

@@ -1,20 +1,19 @@
-module Lambdabot.Plugin.Misc
-    ( dummyPlugin
-    , errorPlugin
-    , freshPlugin
-    , helloPlugin
-    , statsPlugin
-    , todoPlugin
-    
-    , miscPlugins
-    ) where
+module Lambdabot.Plugin.Misc (
+  dummyPlugin,
+  errorPlugin,
+  freshPlugin,
+  helloPlugin,
+  statsPlugin,
+  todoPlugin,
+  miscPlugins,
+) where
 
-import Lambdabot.Plugin.Misc.Dummy
-import Lambdabot.Plugin.Misc.Error
-import Lambdabot.Plugin.Misc.Fresh
-import Lambdabot.Plugin.Misc.Hello
-import Lambdabot.Plugin.Misc.Stats
-import Lambdabot.Plugin.Misc.Todo
+import Lambdabot.Plugin.Misc.Dummy (dummyPlugin)
+import Lambdabot.Plugin.Misc.Error (errorPlugin)
+import Lambdabot.Plugin.Misc.Fresh (freshPlugin)
+import Lambdabot.Plugin.Misc.Hello (helloPlugin)
+import Lambdabot.Plugin.Misc.Stats (statsPlugin)
+import Lambdabot.Plugin.Misc.Todo (todoPlugin)
 
 miscPlugins :: [String]
 miscPlugins = ["dummy", "error", "fresh", "hello", "stats", "todo"]

@@ -44,15 +44,15 @@ library
                         Lambdabot.Plugin.IRC.Log
                         Lambdabot.Plugin.IRC.Topic
 
-  build-depends:        base                    >= 4.4 && < 5,
-                        bytestring              >= 0.9,
-                        containers              >= 0.4,
-                        directory               >= 1.1,
-                        filepath                >= 1.3,
-                        lambdabot-core          >= 5.1 && < 5.2,
-                        lifted-base             >= 0.2,
-                        mtl                     >= 2,
-                        network                 >= 2.3.0.13 && < 3,
-                        time                    >= 1.4,
-                        SafeSemaphore           >= 0.9,
-                        split                   >= 0.2
+  build-depends:        base,
+                        bytestring,
+                        containers,
+                        directory,
+                        filepath,
+                        lambdabot-core == 5.1.0.4,
+                        lifted-base,
+                        mtl,
+                        network == 2.6.3.6,
+                        time,
+                        SafeSemaphore,
+                        split

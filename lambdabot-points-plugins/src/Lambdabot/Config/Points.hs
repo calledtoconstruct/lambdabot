@@ -1,15 +1,14 @@
-
--- {-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE GADTs #-}
--- {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TemplateHaskell #-}
 {-# OPTIONS_GHC -fno-warn-overlapping-patterns #-}
 
 module Lambdabot.Config.Points (
-  -- suggestion,
-  -- suggestions
+  pointsPerMessage,
+  pointsPerMinute,
 ) where
 
--- import Lambdabot.Config
+import Lambdabot.Config (config)
 
--- config "bfBinary"       [t| String |] [| "bf"       |]
--- config "unlambdaBinary" [t| String |] [| "unlambda" |]
+config "pointsPerMinute" [t|Int|] [|1|]
+config "pointsPerMessage" [t|Int|] [|10|]

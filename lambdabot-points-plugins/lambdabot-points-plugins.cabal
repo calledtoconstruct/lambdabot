@@ -35,17 +35,17 @@ library
 
   -- other-modules:
 
-  build-depends:        base                    >= 4.4 && < 5,
-                        binary                  >= 0.5,
-                        bytestring              >= 0.9,
-                        containers              >= 0.4,
-                        dice                    >= 0.1,
-                        directory               >= 1.1,
-                        lambdabot-core          >= 5.1 && < 5.2,
-                        mtl                     >= 2,
-                        misfortune              >= 0.1,
-                        process                 >= 1.1,
-                        random-fu               >= 0.2.6.2,
-                        regex-tdfa              >= 1.1,
-                        zlib                    >= 0.5,
-                        split                   >= 0.2
+  build-depends:        base,
+                        binary,
+                        bytestring,
+                        containers,
+                        dice,
+                        directory,
+                        lambdabot-core == 5.1.0.4,
+                        mtl,
+                        misfortune,
+                        process,
+                        random-fu,
+                        regex-tdfa,
+                        zlib,
+                        split

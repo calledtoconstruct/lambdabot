@@ -1,30 +1,48 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE GADTs #-}
-{-# LANGUAGE ViewPatterns #-}
 {-# LANGUAGE TemplateHaskell #-}
--- | Extensible configuration system for lambdabot
---
--- TODO: there's notthing lambdabot-specific about this, it could be a useful standalone library.
-module Lambdabot.Config (
-    Config,
-    getConfigDefault,
-    mergeConfig,
-    MonadConfig(..),
-    config,
-    configWithMerge
-    ) where
+{-# LANGUAGE ViewPatterns #-}
 
-import Control.Monad.Identity
-import Control.Monad.Reader
-import Control.Monad.Writer
-import Control.Monad.State
-import Data.Char
-import Data.GADT.Compare
-import Data.GADT.Compare.TH
-import Data.Maybe
-import Data.Typeable
+{- | Extensible configuration system for lambdabot
+
+ TODO: there's notthing lambdabot-specific about this, it could be a useful standalone library.
+-}
+module Lambdabot.Config (
+  Config,
+  getConfigDefault,
+  mergeConfig,
+  MonadConfig (..),
+  config,
+  configWithMerge,
+) where
+
+import Control.Monad.Identity (Identity (Identity, runIdentity))
+import Control.Monad.Reader (MonadTrans (lift), ReaderT)
+import Control.Monad.State (StateT)
+import Control.Monad.Writer (WriterT)
+import Data.Char (toUpper)
+import Data.GADT.Compare (
+  GCompare (..),
+  GEq (..),
+  GOrdering (GGT, GLT),
+ )
+import Data.GADT.Compare.TH (
+  DeriveGCompare (deriveGCompare),
+  DeriveGEQ (deriveGEq),
+ )
 import Data.Generics (everywhere, mkT)
-import Language.Haskell.TH
+import Data.Maybe (fromMaybe)
+import Data.Typeable (Typeable, gcast1, typeOf1)
+import Language.Haskell.TH (
+  Dec,
+  ExpQ,
+  Name,
+  Q,
+  TypeQ,
+  mkName,
+  nameBase,
+  newName,
+ )
 
 data Config t where Config :: (Typeable k, GCompare k) => !(k t) -> t -> (t -> t -> t) -> Config t
 
@@ -44,8 +62,8 @@ instance GCompare Config where
       return (gcompare k1 k2')
     GT -> GGT
    where
-    t1      = typeOf1 k1
-    t2      = typeOf1 k2
+    t1 = typeOf1 k1
+    t2 = typeOf1 k2
 
     typeErr = error "TypeReps claim to be equal but cast failed"
 
@@ -56,53 +74,59 @@ mergeConfig :: Config t -> t -> t -> t
 mergeConfig (Config _ _ f) = f
 
 class Monad m => MonadConfig m where
-    getConfig :: Config a -> m a
+  getConfig :: Config a -> m a
 
-instance  MonadConfig m            => MonadConfig (ReaderT r m) where getConfig = lift . getConfig
+instance MonadConfig m => MonadConfig (ReaderT r m) where getConfig = lift . getConfig
 instance (MonadConfig m, Monoid w) => MonadConfig (WriterT w m) where getConfig = lift . getConfig
-instance  MonadConfig m            => MonadConfig (StateT  s m) where getConfig = lift . getConfig
+instance MonadConfig m => MonadConfig (StateT s m) where getConfig = lift . getConfig
 
--- |Define a new configuration key with the specified name, type and
--- default value
---
--- You should probably also provide an explicit export list for any
--- module that defines config keys, because the definition introduces
--- a few extra types that will clutter up the export list otherwise.
+{- |Define a new configuration key with the specified name, type and
+ default value
+
+ You should probably also provide an explicit export list for any
+ module that defines config keys, because the definition introduces
+ a few extra types that will clutter up the export list otherwise.
+-}
 config :: String -> TypeQ -> ExpQ -> Q [Dec]
-config = configWithMerge [| flip const |]
+config = configWithMerge [|\_ x -> x|]
 
--- |Like 'config', but also allowing you to specify a \"merge rule\"
--- that will be used to combine multiple bindings of the same key.
---
--- For example, in "Lambdabot.Config.Core", 'onStartupCmds' is
--- defined as a list of commands to execute on startup.  Its default
--- value is ["offlinerc"], so if a user invokes the default lambdabot
--- executable without arguments, they will get a REPL.  Each instance
--- of "-e" on the command-line adds a binding of the form:
---
--- > onStartupCmds :=> [command]
---
--- So if they give one "-e", it replaces the default (note that it
--- is _not_ merged with the default - the default is discarded), and
--- if they give more than one they are merged using the specified
--- operation (in this case, `(++)`).
+{- |Like 'config', but also allowing you to specify a \"merge rule\"
+ that will be used to combine multiple bindings of the same key.
+
+ For example, in "Lambdabot.Config.Core", 'onStartupCmds' is
+ defined as a list of commands to execute on startup.  Its default
+ value is ["offlinerc"], so if a user invokes the default lambdabot
+ executable without arguments, they will get a REPL.  Each instance
+ of "-e" on the command-line adds a binding of the form:
+
+ > onStartupCmds :=> [command]
+
+ So if they give one "-e", it replaces the default (note that it
+ is _not_ merged with the default - the default is discarded), and
+ if they give more than one they are merged using the specified
+ operation (in this case, `(++)`).
+-}
 configWithMerge :: ExpQ -> String -> TypeQ -> ExpQ -> Q [Dec]
 configWithMerge mergeQ nameStr tyQ defValQ = do
-    let keyName = mkName nameStr
-    tyName      <- newName (map toUpper nameStr)
-    conName     <- newName (map toUpper nameStr)
-    let patchNames :: Name -> Name
-        patchNames (nameBase -> "keyName") = keyName
-        patchNames (nameBase -> "TyName")  = tyName
-        patchNames (nameBase -> "ConName") = conName
-        patchNames d = d
-    decs <- everywhere (mkT patchNames) <$>
-        [d| data TyName a = a ~ $(tyQ) => ConName deriving Typeable
+  let keyName = mkName nameStr
+  tyName <- newName (map toUpper nameStr)
+  conName <- newName (map toUpper nameStr)
+  let patchNames :: Name -> Name
+      patchNames (nameBase -> "keyName") = keyName
+      patchNames (nameBase -> "TyName") = tyName
+      patchNames (nameBase -> "ConName") = conName
+      patchNames d = d
+  decs <-
+    everywhere (mkT patchNames)
+      <$> [d|
+        data TyName a = a ~ $(tyQ) => ConName deriving (Typeable)
 
-            keyName :: Config $(tyQ)
-            keyName = Config ConName $(defValQ) $(mergeQ) |]
-    concat <$> sequence
-        [ return decs
-        , deriveGEq (head decs)
-        , deriveGCompare (head decs)
-        ]
+        keyName :: Config $(tyQ)
+        keyName = Config ConName $(defValQ) $(mergeQ)
+        |]
+  concat
+    <$> sequence
+      [ return decs
+      , deriveGEq (head decs)
+      , deriveGCompare (head decs)
+      ]

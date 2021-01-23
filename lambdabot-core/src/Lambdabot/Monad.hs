@@ -5,78 +5,119 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
-module Lambdabot.Monad
-  ( IRCRState
-  , initRoState
-  , reportInitDone
-  , waitForInit
-  , waitForQuit
-  , Callback
-  , OutputFilter
-  , Server
-  , IRCRWState(..)
-  , initRwState
-  , LB
-  , runLB
-  , MonadLB(..)
-  , registerModule
-  , registerCommands
-  , registerCallback
-  , registerOutputFilter
-  , unregisterModule
-  , registerServer
-  , unregisterServer
-  , send
-  , received
-  , applyOutputFilters
-  , inModuleNamed
-  , inModuleWithID
-  , withCommand
-  , listModules
-  , withAllModules
-  )
-where
 
-import           Lambdabot.ChanName
-import           Lambdabot.Command
-import           Lambdabot.Config
-import           Lambdabot.Config.Core
-import           Lambdabot.IRC
-import           Lambdabot.Logging
-import           Lambdabot.Module
-import qualified Lambdabot.Message             as Msg
-import           Lambdabot.Nick
-import           Lambdabot.Util
+module Lambdabot.Monad (
+  IRCRState,
+  initRoState,
+  reportInitDone,
+  waitForInit,
+  waitForQuit,
+  Callback,
+  OutputFilter,
+  Server,
+  IRCRWState (..),
+  initRwState,
+  runLB,
+  MonadLB (..),
+  registerModule,
+  registerCommands,
+  registerCallback,
+  registerOutputFilter,
+  unregisterModule,
+  registerServer,
+  unregisterServer,
+  send,
+  received,
+  applyOutputFilters,
+  inModuleNamed,
+  inModuleWithID,
+  withCommand,
+  listModules,
+  withAllModules,
+) where
 
-import           Control.Concurrent.Lifted
-import           Control.Exception.Lifted      as E
-                                                ( catch )
-import           Control.Monad.Base
-import           Control.Monad.Identity
-import           Control.Monad.Reader
-import           Control.Monad.State
-import           Control.Monad.Trans.Control
-import qualified Data.Dependent.Map            as D
-import           Data.Dependent.Sum
-import           Data.IORef
-import           Data.Some
-import qualified Data.Map                      as M
-import qualified Data.Set                      as S
-import           System.Console.Haskeline.MonadException
-                                                ( MonadException )
+import Lambdabot.ChanName ()
+import Lambdabot.Command (Cmd, Command, cmdNames)
+import Lambdabot.Config (
+  Config,
+  MonadConfig (..),
+  getConfigDefault,
+  mergeConfig,
+ )
+import Lambdabot.Config.Core (
+  lbRootLoggerPath,
+  uncaughtExceptionHandler,
+ )
+import Lambdabot.IRC (IrcMessage (ircMsgCommand))
+import Lambdabot.Logging (MonadLogging (..), warningM)
+import qualified Lambdabot.Message as Msg
+import Lambdabot.Module (
+  Callback,
+  CallbackRef (CallbackRef),
+  CommandRef (CommandRef),
+  IRCRState (..),
+  IRCRWState (..),
+  LB (..),
+  Module,
+  ModuleID,
+  ModuleInfo (ModuleInfo, moduleID),
+  ModuleT,
+  OutputFilter,
+  OutputFilterRef (..),
+  Server,
+  ServerRef (ServerRef),
+  newModuleID,
+  runModuleT,
+ )
+import Lambdabot.Nick (Nick)
+import Lambdabot.Util (io)
+
+import Control.Concurrent.Lifted (
+  newEmptyMVar,
+  newMVar,
+  putMVar,
+  readMVar,
+ )
+import Control.Exception.Lifted as E (
+  catch,
+ )
+import Control.Monad.Base (MonadBase (..))
+import Control.Monad.Identity (Identity (..), forM_, when, (<=<))
+import Control.Monad.Reader (
+  MonadIO,
+  MonadTrans (lift),
+  ReaderT (runReaderT),
+  asks,
+ )
+import Control.Monad.State (
+  MonadState (..),
+  gets,
+  modify,
+ )
+import Control.Monad.Trans.Control (MonadBaseControl (..))
+import qualified Data.Dependent.Map as D
+import Data.Dependent.Sum (DSum ((:=>)))
+import Data.IORef (IORef, atomicModifyIORef)
+import qualified Data.Map as M
+import qualified Data.Set as S
+
+-- import           Data.These
+import Data.Some (Some (Some))
 
 -- | Default ro state
-initRoState :: [D.DSum Config Identity] -> IO IRCRState
+initRoState :: [DSum Config Identity] -> IO IRCRState
 initRoState configuration = do
-  quitMVar     <- newEmptyMVar
+  quitMVar <- newEmptyMVar
   initDoneMVar <- newEmptyMVar
 
   let mergeConfig' k (Identity x) (Identity y) = Identity (mergeConfig k y x)
 
-  return IRCRState { ircQuitMVar = quitMVar
-                   , ircInitDoneMVar = initDoneMVar
-                   , ircConfig = D.fromListWithKey mergeConfig' configuration
-                   }
+  return
+    IRCRState
+      { ircQuitMVar = quitMVar
+      , ircInitDoneMVar = initDoneMVar
+      , ircConfig = D.fromListWithKey mergeConfig' configuration
+      }
 
 reportInitDone :: LB ()
 reportInitDone = do
@@ -94,17 +135,19 @@ waitForQuit = readMVar =<< askLB ircQuitMVar
 
 -- | Default rw state
 initRwState :: IRCRWState
-initRwState = IRCRWState { ircPrivilegedUsers = S.empty
-                         , ircIgnoredUsers    = S.empty
-                         , ircChannels        = M.empty
-                         , ircPersists        = M.empty
-                         , ircModulesByName   = M.empty
-                         , ircModulesByID     = D.empty
-                         , ircServerMap       = M.empty
-                         , ircCallbacks       = M.empty
-                         , ircOutputFilters   = []
-                         , ircCommands        = M.empty
-                         }
+initRwState =
+  IRCRWState
+    { ircPrivilegedUsers = S.empty
+    , ircIgnoredUsers = S.empty
+    , ircChannels = M.empty
+    , ircPersists = M.empty
+    , ircModulesByName = M.empty
+    , ircModulesByID = D.empty
+    , ircServerMap = M.empty
+    , ircCallbacks = M.empty
+    , ircOutputFilters = []
+    , ircCommands = M.empty
+    }
 
 runLB :: LB a -> (IRCRState, IORef IRCRWState) -> IO a
 runLB = runReaderT . unLB
@@ -113,18 +156,18 @@ instance MonadBase IO LB where
   liftBase = LB . liftBase
 
 instance MonadBaseControl IO LB where
-  type StM LB a = StM (ReaderT (IRCRState,IORef IRCRWState) IO) a
+  type StM LB a = StM (ReaderT (IRCRState, IORef IRCRWState) IO) a
   liftBaseWith action = LB (liftBaseWith (\run -> action (run . unLB)))
   restoreM = LB . restoreM
 
-class (MonadIO m, MonadBaseControl IO m, MonadConfig m, MonadLogging m, Applicative m) => MonadLB m where
-    lb :: LB a -> m a
+class (MonadIO m, MonadBaseControl IO m, MonadConfig m, MonadLogging m, Applicative m, MonadFail m) => MonadLB m where
+  lb :: LB a -> m a
 
 instance MonadLB LB where
   lb = id
 instance MonadLB m => MonadLB (ModuleT st m) where
   lb = lift . lb
-instance MonadLB m => MonadLB (Cmd m)        where
+instance MonadLB m => MonadLB (Cmd m) where
   lb = lift . lb
 
 instance MonadState IRCRWState LB where
@@ -133,8 +176,10 @@ instance MonadState IRCRWState LB where
     lift . atomicModifyIORef ref $ \s -> let (s', x) = f s in seq s' (x, s')
 
 instance MonadConfig LB where
-  getConfig k = fmap (maybe (getConfigDefault k) runIdentity . D.lookup k)
-                     (lb (askLB ircConfig))
+  getConfig k =
+    fmap
+      (maybe (getConfigDefault k) runIdentity . D.lookup k)
+      (lb (askLB ircConfig))
 
 instance MonadLogging LB where
   getCurrentLogger = getConfig lbRootLoggerPath
@@ -145,13 +190,14 @@ instance MonadLogging LB where
 
 registerModule :: String -> Module st -> st -> LB (ModuleInfo st)
 registerModule mName m mState = do
-  mTag  <- io newModuleID
+  mTag <- io newModuleID
   mInfo <- ModuleInfo mName mTag m <$> newMVar mState
 
-  modify $ \s -> s
-    { ircModulesByName = M.insert mName (This mInfo) (ircModulesByName s)
-    , ircModulesByID   = D.insert mTag mInfo (ircModulesByID s)
-    }
+  modify $ \s ->
+    s
+      { ircModulesByName = M.insert mName (Some mInfo) (ircModulesByName s)
+      , ircModulesByID = D.insert mTag mInfo (ircModulesByID s)
+      }
 
   return mInfo
 
@@ -160,52 +206,58 @@ registerCommands cmds = do
   mTag <- asks moduleID
   let taggedCmds =
         [ (cName, mTag :=> CommandRef cmd)
-        | cmd   <- cmds
+        | cmd <- cmds
         , cName <- cmdNames cmd
         ]
 
-  lift $ modify $ \s ->
-    s { ircCommands = M.union (M.fromList taggedCmds) (ircCommands s) }
+  lift $
+    modify $ \s ->
+      s{ircCommands = M.union (M.fromList taggedCmds) (ircCommands s)}
 
 registerCallback :: String -> Callback st -> ModuleT st LB ()
 registerCallback str f = do
   mTag <- asks moduleID
 
-  lift . modify $ \s -> s
-    { ircCallbacks = M.insertWith D.union
-                                  str
-                                  (D.singleton mTag (CallbackRef f))
-                                  (ircCallbacks s)
-    }
+  lift . modify $ \s ->
+    s
+      { ircCallbacks =
+          M.insertWith
+            D.union
+            str
+            (D.singleton mTag (CallbackRef f))
+            (ircCallbacks s)
+      }
 
 registerOutputFilter :: OutputFilter st -> ModuleT st LB ()
 registerOutputFilter f = do
   mTag <- asks moduleID
   lift . modify $ \s ->
-    s { ircOutputFilters = (mTag :=> OutputFilterRef f) : ircOutputFilters s }
+    s{ircOutputFilters = (mTag :=> OutputFilterRef f) : ircOutputFilters s}
 
 unregisterModule :: String -> LB ()
 unregisterModule mName = maybe (return ()) warningM <=< state $ \s ->
   case M.lookup mName (ircModulesByName s) of
     Nothing ->
-      ( Just
-        $  "Tried to unregister module that wasn't registered: "
-        ++ show mName
+      ( Just $
+          "Tried to unregister module that wasn't registered: "
+            ++ show mName
       , s
       )
-    Just (This modInfo) ->
+    Just (Some modInfo) ->
       let mTag = moduleID modInfo
 
           notThisTag :: DSum ModuleID f -> Bool
-          notThisTag (tag :=> _) = This tag /= This mTag
-          s' = s { ircModulesByName = M.delete mName (ircModulesByName s)
-                 , ircModulesByID   = D.delete mTag (ircModulesByID s)
-                 , ircCommands      = M.filter notThisTag (ircCommands s)
-                 , ircCallbacks     = M.map (D.delete mTag) (ircCallbacks s)
-                 , ircServerMap     = M.filter notThisTag (ircServerMap s)
-                 , ircOutputFilters = filter notThisTag (ircOutputFilters s)
-                 }
-      in  (Nothing, s')
+          notThisTag (tag :=> _) = Some tag /= Some mTag
+          s' =
+            s
+              { ircModulesByName = M.delete mName (ircModulesByName s)
+              , ircModulesByID = D.delete mTag (ircModulesByID s)
+              , ircCommands = M.filter notThisTag (ircCommands s)
+              , ircCallbacks = M.map (D.delete mTag) (ircCallbacks s)
+              , ircServerMap = M.filter notThisTag (ircServerMap s)
+              , ircOutputFilters = filter notThisTag (ircOutputFilters s)
+              }
+       in (Nothing, s')
 
 -- The virtual chat system.
 --
@@ -223,12 +275,15 @@ registerServer sName sendf = do
     case M.lookup sName (ircServerMap s) of
       Just _ -> (Just $ "attempted to create two servers named " ++ sName, s)
       Nothing ->
-        let s' = s
-              { ircServerMap = M.insert sName
-                                        (mTag :=> ServerRef sendf)
-                                        (ircServerMap s)
-              }
-        in  (Nothing, s')
+        let s' =
+              s
+                { ircServerMap =
+                    M.insert
+                      sName
+                      (mTag :=> ServerRef sendf)
+                      (ircServerMap s)
+                }
+         in (Nothing, s')
 
 -- TODO: fix race condition
 unregisterServer :: String -> ModuleT mod LB ()
@@ -239,7 +294,7 @@ unregisterServer tag = lb $ do
   case M.lookup tag svrs of
     Just _ -> do
       let svrs' = M.delete tag svrs
-      put (s { ircServerMap = svrs' })
+      put (s{ircServerMap = svrs'})
       warningM "server unregistered"
       when (M.null svrs') $ do
         warningM "all servers unregistered"
@@ -269,8 +324,8 @@ received msg = do
       withUEHandler (inModuleWithID tag (return ()) (cb msg))
     _ -> return ()
 
-applyOutputFilter
-  :: Nick -> DSum ModuleID OutputFilterRef -> [String] -> LB [String]
+applyOutputFilter ::
+  Nick -> DSum ModuleID OutputFilterRef -> [String] -> LB [String]
 applyOutputFilter who (mTag :=> OutputFilterRef f) msg =
   inModuleWithID mTag (return msg) (f who msg)
 
@@ -283,36 +338,36 @@ applyOutputFilters who msg = do
 -- Module handling
 
 -- | Interpret an expression in the context of a module.
-inModuleNamed :: String -> LB a -> (forall st . ModuleT st LB a) -> LB a
+inModuleNamed :: String -> LB a -> (forall st. ModuleT st LB a) -> LB a
 inModuleNamed name nothing just = do
   mbMod <- gets (M.lookup name . ircModulesByName)
   case mbMod of
-    Nothing             -> nothing
-    Just (This modInfo) -> runModuleT just modInfo
+    Nothing -> nothing
+    Just (Some modInfo) -> runModuleT just modInfo
 
 inModuleWithID :: ModuleID st -> LB a -> (ModuleT st LB a) -> LB a
 inModuleWithID tag nothing just = do
   mbMod <- gets (D.lookup tag . ircModulesByID)
   case mbMod of
-    Nothing      -> nothing
+    Nothing -> nothing
     Just modInfo -> runModuleT just modInfo
 
-withCommand
-  :: String
-  -> LB a
-  -> (forall st . Command (ModuleT st LB) -> ModuleT st LB a)
-  -> LB a
+withCommand ::
+  String ->
+  LB a ->
+  (forall st. Command (ModuleT st LB) -> ModuleT st LB a) ->
+  LB a
 withCommand cmdname def f = do
   mbCmd <- gets (M.lookup cmdname . ircCommands)
   case mbCmd of
     Just (tag :=> CommandRef cmd) -> inModuleWithID tag def (f cmd)
-    _                             -> def
+    _ -> def
 
 listModules :: LB [String]
 listModules = gets (M.keys . ircModulesByName)
 
 -- | Interpret a function in the context of all modules
-withAllModules :: (forall st . ModuleT st LB a) -> LB ()
+withAllModules :: (forall st. ModuleT st LB a) -> LB ()
 withAllModules f = do
   mods <- gets $ M.elems . ircModulesByName
-  forM_ mods $ \(This modInfo) -> runModuleT f modInfo
+  forM_ mods $ \(Some modInfo) -> runModuleT f modInfo
