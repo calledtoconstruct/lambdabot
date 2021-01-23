@@ -1,0 +1,28 @@
+cradle:
+  cabal:
+    - path: ./lambdabot
+      component: lambdabot
+    - path: ./lambdabot-core
+      component: lambdabot-core
+    - path: ./lambdabot-hangman-plugins
+      component: lambdabot-hangman-plugins
+    - path: ./lambdabot-haskell-plugins
+      component: lambdabot-haskell-plugins
+    - path: ./lambdabot-irc-plugins
+      component: lambdabot-irc-plugins
+    - path: ./lambdabot-misc-plugins
+      component: lambdabot-misc-plugins
+    - path: ./lambdabot-novelty-plugins
+      component: lambdabot-novelty-plugins
+    - path: ./lambdabot-points-plugins
+      component: lambdabot-points-plugins
+    - path: ./lambdabot-reference-plugins
+      component: lambdabot-reference-plugins
+    - path: ./lambdabot-social-plugins
+      component: lambdabot-social-plugins
+    - path: ./lambdabot-suggest-plugins
+      component: lambdabot-suggest-plugins
+    - path: ./lambdabot-trusted-plugins
+      component: lambdabot-trusted-plugins
+    - path: ./lambdabot-twitch-plugins
+      component: lambdabot-twitch-plugins
