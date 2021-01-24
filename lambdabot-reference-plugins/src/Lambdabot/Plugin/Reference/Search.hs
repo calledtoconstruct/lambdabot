@@ -10,7 +10,7 @@
 -}
 module Lambdabot.Plugin.Reference.Search (searchPlugin) where
 
-import Lambdabot.Config.Reference (proxy)
+import Lambdabot.Config.Reference (configProxy)
 import Lambdabot.Plugin (
   Command (help, process),
   LB,
@@ -25,7 +25,6 @@ import Lambdabot.Plugin (
 import Lambdabot.Util (io, strip)
 import Lambdabot.Util.Browser (browseLB, urlPageTitle)
 
-import qualified Data.ByteString as B
 import Data.Char (isSpace)
 import Data.Maybe (listToMaybe)
 import qualified Data.Text as T
@@ -46,7 +45,7 @@ import Network.HTTP (
   urlEncode,
  )
 import Network.HTTP.Proxy (Proxy (NoProxy))
-import qualified Network.HTTP.Simple as S (Request, getResponseBody, getResponseStatus, httpLBS, parseRequest)
+import qualified Network.HTTP.Simple as S (Request, getResponseBody, httpLBS, parseRequest)
 import Network.URI (
   URI (uriAuthority, uriPath, uriQuery, uriScheme),
   URIAuth (URIAuth, uriPort, uriRegName, uriUserInfo),
@@ -59,16 +58,7 @@ import Text.HTML.TagSoup (
   sections,
  )
 import Text.HTML.TagSoup.Match (anyAttr, tagOpen)
-import Text.XML.Cursor (($//), 
-  attribute,
-  child,
-  element,
-  fromDocument,
-  node,
-  (>=>),
- )
-import Data.ByteString.Char8 (unpack)
-import Data.ByteString.Lazy (toStrict)
+import Text.XML.Cursor (attribute, element, fromDocument, ($//), (>=>))
 
 engines :: [(String, (URI, String -> String, [Header]))]
 engines =
@@ -83,7 +73,7 @@ googleHeaders = [mkHeader HdrReferer "https://www.google.com/"]
 
 normalizeOptions :: MonadLB m => m (NormalizeRequestOptions a)
 normalizeOptions = do
-  proxy' <- getConfig proxy
+  proxy' <- getConfig configProxy
   let hasProxy = case proxy' of
         NoProxy -> False
         _ -> True

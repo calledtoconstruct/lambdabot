@@ -7,7 +7,7 @@ module Lambdabot.Util.Browser (
 ) where
 
 import Lambdabot.Config (MonadConfig (getConfig))
-import Lambdabot.Config.Reference (proxy)
+import Lambdabot.Config.Reference (configAllowRedirects, configMaxRedirects, configProxy)
 import Lambdabot.Monad (MonadLB (..))
 import Lambdabot.Util (limitStr)
 
@@ -39,13 +39,15 @@ import Text.HTML.TagSoup.Match (tagCloseLit, tagOpenLit)
 -- | Run a browser action with some standardized settings
 browseLB :: MonadLB m => BrowserAction conn a -> m a
 browseLB act = lb $ do
-  proxy' <- getConfig proxy
+  proxy' <- getConfig configProxy
+  allowRedirects <- getConfig configAllowRedirects
+  maxRedirects <- getConfig configMaxRedirects
   liftIO . browse $ do
     setOutHandler (const (return ()))
     setErrHandler (const (return ()))
 
-    setAllowRedirects True
-    setMaxRedirects (Just 5)
+    setAllowRedirects allowRedirects
+    setMaxRedirects maxRedirects
     setProxy proxy'
     act
 
