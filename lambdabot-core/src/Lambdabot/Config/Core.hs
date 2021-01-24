@@ -47,7 +47,7 @@ config "dataDir" [t|FilePath|] [|"."|]
 config "lbVersion" [t|Version|] [|Version [] []|]
 
 -- IRC maximum msg length, minus a bit for safety.
-config "textWidth" [t|Int|] [|200 :: Int|]
+config "textWidth" [t|Int|] [|500 :: Int|]
 
 -- basic logging.  for more complex setups, configure directly using System.Log.Logger
 config "replaceRootLogger" [t|Bool|] [|True|]

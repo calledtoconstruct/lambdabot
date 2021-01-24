@@ -345,7 +345,7 @@ inModuleNamed name nothing just = do
     Nothing -> nothing
     Just (Some modInfo) -> runModuleT just modInfo
 
-inModuleWithID :: ModuleID st -> LB a -> (ModuleT st LB a) -> LB a
+inModuleWithID :: ModuleID st -> LB a -> ModuleT st LB a -> LB a
 inModuleWithID tag nothing just = do
   mbMod <- gets (D.lookup tag . ircModulesByID)
   case mbMod of

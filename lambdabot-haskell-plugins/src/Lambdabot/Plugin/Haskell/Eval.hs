@@ -29,7 +29,6 @@ import Lambdabot.Plugin (
   findLBFileForReading,
   findLBFileForWriting,
   findOrCreateLBFile,
-  lim80,
   newModule,
   say,
  )
@@ -41,6 +40,7 @@ import Network.HTTP (getRequest, rspBody)
 import System.Directory (copyFile, removeFile)
 import System.Exit (ExitCode (ExitSuccess))
 import System.Process (readProcessWithExitCode)
+import Lambdabot.Command (lineify)
 
 evalPlugin :: Module ()
 evalPlugin =
@@ -49,16 +49,25 @@ evalPlugin =
         return
           [ (command "run")
               { help = say "run <expr>. You have Haskell, 3 seconds and no IO. Go nuts!"
-              , process = lim80 . runGHC
+              , process = \rest -> do
+                x <- runGHC rest
+                message <- lineify [x]
+                say message
               }
           , (command "let")
               { aliases = ["define"] -- because @define always gets "corrected" to @undefine
               , help = say "let <x> = <e>. Add a binding"
-              , process = lim80 . define
+              , process = \rest -> do
+                result <- define rest
+                reply <- lineify [result]
+                say reply
               }
           , (command "letlpaste")
               { help = say "letlpaste <paste_id>. Import the contents of an lpaste."
-              , process = lim80 . defineFromLPaste
+              , process = \rest -> do
+                result <- defineFromLPaste rest
+                reply <- lineify [result]
+                say reply
               }
           , (command "undefine")
               { help = say "undefine. Reset evaluator local bindings"
@@ -71,8 +80,10 @@ evalPlugin =
               }
           ]
     , contextual = \txt -> do
-        b <- isEval txt
-        when b (lim80 (runGHC (dropPrefix txt)))
+        shouldRespond <- isEval txt
+        x <- (runGHC . dropPrefix) txt
+        resultOfEvaluation <- lineify [x]
+        when shouldRespond $ say resultOfEvaluation
     }
 
 args :: String -> String -> [String] -> [String] -> [String]
@@ -239,7 +250,7 @@ findPristine_hs = do
   case p of
     Nothing -> do
       p <- lb (findOrCreateLBFile "Pristine.hs")
-      p0 <- lb (findLBFileForReading ("Pristine.hs." ++ show __GLASGOW_HASKELL__))
+      p0 <- lb (findLBFileForReading ("Pristine.hs." ++ show 810810810__GLASGOW_HASKELL__))
       p0 <- case p0 of
         Nothing -> lb (findLBFileForReading "Pristine.hs.default")
         p0 -> return p0

@@ -7,6 +7,6 @@ module Lambdabot.Config.IRC (
   reconnectDelay,
 ) where
 
-import Lambdabot.Config
+import Lambdabot.Config ( config )
 
 config "reconnectDelay" [t|Int|] [|10000000|]

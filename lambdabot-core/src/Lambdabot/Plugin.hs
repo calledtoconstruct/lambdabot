@@ -11,8 +11,6 @@ module Lambdabot.Plugin (
   newModule,
   LB,
   MonadLB (..),
-  lim80,
-  ios80,
   ChanName,
   mkCN,
   getCN,
@@ -89,7 +87,7 @@ import Lambdabot.State (
   writeMS,
   writePS,
  )
-import Lambdabot.Util (io, limitStr, readPackedEntry)
+import Lambdabot.Util (readPackedEntry)
 import Lambdabot.Util.Serial (
   Packable (..),
   Serial (..),
@@ -102,27 +100,3 @@ import Lambdabot.Util.Serial (
   readPackedEntry,
   stdSerial,
  )
-
-import Codec.Binary.UTF8.String (decodeString, encodeString)
-import Control.Monad ((<=<))
-import Control.Monad.Trans (MonadIO, MonadTrans (lift))
-import Data.Char (isControl, isSpace)
-
-lim80 :: Monad m => m String -> Cmd m ()
-lim80 action = do
-  to <- getTarget
-  let lim = case nName to of
-        ('#' : _) -> take 3 . map (limitStr 80) -- message to channel: be nice
-        _ -> id -- private message: get everything
-      spaceOut = unlines . lim . map (' ' :) . lines
-      removeControl = filter (\x -> isSpace x || not (isControl x))
-  say <=< lift $
-    fmap
-      (encodeString . spaceOut . removeControl . decodeString)
-      action
-
-{- | convenience, similar to ios but also cut output to channel to 80 characters
- usage:  @process _ _ to _ s = ios80 to (plugs s)@
--}
-ios80 :: MonadIO m => IO String -> Cmd m ()
-ios80 = lim80 . io

@@ -7,12 +7,13 @@ import Lambdabot.Plugin (
   Command (aliases, help, process),
   Module (moduleCmds),
   command,
-  ios80,
   newModule,
   say,
  )
 
 import Data.Char (isDigit, isSpace)
+import Lambdabot.Command (lineify)
+import Lambdabot.Util (io)
 import Math.OEIS (
   OEISSequence (catalogNums, description, sequenceData),
   searchSequence_IO,
@@ -26,7 +27,10 @@ oeisPlugin =
           [ (command "oeis")
               { aliases = ["sequence"]
               , help = say "oeis <sequence>. Look up a sequence in the Online Encyclopedia of Integer Sequences"
-              , process = ios80 . lookupOEIS'
+              , process = \rest -> do
+                  result <- io $ lookupOEIS' rest
+                  reply <- lineify [result]
+                  say reply
               }
           ]
     }
@@ -37,14 +41,7 @@ lookupOEIS' a = do
   x <- searchSequence_IO a'
   case x of
     Nothing -> return "Sequence not found."
-    Just s ->
-      return $
-        unlines
-          [ concat ("https://oeis.org/" : take 1 (catalogNums s))
-              ++ ' ' :
-            description s
-          , show $ sequenceData s
-          ]
+    Just s -> return $ unwords [concat ("https://oeis.org/" : take 1 (catalogNums s)) ++ ' ' : description s, show $ sequenceData s]
  where
   commas [] = []
   commas (x : ' ' : xs) | isDigit x = x : ',' : commas xs

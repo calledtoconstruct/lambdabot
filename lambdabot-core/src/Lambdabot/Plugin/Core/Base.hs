@@ -4,8 +4,8 @@
 module Lambdabot.Plugin.Core.Base (basePlugin) where
 
 import Lambdabot.Bot (checkIgnore, checkPrivs, ircPrivmsg)
-import Lambdabot.Command (Command (privileged), execCmd, runCommand)
-import Lambdabot.Config.Core (commandPrefixes, disabledCommands, editDistanceLimit, textWidth)
+import Lambdabot.Command (lineify, Command (privileged), execCmd, runCommand)
+import Lambdabot.Config.Core (commandPrefixes, disabledCommands, editDistanceLimit)
 import Lambdabot.IRC (IrcMessage (ircMsgCommand, ircMsgParams, ircMsgPrefix, ircMsgServer), getTopic, joinChannel, timeReply)
 import Lambdabot.Logging (debugM, noticeM)
 import Lambdabot.Message (Message (lambdabotName, nick, server))
@@ -18,8 +18,8 @@ import Lambdabot.Util (arePrefixesOf, dropFromEnd, expandTab, showClean, splitFi
 import Control.Exception.Lifted as E (SomeException (SomeException), catch)
 import Control.Monad.Reader (asks)
 import Control.Monad.State (MonadTrans (lift), forM_, gets, modify, when)
-import Data.Char (isAlphaNum, isSpace)
-import Data.List (inits, isPrefixOf, nub, tails)
+import Data.Char (isSpace)
+import Data.List (isPrefixOf, nub)
 import Data.List.Split (splitOn)
 import qualified Data.Map as M
 import Text.EditDistance (defaultEditCosts, levenshteinDistance)
@@ -35,7 +35,9 @@ basePlugin =
     { moduleDefState = return $ mkGlobalPrivate 20 ()
     , moduleInit = do
         registerOutputFilter cleanOutput
-        registerOutputFilter lineify
+        registerOutputFilter $ \_ value -> do
+          reply <- lineify value
+          pure $ lines reply
         registerOutputFilter cleanOutput
 
         registerCallback "PING" handlePingMessage
@@ -366,21 +368,3 @@ cleanOutput _ msg = return $ remDups True msg'
   remDups _ (x : xs) = x : remDups False xs
   remDups _ [] = []
   msg' = map (dropFromEnd isSpace) msg
-
--- | wrap long lines.
-lineify :: MonadConfig m => a -> [String] -> m [String]
-lineify _ msg = do
-  w <- getConfig textWidth
-  return (lines (unlines msg) >>= mbreak w)
- where
-  mbreak w xs
-    | null bs = [as]
-    | otherwise = (as ++ cs) : filter (not . null) (mbreak w ds)
-   where
-    (as, bs) = splitAt (w - n) xs
-    breaks =
-      filter (not . isAlphaNum . last . fst) $
-        drop 1 $
-          take n $ zip (inits bs) (tails bs)
-    (cs, ds) = last $ splitAt n bs : breaks
-    n = 10

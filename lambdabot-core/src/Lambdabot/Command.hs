@@ -22,6 +22,7 @@ module Lambdabot.Command (
   getTarget,
   getLambdabotName,
   say,
+  lineify
 ) where
 
 import Lambdabot.Config (MonadConfig (..))
@@ -51,6 +52,9 @@ import Control.Monad.Writer (
   WriterT (..),
   execWriterT,
  )
+import Data.Char (isAlphaNum)
+import Data.List (inits, tails)
+import Lambdabot.Config.Core (textWidth)
 
 data CmdArgs = forall a.
   Msg.Message a =>
@@ -153,6 +157,24 @@ getCmdName = Cmd (asks invokedAs)
 say :: Monad m => String -> Cmd m ()
 say [] = return ()
 say it = Cmd (tell [it])
+
+-- | wrap long lines.
+lineify :: MonadConfig m => [String] -> m String
+lineify msg = do
+  w <- getConfig textWidth
+  return $ unlines $ lines (unlines msg) >>= mbreak w
+ where
+  mbreak w xs
+    | null bs = [as]
+    | otherwise = (as ++ cs) : filter (not . null) (mbreak w ds)
+   where
+    (as, bs) = splitAt (w - n) xs
+    breaks =
+      filter (not . isAlphaNum . last . fst) $
+        drop 1 $
+          take n $ zip (inits bs) (tails bs)
+    (cs, ds) = last $ splitAt n bs : breaks
+    n = 10
 
 withMsg :: Monad m => (forall a. Msg.Message a => a -> Cmd m t) -> Cmd m t
 withMsg f = Cmd ask >>= f' where f' (CmdArgs msg _ _) = f msg

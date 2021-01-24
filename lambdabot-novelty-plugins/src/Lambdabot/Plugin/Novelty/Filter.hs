@@ -10,7 +10,6 @@ import Lambdabot.Plugin (
   Module,
   command,
   help,
-  ios80,
   moduleCmds,
   moduleDefState,
   newModule,
@@ -23,6 +22,7 @@ import Lambdabot.Util (io)
 import Data.Maybe (catMaybes)
 import System.Directory (findExecutable)
 import System.Process (readProcess)
+import Lambdabot.Command (lineify)
 
 -- State consists of a map from filter name to executable path
 
@@ -47,7 +47,10 @@ filterPlugin =
             , process =
                 \s -> case words s of
                   [] -> say ("usage: " ++ name ++ " <phrase>")
-                  t -> ios80 (runFilter path (unwords t))
+                  t -> do
+                    result <- io $ runFilter path (unwords t)
+                    reply <- lineify [result]
+                    say reply
             }
           | (name, path, descr) <- activeFilters
           ]

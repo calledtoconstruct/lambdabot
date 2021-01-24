@@ -14,7 +14,6 @@ import Lambdabot.Plugin (
   command,
   getConfig,
   help,
-  ios80,
   moduleCmds,
   newModule,
   process,
@@ -24,6 +23,8 @@ import Lambdabot.Util.Process (run)
 
 import Data.Char (ord)
 import Text.Regex.TDFA ((=~))
+import Lambdabot.Util (io)
+import Lambdabot.Command (lineify)
 
 bfPlugin :: Module ()
 bfPlugin =
@@ -34,7 +35,9 @@ bfPlugin =
               { help = say "bf <expr>. Evaluate a brainf*ck expression"
               , process = \msg -> do
                   bf <- getConfig bfBinary
-                  ios80 (run bf msg scrub)
+                  result <- io $ run bf msg scrub
+                  reply <- lineify [result]
+                  say reply
               }
           ]
     }

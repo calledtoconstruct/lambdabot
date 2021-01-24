@@ -81,7 +81,7 @@ queryDict conn dictnm query = do
       '2' : '5' : '0' : _ -> return []
       _ -> readDefinition <&> (line :)
 
-  formatDefinition = Right . unlines . concatMap formater
+  formatDefinition = Right . join " " . filter (not . null) . concatMap formater
 
   formater ('1' : '5' : '1' : rest) = ["", "***" ++ rest]
   formater "." = []

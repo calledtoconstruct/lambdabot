@@ -19,7 +19,6 @@ import Lambdabot.Plugin (
   command,
   getConfig,
   help,
-  ios80,
   moduleCmds,
   newModule,
   process,
@@ -27,6 +26,8 @@ import Lambdabot.Plugin (
  )
 import Lambdabot.Util.Process (run)
 import Text.Regex.TDFA ((=~))
+import Lambdabot.Util (io)
+import Lambdabot.Command (lineify)
 
 unlambdaPlugin :: Module ()
 unlambdaPlugin =
@@ -43,7 +44,9 @@ unlambdaPlugin =
 unlambda :: (MonadConfig m, MonadIO m) => String -> Cmd m ()
 unlambda msg = do
   binary <- getConfig unlambdaBinary
-  ios80 (run binary msg scrub)
+  result <- io (run binary msg scrub)
+  reply <- lineify [result]
+  say reply
 
 scrub :: String -> String
 scrub = unlines . take 6 . map (' ' :) . lines . cleanit
