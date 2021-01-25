@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
@@ -49,6 +50,9 @@ import qualified Data.Set as S
 import Data.Some (Some)
 import Data.Unique.Tag (GCompare, GEq, RealWorld, Tag, newTag)
 
+#if !defined(MIN_VERSION_haskeline) || !MIN_VERSION_haskeline(0,8,0)
+import System.Console.Haskeline.MonadException (MonadException)
+#endif
 ------------------------------------------------------------------------
 
 -- | The Module type class.
@@ -126,6 +130,9 @@ newtype ModuleT st m a = ModuleT {unModuleT :: ReaderT (ModuleInfo st) m a}
     , MonadIO
     , MonadException
     , MonadConfig
+#if !defined(MIN_VERSION_haskeline) || !MIN_VERSION_haskeline(0,8,0)
+    , MonadException
+#endif
     )
 
 runModuleT :: ModuleT st m a -> ModuleInfo st -> m a
@@ -211,4 +218,16 @@ data IRCRWState = IRCRWState
  instances Monad, Functor, MonadIO, MonadState, MonadError
 -}
 newtype LB a = LB {unLB :: ReaderT (IRCRState, IORef IRCRWState) IO a}
-  deriving (Functor, Applicative, Monad, MonadFail, MonadThrow, MonadCatch, MonadMask, MonadIO, MonadException)
+  deriving
+    ( Functor
+    , Applicative
+    , Monad
+    , MonadFail
+    , MonadThrow
+    , MonadCatch
+    , MonadMask
+    , MonadIO
+#if !defined(MIN_VERSION_haskeline) || !MIN_VERSION_haskeline(0,8,0)
+        MonadException,
+#endif
+    )

@@ -4,17 +4,20 @@
 -- | Test a property with QuickCheck
 module Lambdabot.Plugin.Haskell.Check (checkPlugin) where
 
-import Lambdabot.Plugin (MonadConfig, 
+import Lambdabot.Command (lineify)
+import Lambdabot.Plugin (
   Command (help, process),
   Module (moduleCmds),
+  MonadConfig,
   MonadLB,
   command,
   newModule,
   say,
  )
 import Lambdabot.Plugin.Haskell.Eval (runGHC)
+
+import Codec.Binary.UTF8.String ( decodeString )
 import qualified Language.Haskell.Exts.Simple as Hs
-import Lambdabot.Command (lineify)
 
 checkPlugin :: Module ()
 checkPlugin =
@@ -26,15 +29,15 @@ checkPlugin =
                   say "check <expr>"
                   say "You have QuickCheck and 3 seconds. Prove something."
               , process = \rest -> do
-                result <- check rest
-                reply <- lineify [result]
-                say reply
+                  result <- check rest
+                  reply <- lineify [result]
+                  say reply
               }
           ]
     }
 
 check :: (MonadLB m, MonadConfig m) => String -> m String
-check src = case Hs.parseExp src of
+check src = case Hs.parseExp (decodeString src) of
   Hs.ParseFailed l e -> return (Hs.prettyPrint l ++ ':' : e)
   Hs.ParseOk{} -> postProcess `fmap` runGHC ("text (myquickcheck (" ++ src ++ "))")
 

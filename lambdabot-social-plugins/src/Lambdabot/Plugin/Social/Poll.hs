@@ -1,13 +1,14 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE TypeFamilies #-}
 
-{- | Module: Vote
- | Support for voting
+{- | Module: Poll
+ | Support for voting / polling
  |
  | License: lGPL
  |
  | added by Kenneth Hoste (boegel), 22/11/2005
  |  inspiration: Where plugin (thanks shapr,dons)
+ | modified by Joseph Woolley, 2021-01-25
 -}
 module Lambdabot.Plugin.Social.Poll (pollPlugin) where
 
@@ -136,6 +137,11 @@ pollPlugin =
               , process = processOneOrMoreArgs "poll-remove"
               , privileged = True
               }
+          , (command "poll-reset")
+              { help = say "poll-reset <poll>           Resets poll and vote counts"
+              , process = processOneOrMoreArgs "poll-reset"
+              , privileged = True
+              }
           ]
     , moduleDefState = return M.empty
     , moduleSerialize = Just voteSerial
@@ -187,6 +193,9 @@ processCommand voteState voteWriter cmd dat = case cmd of
   "poll-remove" -> case length dat of
     1 -> removePoll voteState voteWriter pollName
     _ -> return "usage: ?poll-remove <poll>"
+  "poll-reset" -> case length dat of
+    1 -> resetPoll voteState voteWriter pollName
+    _ -> return "usage: @poll-reset <poll>"
   _ -> return "Unknown command."
  where
   pollName = P.pack $ head dat
@@ -286,3 +295,12 @@ closePoll voteState voteWriter poll = case M.lookup poll voteState of
   Just ((_, cs), p) -> do
     voteWriter $ M.update (const (Just ((Closed, cs), p))) poll voteState
     return $ "Poll " ++ show poll ++ " closed."
+
+resetPoll :: VoteState -> VoteWriter -> ByteString -> Cmd Vote String
+resetPoll fm writer poll = case M.lookup poll fm of
+  Just ((_, cs), p) -> do
+    let resetChoices = map (\(c, _) -> (c, 0)) p
+    let updatedPoll = const (Just ((Created, cs), resetChoices))
+    writer $ M.update updatedPoll poll fm
+    return $ "Poll " ++ show poll ++ " reset."
+  Nothing -> return $ "No such poll: " ++ show poll

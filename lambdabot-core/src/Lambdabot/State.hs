@@ -202,7 +202,7 @@ readGlobalState module' name = do
             Just `fmap` P.readFile stateFile `E.catch` \SomeException{} ->
               return Nothing
           E.catch
-            (evaluate $ maybe Nothing (Just $!) (deserialize ser =<< state')) -- Monad Maybe)
+            (evaluate $ (Just $!) =<< (deserialize ser =<< state')) -- Monad Maybe)
             (\e -> do
               errorM $ "Error parsing state file for: " ++ name ++ ": " ++ show
                 (e :: SomeException)

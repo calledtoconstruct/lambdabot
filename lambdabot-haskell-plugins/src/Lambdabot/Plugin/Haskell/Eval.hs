@@ -7,16 +7,11 @@
 -- | A Haskell evaluator for the pure part, using mueval
 module Lambdabot.Plugin.Haskell.Eval (evalPlugin, runGHC, findL_hs) where
 
-import Codec.Binary.UTF8.String (decodeString, encodeString)
-import Control.Exception (SomeException, try)
-import Control.Monad (when)
-import Data.List (nub, sort, sortBy)
-import Data.Ord (comparing)
+import Lambdabot.Command (lineify)
 import Lambdabot.Config.Haskell (
   evalPrefixes,
   ghcBinary,
   languageExts,
-  maxPasteLength,
   muevalBinary,
   trustedPackages,
  )
@@ -33,11 +28,16 @@ import Lambdabot.Plugin (
   say,
  )
 import Lambdabot.Util (arePrefixesWithSpaceOf, expandTab, io, strip)
+
+import Codec.Binary.UTF8.String (decodeString, encodeString)
+import Control.Exception (SomeException, try)
+import Control.Monad (when)
+import Data.List (nub, sort, sortBy)
+import Data.Ord (comparing)
 import qualified Language.Haskell.Exts.Simple as Hs
 import System.Directory (copyFile, removeFile)
 import System.Exit (ExitCode (ExitSuccess))
 import System.Process (readProcessWithExitCode)
-import Lambdabot.Command (lineify)
 
 evalPlugin :: Module ()
 evalPlugin =
@@ -47,24 +47,17 @@ evalPlugin =
           [ (command "run")
               { help = say "run <expr>. You have Haskell, 3 seconds and no IO. Go nuts!"
               , process = \rest -> do
-                x <- runGHC rest
-                message <- lineify [x]
-                say message
+                  x <- runGHC rest
+                  message <- lineify [x]
+                  say message
               }
           , (command "let")
               { aliases = ["define"] -- because @define always gets "corrected" to @undefine
               , help = say "let <x> = <e>. Add a binding"
               , process = \rest -> do
-                result <- define rest
-                reply <- lineify [result]
-                say reply
-              }
-          , (command "letlpaste")
-              { help = say "letlpaste <paste_id>. Import the contents of an lpaste."
-              , process = \rest -> do
-                result <- defineFromLPaste rest
-                reply <- lineify [result]
-                say reply
+                  result <- define rest
+                  reply <- lineify [result]
+                  say reply
               }
           , (command "undefine")
               { help = say "undefine. Reset evaluator local bindings"
@@ -204,34 +197,6 @@ munge = expandTab 8 . strip (== '\n')
 mungeEnc = encodeString . munge
 
 ------------------------------
--- define from lpaste
-
-defineFromLPaste :: MonadLB m => String -> m String
-defineFromLPaste num = do
-  maxlen <- getConfig maxPasteLength
-  mcode <- fetchLPaste num
-  case mcode of
-    Left err -> return err
-    Right code
-      | length code < maxlen -> define code
-      | otherwise ->
-        return $ "That paste is too long! (maximum length: " ++ show maxlen ++ ")"
-
-fetchLPaste :: MonadLB m => String -> m (Either String String)
-fetchLPaste = undefined
--- fetchLPaste num =
---   browseLB $
---     if any (`notElem` ['0' .. '9']) num
---       then return $ Left "Invalid paste ID."
---       else do
---         let src = "http://lpaste.net/raw/" ++ num
---         (uri, resp) <- request $ getRequest src
---         return $
---           if show uri == src
---             then Right $ rspBody resp
---             else Left "I couldn't find any paste under that ID."
-
-------------------------------
 -- reset all bindings
 
 resetL_hs :: MonadLB m => m ()
@@ -248,7 +213,7 @@ findPristine_hs = do
   case p of
     Nothing -> do
       p <- lb (findOrCreateLBFile "Pristine.hs")
-      p0 <- lb (findLBFileForReading ("Pristine.hs." ++ show 810810810__GLASGOW_HASKELL__))
+      p0 <- lb (findLBFileForReading ("Pristine.hs." ++ show __GLASGOW_HASKELL__))
       p0 <- case p0 of
         Nothing -> lb (findLBFileForReading "Pristine.hs.default")
         p0 -> return p0
