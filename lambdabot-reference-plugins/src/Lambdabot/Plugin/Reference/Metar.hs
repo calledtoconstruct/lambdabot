@@ -18,11 +18,14 @@ import Lambdabot.Plugin (
  )
 import Lambdabot.Util.Browser (doHttpRequest)
 
-import Data.Char (isNumber, isAlpha, toUpper)
+import qualified Control.Exception.Lifted as E
+import qualified Data.ByteString.Char8 as B
+import Data.Char (isAlpha, isNumber, toUpper)
 import qualified Data.Text as T
 import Data.XML.Types (Name (Name))
 import qualified Network.HTTP.Client.Conduit as S
-import Text.XML.Cursor ((>=>), attribute, (&/), content, element, ($//))
+import Network.HTTP.Types (HeaderName)
+import Text.XML.Cursor (Cursor, attribute, content, element, ($//), (&/), (>=>))
 
 metarPlugin :: Module ()
 metarPlugin =
@@ -54,56 +57,71 @@ doMetar :: String -> LB [String]
 doMetar code
   | length code == 4 && all isAlpha code = do
     request <- S.parseRequest $ addsSrc (map toUpper code)
-    doHttpRequest request $ \statusCode body _ -> do
-      if statusCode == 200
-        then do
-          let numberOfResults = read $ T.unpack $ head $ body $// (element dataElementName >=> attribute numberOfResultsAttributeName) :: Int
-          let output = case numberOfResults of
-                1 -> let
-                    station = T.unpack $ head $ body $// (element stationElementName &/ content)
-                    latitude = T.unpack $ head $ body $// (element latitudeElementName &/ content)
-                    longitude = T.unpack $ head $ body $// (element longitudeElementName &/ content)
-                    elevation = T.unpack $ head $ body $// (element elevationElementName &/ content)
-                    temperature = T.unpack $ head $ body $// (element temperatureElementName &/ content)
-                    dewpoint = T.unpack $ head $ body $// (element dewpointElementName &/ content)
-                    precipitation = T.unpack $ last $ T.pack "Zero" : (body $// (element precipitationElementName &/ content))
-                    windSpeed = T.unpack $ head $ body $// (element windSpeedElementName &/ content)
-                    windDirection = T.unpack $ head $ body $// (element windDirectionElementName &/ content)
-                    visibility = T.unpack $ head $ body $// (element visibilityElementName &/ content)
-                  in unlines [
-                    station ++ ": Sits at " ++ elevation ++ " meters above sea level at (latitude, longitude) of (" ++ latitude ++ ", " ++ longitude ++ ").",
-                    station ++ ": Current temperature is " ++ temperature ++ "C with a dewpoint of " ++ dewpoint ++ "C.  Over the last two hours, the precipitation was " ++ precipitation ++ " inches.",
-                    station ++ ": Visibility is " ++ visibility ++ " miles with a " ++ generalizeDirection windDirection ++ " wind of " ++ windSpeed ++ " miles per hour."
-                    ]
-                _ -> "No results for that station."
-          return output
-        else return $ show statusCode ++ ": No Result Found."
+    doHttpRequest request extractResult `E.catch` \E.SomeException{} -> do
+      return ["I was not able to fetch a result for that request."]
   | otherwise = return ["Please enter a valid metar station code.  The list is available here: https://www.aviationweather.gov/docs/metar/stations.txt"]
+
+extractResult :: Int -> Cursor -> [(HeaderName, B.ByteString)] -> [String]
+extractResult statusCode body _ = case statusCode of
+  200 -> do
+    let numberOfResults = getAttributeValueFrom body dataElementName numberOfResultsAttributeName
+    return $ case read numberOfResults :: Int of
+      1 ->
+        let station = getContentFrom body stationElementName
+            latitude = getContentFrom body latitudeElementName
+            longitude = getContentFrom body longitudeElementName
+            elevation = getContentFrom body elevationElementName
+            temperature = getContentFrom body temperatureElementName
+            dewpoint = getContentFrom body dewpointElementName
+            precipitation = getContentFromWithDefault body precipitationElementName $ T.pack "Zero"
+            windSpeed = getContentFrom body windSpeedElementName
+            windDirection = getContentFrom body windDirectionElementName
+            visibility = getContentFrom body visibilityElementName
+         in unlines
+              [ station ++ ": Sits at " ++ elevation ++ " meters above sea level at (latitude, longitude) of (" ++ latitude ++ ", " ++ longitude ++ ")."
+              , station ++ ": Current temperature is " ++ temperature ++ "C with a dewpoint of " ++ dewpoint ++ "C.  Over the last two hours, the precipitation was " ++ precipitation ++ " inches."
+              , station ++ ": Visibility is " ++ visibility ++ " miles with a " ++ generalizeDirection windDirection ++ " wind of " ++ windSpeed ++ " miles per hour."
+              ]
+      0 -> "No results for that station."
+      _ -> "One station at a time, please."
+  _ -> return $ show statusCode ++ ": No Result Found."
+
+getContentFrom :: Cursor -> Name -> String
+getContentFrom c e = T.unpack $ head $ c $// (element e &/ content)
+
+getContentFromWithDefault :: Cursor -> Name -> T.Text -> String
+getContentFromWithDefault c e d = T.unpack $ last $ d : (c $// (element e &/ content))
+
+getAttributeValueFrom :: Cursor -> Name -> Name -> String
+getAttributeValueFrom c e a = T.unpack $ head $ c $// (element e >=> attribute a)
 
 generalizeDirection :: String -> String
 generalizeDirection degreesString
-  | all ((True ==) . isNumber) degreesString = direction
+  | all ((True ==) . isNumber) degreesString = directions !! angle
   | otherwise = degreesString
-    where degrees = read degreesString :: Float
-          angle = flip mod 16 $ floor $ degrees / 22.5
-          direction = [
-            "North",
-            "North North East",
-            "North East",
-            "East North East",
-            "East",
-            "East South East",
-            "South East",
-            "South South East",
-            "South",
-            "South South West",
-            "South West",
-            "West South West",
-            "West",
-            "West North West",
-            "North West",
-            "North North West"
-            ] !! angle
+ where
+  degrees = read degreesString :: Float
+  angle = flip mod 16 $ floor $ degrees / 22.5
+
+directions :: [String]
+directions =
+  [ "North"
+  , "North North East"
+  , "North East"
+  , "East North East"
+  , "East"
+  , "East South East"
+  , "South East"
+  , "South South East"
+  , "South"
+  , "South South West"
+  , "South West"
+  , "West South West"
+  , "West"
+  , "West North West"
+  , "North West"
+  , "North North West"
+  ]
 
 dataElementName :: Name
 dataElementName = Name (T.pack "data") Nothing Nothing

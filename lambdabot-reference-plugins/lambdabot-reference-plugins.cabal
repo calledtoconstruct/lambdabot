@@ -69,22 +69,23 @@ library
                         case-insensitive,
                         exceptions,
                         HTTP,
+                        http-conduit,
+                        http-types,
+                        html-conduit,
                         lambdabot-core == 5.1.0.4,
+                        lifted-base,
                         mtl,
+                        network,
                         oeis,
                         process,
                         regex-tdfa,
                         split,
                         tagsoup,
-                        utf8-string,
-                        network,
-                        http-conduit,
-                        http-types,
-                        html-conduit,
-                        xml-conduit,
-                        xml-types,
                         text,
-                        text-format
+                        text-format,
+                        utf8-string,
+                        xml-conduit,
+                        xml-types
 
   if flag(network-uri)
     build-depends: network-uri >= 2.6, network >= 2.6

@@ -17,15 +17,19 @@ import Lambdabot.Plugin (
   stdSerial,
   writeMS,
  )
-import Lambdabot.Util.Browser (doHttpRequest', doHttpRequest)
+import Lambdabot.Util.Browser (doHttpRequest, doHttpRequest')
 
+import qualified Control.Exception.Lifted as E
 import Control.Monad (when, (<=<))
 import Control.Monad.Catch (MonadThrow)
 import Control.Monad.Trans (MonadTrans (lift))
+import qualified Data.ByteString.Char8 as B
+import qualified Data.ByteString.Lazy.Char8 as LB
 import Data.List (intercalate, isPrefixOf, isSuffixOf, tails)
 import Data.Maybe (catMaybes)
 import qualified Data.Text as T
 import qualified Network.HTTP.Simple as S (parseRequest)
+import Network.HTTP.Types (HeaderName)
 import Text.Regex.TDFA (
   CompOption (caseSensitive),
   MatchResult (mrAfter, mrMatch),
@@ -33,8 +37,7 @@ import Text.Regex.TDFA (
   RegexMaker (makeRegexOpts),
   RegexOptions (defaultCompOpt, defaultExecOpt),
  )
-import Text.XML.Cursor (content, laxElement, ($//), (&/))
-import qualified Data.ByteString.Lazy.Char8 as LB
+import Text.XML.Cursor (Cursor, content, laxElement, ($//), (&/))
 
 urlPlugin :: Module Bool
 urlPlugin =
@@ -91,11 +94,16 @@ urlTitlePrompt = "Title: "
 fetchTitle :: MonadThrow m => MonadLB m => String -> m (Maybe String)
 fetchTitle url = do
   request <- S.parseRequest url
-  doHttpRequest request $ \statusCode body _ -> case statusCode of
+  doHttpRequest request extractTitle `E.catch` \E.SomeException{} -> do
+    return $ Just "That page does not exist."
+
+extractTitle :: Int -> Cursor -> [(HeaderName, B.ByteString)] -> Maybe String
+extractTitle statusCode body _ = do
+  case statusCode of
     200 ->
       let title = map T.unpack $ body $// laxElement (T.pack "title") &/ content
           response = last $ "No title found." : title
-       in Just response
+       in Just $ urlTitlePrompt ++ response
     _ -> Nothing
 
 -- | base url for fetching tiny urls
