@@ -14,9 +14,7 @@ module Lambdabot.Compat.AltTime (
 ) where
 
 import Control.Arrow (first)
-
 import Data.Binary (Binary (get, put))
-
 import Data.Time (
   NominalDiffTime,
   UTCTime (UTCTime),

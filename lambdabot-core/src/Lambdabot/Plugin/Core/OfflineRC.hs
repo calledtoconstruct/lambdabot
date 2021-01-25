@@ -1,14 +1,8 @@
 {-# OPTIONS_GHC -Wmissing-signatures #-}
 
-module Lambdabot.Plugin.Core.OfflineRC (
-  offlineRCPlugin,
-) where
+module Lambdabot.Plugin.Core.OfflineRC (offlineRCPlugin) where
 
-import Lambdabot.Config.Core (
-  commandPrefixes,
-  onShutdownCmds,
-  onStartupCmds,
- )
+import Lambdabot.Config.Core (commandPrefixes, onShutdownCmds, onStartupCmds)
 import Lambdabot.IRC (IrcMessage (..))
 import Lambdabot.Monad (
   IRCRWState (ircPersists, ircPrivilegedUsers),
@@ -36,33 +30,14 @@ import Lambdabot.Util (forkUnmasked, io)
 
 import Codec.Binary.UTF8.String (decodeString, encodeString)
 import Control.Concurrent.Lifted (fork, threadDelay)
-import Control.Exception.Lifted (
-  evaluate,
-  finally,
- )
-import Control.Monad (
-  unless,
-  void,
-  when,
- )
-import Control.Monad.State (
-  gets,
-  modify,
- )
-import Control.Monad.Trans (
-  lift,
-  liftIO,
- )
+import Control.Exception.Lifted (evaluate, finally)
+import Control.Monad (unless, void, when)
+import Control.Monad.State (gets, modify)
+import Control.Monad.Trans (lift, liftIO)
 import Data.Char (isSpace)
 import qualified Data.Map as M
 import qualified Data.Set as S
-import System.Console.Haskeline (
-  InputT,
-  Settings (..),
-  defaultSettings,
-  getInputLine,
-  runInputT,
- )
+import System.Console.Haskeline (InputT, Settings (..), defaultSettings, getInputLine, runInputT)
 import System.IO (hFlush, stdout)
 import System.Timeout.Lifted (timeout)
 

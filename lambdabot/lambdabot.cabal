@@ -19,8 +19,8 @@ homepage:               https://wiki.haskell.org/Lambdabot
 bug-reports:            https://github.com/lambdabot/lambdabot/issues
 
 build-type:             Simple
-cabal-version:          >= 1.8
-tested-with:            GHC == 7.10.3, GHC == 8.0.2, GHC == 8.2.2, GHC == 8.4.4, GHC == 8.6.1
+cabal-version:          >= 1.10
+tested-with:            GHC == 8.2.2, GHC == 8.4.4, GHC == 8.6.5, GHC == 8.8.4, GHC == 8.10.2
 
 extra-source-files:     scripts/ghci.sh
                         scripts/genhaddock.sh
@@ -37,8 +37,6 @@ extra-source-files:     scripts/ghci.sh
 data-files:             scripts/online.rc.sample,
                         scripts/passwd.rc.sample,
                         State/haddock,
-                        State/Pristine.hs.706,
-                        State/Pristine.hs.708,
                         State/Pristine.hs.default,
                         State/source
                         State/vixen
@@ -52,20 +50,11 @@ executable lambdabot
   main-is:              Main.hs
   other-modules:        Modules
                         Paths_lambdabot
-                        -- Lambdabot.Core
-                        -- Lambdabot.Haskell.Plugins
-                        -- Lambdabot.Irc.Plugins
-                        -- Lambdabot.Twitch.Plugins
-                        -- Lambdabot.Hangman.Plugins
-                        -- Lambdabot.Points.Plugins
-                        -- Lambdabot.Suggest.Plugins
-                        -- Lambdabot.Misc.Plugins
-                        -- Lambdabot.Novelty.Plugins
-                        -- Lambdabot.Reference.Plugins
-                        -- Lambdabot.Social.Plugins
-                        -- Lambdabot.Trusted.Plugins
 
   ghc-options:          -Wall -threaded
+  
+  default-language:     Haskell2010
+
   build-depends:        base,
                         mtl,
                         dependent-sum,

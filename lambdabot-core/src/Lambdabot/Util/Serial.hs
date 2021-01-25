@@ -31,17 +31,13 @@ module Lambdabot.Util.Serial (
   readPackedEntry,
 ) where
 
-import Data.Maybe (mapMaybe)
-
-import Data.Map (Map)
-import qualified Data.Map as M
-
+import Codec.Compression.GZip (compress, decompress)
 import Data.ByteString.Char8 (ByteString)
 import qualified Data.ByteString.Char8 as P
-
 import Data.ByteString.Lazy (fromChunks, toChunks)
-
-import Codec.Compression.GZip (compress, decompress)
+import Data.Map (Map)
+import qualified Data.Map as M
+import Data.Maybe (mapMaybe)
 
 ------------------------------------------------------------------------
 

@@ -33,8 +33,8 @@ description:            Lambdabot is an IRC bot written over several years by
 homepage:               https://wiki.haskell.org/Lambdabot
 
 build-type:             Simple
-cabal-version:          >= 1.8
-tested-with:            GHC == 7.10.3, GHC == 8.0.2, GHC == 8.2.2, GHC == 8.4.4, GHC == 8.6.1
+cabal-version:          >= 1.10
+tested-with:            GHC == 8.2.2, GHC == 8.4.4, GHC == 8.6.5, GHC == 8.8.4, GHC == 8.10.2
 
 source-repository head
   type:                 git
@@ -48,6 +48,8 @@ library
   hs-source-dirs:       src
   ghc-options:          -Wall
                         -funbox-strict-fields
+                        
+  default-language:     Haskell2010
 
   exposed-modules:      Lambdabot.Plugin.Reference
                         Lambdabot.Util.Browser
@@ -66,21 +68,26 @@ library
   build-depends:        base,
                         bytestring,
                         containers,
+                        case-insensitive,
+                        exceptions,
                         HTTP,
+                        http-conduit,
+                        http-types,
+                        html-conduit,
                         lambdabot-core == 5.1.0.4,
+                        lifted-base,
                         mtl,
+                        network,
                         oeis,
                         process,
                         regex-tdfa,
                         split,
                         tagsoup,
+                        text,
+                        text-format,
                         utf8-string,
-                        network,
-                        http-conduit,
-                        html-conduit,
                         xml-conduit,
-                        xml-types,
-                        text
+                        xml-types
 
   if flag(network-uri)
     build-depends: network-uri >= 2.6, network >= 2.6

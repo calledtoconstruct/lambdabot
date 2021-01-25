@@ -4,6 +4,7 @@ module Lambdabot.Plugin.Haskell.Free.Expr where
 
 import Lambdabot.Plugin.Haskell.Free.Type (TyName, Type)
 import Lambdabot.Plugin.Haskell.Free.Util (Pretty (prettyP), lparen, prettyParen, rparen, text, (<+>), (<>))
+
 import Prelude hiding ((<>))
 
 varInExpr :: Var -> Expr -> Bool

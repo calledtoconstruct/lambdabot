@@ -3,11 +3,7 @@
 
 module Lambdabot.Plugin.Haskell.Free.FreeTheorem where
 
-import Lambdabot.Plugin.Haskell.Free.Expr (
-  Builtin (BMap, BMapTuple),
-  Expr (..),
-  Var,
- )
+import Lambdabot.Plugin.Haskell.Free.Expr (Builtin (BMap, BMapTuple), Expr (..), Var)
 import Lambdabot.Plugin.Haskell.Free.Parse (
   ParseResult (ParseError, ParseSuccess),
   ParseS (parse),
@@ -16,21 +12,9 @@ import Lambdabot.Plugin.Haskell.Free.Parse (
   lexer,
   match,
  )
-import Lambdabot.Plugin.Haskell.Free.Theorem (
-  Theorem (..),
-  theoremSimplify,
- )
-import Lambdabot.Plugin.Haskell.Free.Type (
-  TyVar,
-  Type (..),
-  parseType,
- )
-import Lambdabot.Plugin.Haskell.Free.Util (
-  Mode (PageMode),
-  Pretty (pretty),
-  Style (Style, lineLength, mode, ribbonsPerLine),
-  renderStyle,
- )
+import Lambdabot.Plugin.Haskell.Free.Theorem (Theorem (..), theoremSimplify)
+import Lambdabot.Plugin.Haskell.Free.Type (TyVar, Type (..), parseType)
+import Lambdabot.Plugin.Haskell.Free.Util (Mode (PageMode), Pretty (pretty), Style (Style, lineLength, mode, ribbonsPerLine), renderStyle)
 
 import Control.Monad (MonadPlus (mplus))
 import Control.Monad.Fail ()
@@ -40,12 +24,11 @@ import Control.Monad.State (
   MonadState (get, put),
   State,
   StateT (runStateT),
+  evalState,
   gets,
   modify,
   runState,
-  evalState
  )
-
 import Data.Char ()
 import qualified Data.Map as M
 import Data.Maybe (fromMaybe)

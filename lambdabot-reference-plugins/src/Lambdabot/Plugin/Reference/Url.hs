@@ -17,22 +17,27 @@ import Lambdabot.Plugin (
   stdSerial,
   writeMS,
  )
-import Lambdabot.Util.Browser (browseLB, urlPageTitle)
+import Lambdabot.Util.Browser (doHttpRequest, doHttpRequest')
 
+import qualified Control.Exception.Lifted as E
 import Control.Monad (when, (<=<))
+import Control.Monad.Catch (MonadThrow)
 import Control.Monad.Trans (MonadTrans (lift))
+import qualified Data.ByteString.Char8 as B
+import qualified Data.ByteString.Lazy.Char8 as LB
 import Data.List (intercalate, isPrefixOf, isSuffixOf, tails)
 import Data.Maybe (catMaybes)
-import Network.Browser (request)
-import Network.HTTP (Response (rspBody, rspCode), getRequest)
+import qualified Data.Text as T
+import qualified Network.HTTP.Simple as S (parseRequest)
+import Network.HTTP.Types (HeaderName)
 import Text.Regex.TDFA (
   CompOption (caseSensitive),
   MatchResult (mrAfter, mrMatch),
-  Regex,
   RegexContext (matchM),
   RegexMaker (makeRegexOpts),
   RegexOptions (defaultCompOpt, defaultExecOpt),
  )
+import Text.XML.Cursor (Cursor, content, laxElement, ($//), (&/))
 
 urlPlugin :: Module Bool
 urlPlugin =
@@ -86,33 +91,32 @@ urlTitlePrompt :: String
 urlTitlePrompt = "Title: "
 
 -- | Fetch the title of the specified URL.
-fetchTitle :: MonadLB m => String -> m (Maybe String)
-fetchTitle url = fmap (fmap (urlTitlePrompt ++)) (browseLB (urlPageTitle url))
+fetchTitle :: MonadThrow m => MonadLB m => String -> m (Maybe String)
+fetchTitle url = do
+  request <- S.parseRequest url
+  doHttpRequest request extractTitle `E.catch` \E.SomeException{} -> do
+    return $ Just "That page does not exist."
+
+extractTitle :: Int -> Cursor -> [(HeaderName, B.ByteString)] -> Maybe String
+extractTitle statusCode body _ = do
+  case statusCode of
+    200 ->
+      let title = map T.unpack $ body $// laxElement (T.pack "title") &/ content
+          response = last $ "No title found." : title
+       in Just $ urlTitlePrompt ++ response
+    _ -> Nothing
 
 -- | base url for fetching tiny urls
 tinyurl :: String
-tinyurl = "http://tinyurl.com/api-create.php?url="
+tinyurl = "https://tinyurl.com/api-create.php?url="
 
 -- | Fetch the title of the specified URL.
-fetchTiny :: MonadLB m => String -> m (Maybe String)
+fetchTiny :: MonadThrow m => MonadLB m => String -> m (Maybe String)
 fetchTiny url = do
-  (_, response) <- browseLB (request (getRequest (tinyurl ++ url)))
-  case rspCode response of
-    (2, 0, 0) -> return $ findTiny (rspBody response)
-    _ -> return Nothing
-
--- | Tries to find the start of a tinyurl
-findTiny :: String -> Maybe String
-findTiny text = do
-  mr <- matchM begreg text
-  let kind = mrMatch mr
-      rest = mrAfter mr
-      url = takeWhile (/= ' ') rest
-  return $ stripSuffixes ignoredUrlSuffixes $ kind ++ url
- where
-  begreg :: Regex
-  begreg = makeRegexOpts opts defaultExecOpt "http://tinyurl.com/"
-  opts = defaultCompOpt{caseSensitive = False}
+  request <- S.parseRequest $ tinyurl ++ url
+  doHttpRequest' request $ \statusCode bodyString _ -> case statusCode of
+    200 -> Just $ LB.unpack bodyString
+    _ -> Nothing
 
 {- | List of strings that, if present in a contextual message, will
  prevent the looking up of titles.  This list can be used to stop
@@ -157,7 +161,7 @@ containsUrl text = do
 stripSuffixes :: [String] -> String -> String
 stripSuffixes [] str = str
 stripSuffixes (s : ss) str
-  | s `isSuffixOf` str = take (length str - length s) $ str
+  | s `isSuffixOf` str = take (length str - length s) str
   | otherwise = stripSuffixes ss str
 
 {- | Utility function to check of any of the Strings in the specified

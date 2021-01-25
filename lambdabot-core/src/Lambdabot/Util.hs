@@ -21,15 +21,16 @@ module Lambdabot.Util (
   readPackedEntry,
 ) where
 
+import Lambdabot.Config (MonadConfig (..))
+import Lambdabot.Config.Core (enableInsults)
+import Lambdabot.Util.Serial (readPackedEntry)
+
 import Control.Concurrent.Lifted (ThreadId, forkWithUnmask)
 import Control.Monad.Trans (MonadIO (..))
 import Control.Monad.Trans.Control (MonadBaseControl)
 import Data.Char (isSpace)
 import Data.List (isPrefixOf)
 import Data.Random (randomElement, sample)
-import Lambdabot.Config (MonadConfig (..))
-import Lambdabot.Config.Core (enableInsults)
-import Lambdabot.Util.Serial (readPackedEntry)
 
 ------------------------------------------------------------------------
 

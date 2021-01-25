@@ -4,13 +4,11 @@
 
 module Lambdabot.Plugin.Hangman.Hangman (hangmanPlugin) where
 
+import Lambdabot.Config.Hangman (hangmanPhrases)
+import Lambdabot.IRC (IrcMessage (IrcMessage), ircMsgCommand, ircMsgLBName, ircMsgParams, ircMsgPrefix, ircMsgServer)
+import qualified Lambdabot.Message as Msg (channels, lambdabotName, nick, server)
 import Lambdabot.Module (ircPersists)
 import Lambdabot.Monad (received, send)
-
-import Lambdabot.IRC (IrcMessage (IrcMessage), ircMsgCommand, ircMsgLBName, ircMsgParams, ircMsgPrefix, ircMsgServer)
-
-import qualified Lambdabot.Message as Msg (channels, lambdabotName, nick, server)
-
 import Lambdabot.Plugin (
   Cmd,
   LB,
@@ -34,15 +32,6 @@ import Lambdabot.Plugin (
   withMS,
   withMsg,
  )
-
-import Control.Concurrent.Lifted (fork, threadDelay)
-import Control.Monad (unless, void, when)
-import Control.Monad.State (gets, modify)
-import Control.Monad.Trans (lift)
-import Data.Map (delete, insert, member)
-import System.Timeout.Lifted (timeout)
-
-import Lambdabot.Config.Hangman (hangmanPhrases)
 import Lambdabot.Plugin.Hangman.Configuration (newConfiguration)
 import Lambdabot.Plugin.Hangman.Game (
   Game (..),
@@ -61,6 +50,13 @@ import Lambdabot.Plugin.Hangman.Game (
  )
 import Lambdabot.Plugin.Hangman.Logic (addGuess, progressGame)
 import Lambdabot.Plugin.Hangman.Manage (addPhrase, configure, removePhrase)
+
+import Control.Concurrent.Lifted (fork, threadDelay)
+import Control.Monad (unless, void, when)
+import Control.Monad.State (gets, modify)
+import Control.Monad.Trans (lift)
+import Data.Map (delete, insert, member)
+import System.Timeout.Lifted (timeout)
 
 type HangmanState = Game
 type Hangman = ModuleT HangmanState LB

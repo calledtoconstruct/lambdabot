@@ -3,13 +3,8 @@
 module Lambdabot.Plugin.Haskell.Pl.Test where
 
 #define READLINE
-#if __GLASGOW_HASKELL__ > 602
 import Test.HUnit
 import Test.QuickCheck hiding (test)
-#else
-import HUnit
-import Debug.QuickCheck hiding (test)
-#endif
 
 import Lambdabot.Plugin.Haskell.Pl.Common
 import Lambdabot.Plugin.Haskell.Pl.Parser
