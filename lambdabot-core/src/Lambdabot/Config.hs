@@ -21,28 +21,12 @@ import Control.Monad.Reader (MonadTrans (lift), ReaderT)
 import Control.Monad.State (StateT)
 import Control.Monad.Writer (WriterT)
 import Data.Char (toUpper)
-import Data.GADT.Compare (
-  GCompare (..),
-  GEq (..),
-  GOrdering (GGT, GLT),
- )
-import Data.GADT.Compare.TH (
-  DeriveGCompare (deriveGCompare),
-  DeriveGEQ (deriveGEq),
- )
+import Data.GADT.Compare (GCompare (..), GEq (..), GOrdering (GGT, GLT))
+import Data.GADT.Compare.TH (DeriveGCompare (deriveGCompare), DeriveGEQ (deriveGEq))
 import Data.Generics (everywhere, mkT)
 import Data.Maybe (fromMaybe)
 import Data.Typeable (Typeable, gcast1, typeOf1)
-import Language.Haskell.TH (
-  Dec,
-  ExpQ,
-  Name,
-  Q,
-  TypeQ,
-  mkName,
-  nameBase,
-  newName,
- )
+import Language.Haskell.TH (Dec, ExpQ, Name, Q, TypeQ, mkName, nameBase, newName)
 
 data Config t where Config :: (Typeable k, GCompare k) => !(k t) -> t -> (t -> t -> t) -> Config t
 

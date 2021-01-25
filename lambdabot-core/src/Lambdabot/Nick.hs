@@ -1,7 +1,8 @@
 module Lambdabot.Nick (Nick (..), fmtNick, parseNick) where
 
-import Data.Char (isSpace, toUpper)
 import Lambdabot.Util (strip)
+
+import Data.Char (isSpace, toUpper)
 
 -- | The type of nicknames isolated from a message.
 data Nick = Nick

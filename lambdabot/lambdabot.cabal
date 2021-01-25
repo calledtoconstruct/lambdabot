@@ -52,18 +52,6 @@ executable lambdabot
   main-is:              Main.hs
   other-modules:        Modules
                         Paths_lambdabot
-                        -- Lambdabot.Core
-                        -- Lambdabot.Haskell.Plugins
-                        -- Lambdabot.Irc.Plugins
-                        -- Lambdabot.Twitch.Plugins
-                        -- Lambdabot.Hangman.Plugins
-                        -- Lambdabot.Points.Plugins
-                        -- Lambdabot.Suggest.Plugins
-                        -- Lambdabot.Misc.Plugins
-                        -- Lambdabot.Novelty.Plugins
-                        -- Lambdabot.Reference.Plugins
-                        -- Lambdabot.Social.Plugins
-                        -- Lambdabot.Trusted.Plugins
 
   ghc-options:          -Wall -threaded
   build-depends:        base,

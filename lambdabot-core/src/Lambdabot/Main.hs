@@ -50,12 +50,7 @@ import Lambdabot.Plugin.Core (
 import Lambdabot.Util (io)
 import Lambdabot.Util.Signals (withIrcSignalCatch)
 
-import Control.Exception.Lifted as E (
-  Exception (fromException),
-  SomeException,
-  bracket_,
-  catch,
- )
+import Control.Exception.Lifted as E (Exception (fromException), SomeException, bracket_, catch)
 import Control.Monad.Identity (Identity)
 import Data.Dependent.Sum (DSum ((:=>)), (==>))
 import Data.IORef (newIORef)
@@ -65,10 +60,7 @@ import Network.Socket (withSocketsDo)
 import Paths_lambdabot_core (version)
 import System.Exit (ExitCode (..))
 import System.Log.Formatter (simpleLogFormatter)
-import System.Log.Handler.Simple (
-  GenericHandler (formatter),
-  streamHandler,
- )
+import System.Log.Handler.Simple (GenericHandler (formatter), streamHandler)
 import qualified System.Log.Logger as L
 
 lambdabotVersion :: Version

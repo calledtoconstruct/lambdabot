@@ -38,16 +38,8 @@ module Lambdabot.Monad (
 
 import Lambdabot.ChanName ()
 import Lambdabot.Command (Cmd, Command, cmdNames)
-import Lambdabot.Config (
-  Config,
-  MonadConfig (..),
-  getConfigDefault,
-  mergeConfig,
- )
-import Lambdabot.Config.Core (
-  lbRootLoggerPath,
-  uncaughtExceptionHandler,
- )
+import Lambdabot.Config (Config, MonadConfig (..), getConfigDefault, mergeConfig)
+import Lambdabot.Config.Core (lbRootLoggerPath, uncaughtExceptionHandler)
 import Lambdabot.IRC (IrcMessage (ircMsgCommand))
 import Lambdabot.Logging (MonadLogging (..), warningM)
 import qualified Lambdabot.Message as Msg
@@ -72,36 +64,18 @@ import Lambdabot.Module (
 import Lambdabot.Nick (Nick)
 import Lambdabot.Util (io)
 
-import Control.Concurrent.Lifted (
-  newEmptyMVar,
-  newMVar,
-  putMVar,
-  readMVar,
- )
-import Control.Exception.Lifted as E (
-  catch,
- )
+import Control.Concurrent.Lifted (newEmptyMVar, newMVar, putMVar, readMVar)
+import Control.Exception.Lifted as E (catch)
 import Control.Monad.Base (MonadBase (..))
 import Control.Monad.Identity (Identity (..), forM_, when, (<=<))
-import Control.Monad.Reader (
-  MonadIO,
-  MonadTrans (lift),
-  ReaderT (runReaderT),
-  asks,
- )
-import Control.Monad.State (
-  MonadState (..),
-  gets,
-  modify,
- )
+import Control.Monad.Reader (MonadIO, MonadTrans (lift), ReaderT (runReaderT), asks)
+import Control.Monad.State (MonadState (..), gets, modify)
 import Control.Monad.Trans.Control (MonadBaseControl (..))
 import qualified Data.Dependent.Map as D
 import Data.Dependent.Sum (DSum ((:=>)))
 import Data.IORef (IORef, atomicModifyIORef)
 import qualified Data.Map as M
 import qualified Data.Set as S
-
--- import           Data.These
 import Data.Some (Some (Some))
 
 -- | Default ro state

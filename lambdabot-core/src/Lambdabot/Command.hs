@@ -22,7 +22,7 @@ module Lambdabot.Command (
   getTarget,
   getLambdabotName,
   say,
-  lineify
+  lineify,
 ) where
 
 import Lambdabot.Config (MonadConfig (..))
@@ -33,25 +33,9 @@ import Lambdabot.Nick (Nick, fmtNick, parseNick)
 import Control.Monad.Base (MonadBase (..))
 import Control.Monad.Catch (MonadCatch, MonadMask, MonadThrow)
 import Control.Monad.Identity (Identity)
-import Control.Monad.Reader (
-  MonadIO (..),
-  MonadReader (ask),
-  MonadTrans (..),
-  ReaderT (..),
-  asks,
- )
-import Control.Monad.Trans.Control (
-  ComposeSt,
-  MonadBaseControl (..),
-  MonadTransControl (..),
-  defaultLiftBaseWith,
-  defaultRestoreM,
- )
-import Control.Monad.Writer (
-  MonadWriter (tell),
-  WriterT (..),
-  execWriterT,
- )
+import Control.Monad.Reader (MonadIO (..), MonadReader (ask), MonadTrans (..), ReaderT (..), asks)
+import Control.Monad.Trans.Control (ComposeSt, MonadBaseControl (..), MonadTransControl (..), defaultLiftBaseWith, defaultRestoreM)
+import Control.Monad.Writer (MonadWriter (tell), WriterT (..), execWriterT)
 import Data.Char (isAlphaNum)
 import Data.List (inits, tails)
 import Lambdabot.Config.Core (textWidth)

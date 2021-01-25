@@ -14,12 +14,7 @@ import Lambdabot.Command (
   withMsg,
  )
 import Lambdabot.Message (Message)
-import Lambdabot.Module (
-  LB,
-  Module (moduleCmds),
-  ModuleInfo (theModule),
-  newModule,
- )
+import Lambdabot.Module (LB, Module (moduleCmds), ModuleInfo (theModule), newModule)
 import Lambdabot.Monad (MonadLB (..), inModuleNamed, withCommand)
 import Lambdabot.Plugin (Nick)
 import Lambdabot.Util (showClean)

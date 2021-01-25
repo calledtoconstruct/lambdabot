@@ -11,7 +11,7 @@ module Lambdabot.Plugin.Reference (
   module Lambdabot.Config.Reference,
 ) where
 
-import Lambdabot.Config.Reference (aspellBinary, configProxy)
+import Lambdabot.Config.Reference (aspellBinary)
 import Lambdabot.Plugin.Reference.Dict (dictPlugin)
 import Lambdabot.Plugin.Reference.Metar (metarPlugin)
 import Lambdabot.Plugin.Reference.OEIS (oeisPlugin)

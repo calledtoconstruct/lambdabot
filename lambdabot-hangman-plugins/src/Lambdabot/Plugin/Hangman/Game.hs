@@ -36,12 +36,21 @@ module Lambdabot.Plugin.Hangman.Game (
   substituteTokens,
 ) where
 
+import Lambdabot.Nick (Nick, fmtNick)
+import Lambdabot.Plugin.Hangman.Configuration (
+  Configuration (
+    allowedMisses,
+    messageGuessing,
+    messageIncorrectGuessesTried,
+    messageNewGameHasBegun,
+    messageNumberOfGuessesRemaining
+  ),
+  selectPhrase,
+ )
+
 import Data.List.Split (splitOn)
 import Data.Universe.Helpers ((+++))
 import GHC.Generics (Generic)
-
-import Lambdabot.Nick (Nick, fmtNick)
-import Lambdabot.Plugin.Hangman.Configuration
 
 data Game
   = NoGame Configuration

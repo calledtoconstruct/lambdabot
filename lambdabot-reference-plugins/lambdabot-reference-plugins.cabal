@@ -66,6 +66,8 @@ library
   build-depends:        base,
                         bytestring,
                         containers,
+                        case-insensitive,
+                        exceptions,
                         HTTP,
                         lambdabot-core == 5.1.0.4,
                         mtl,
@@ -77,10 +79,12 @@ library
                         utf8-string,
                         network,
                         http-conduit,
+                        http-types,
                         html-conduit,
                         xml-conduit,
                         xml-types,
-                        text
+                        text,
+                        text-format
 
   if flag(network-uri)
     build-depends: network-uri >= 2.6, network >= 2.6

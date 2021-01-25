@@ -24,34 +24,6 @@ module Lambdabot.Module (
   OutputFilter,
 ) where
 
-import Control.Concurrent (MVar)
-import Control.Monad.Base (MonadBase (..))
-import Control.Monad.Catch (MonadCatch, MonadMask, MonadThrow)
-import Control.Monad.Exception (MonadException)
-import Control.Monad.Identity (Identity)
-import Control.Monad.Reader (
-  MonadReader (..),
-  ReaderT (..),
-  asks,
- )
-import Control.Monad.Trans (
-  MonadIO (..),
-  MonadTrans (..),
- )
-import Control.Monad.Trans.Control (
-  ComposeSt,
-  MonadBaseControl (..),
-  MonadTransControl (..),
-  defaultLiftBaseWith,
-  defaultRestoreM,
- )
-import qualified Data.Dependent.Map as D
-import Data.Dependent.Sum (DSum ())
-import Data.IORef (IORef)
-import qualified Data.Map as M
-import qualified Data.Set as S
-import Data.Some (Some)
-import Data.Unique.Tag (GCompare, GEq, RealWorld, Tag, newTag)
 import Lambdabot.ChanName (ChanName)
 import Lambdabot.Command (Command)
 import qualified Lambdabot.Command as Cmd
@@ -60,6 +32,22 @@ import Lambdabot.IRC (IrcMessage)
 import Lambdabot.Logging (MonadLogging (..))
 import Lambdabot.Nick (Nick)
 import Lambdabot.Util.Serial (Serial)
+
+import Control.Concurrent (MVar)
+import Control.Monad.Base (MonadBase (..))
+import Control.Monad.Catch (MonadCatch, MonadMask, MonadThrow)
+import Control.Monad.Exception (MonadException)
+import Control.Monad.Identity (Identity)
+import Control.Monad.Reader (MonadReader (..), ReaderT (..), asks)
+import Control.Monad.Trans (MonadIO (..), MonadTrans (..))
+import Control.Monad.Trans.Control (ComposeSt, MonadBaseControl (..), MonadTransControl (..), defaultLiftBaseWith, defaultRestoreM)
+import qualified Data.Dependent.Map as D
+import Data.Dependent.Sum (DSum ())
+import Data.IORef (IORef)
+import qualified Data.Map as M
+import qualified Data.Set as S
+import Data.Some (Some)
+import Data.Unique.Tag (GCompare, GEq, RealWorld, Tag, newTag)
 
 ------------------------------------------------------------------------
 

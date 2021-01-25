@@ -9,12 +9,6 @@
 -- | A binding to Djinn.
 module Lambdabot.Plugin.Haskell.Djinn (djinnPlugin) where
 
-import Control.Exception.Lifted as E (SomeException (SomeException), catch)
-import Control.Monad (void)
-import Control.Monad.Trans (MonadTrans (lift))
-import Data.Char (isSpace, isUpper)
-import Data.List (nub, unfoldr)
-import Data.Maybe (fromMaybe, listToMaybe)
 import Lambdabot.Config.Haskell (djinnBinary)
 import Lambdabot.Logging (errorM)
 import Lambdabot.Plugin (
@@ -33,6 +27,13 @@ import Lambdabot.Plugin (
   writeMS,
  )
 import Lambdabot.Util (dropFromEnd, io, strip)
+
+import Control.Exception.Lifted as E (SomeException (SomeException), catch)
+import Control.Monad (void)
+import Control.Monad.Trans (MonadTrans (lift))
+import Data.Char (isSpace, isUpper)
+import Data.List (nub, unfoldr)
+import Data.Maybe (fromMaybe, listToMaybe)
 import System.Process (readProcess)
 import Text.Regex.TDFA (MatchResult (mrAfter, mrBefore), (=~), (=~~))
 

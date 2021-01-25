@@ -17,11 +17,6 @@
 -}
 module Lambdabot.Plugin.Haskell.Instances (instancesPlugin) where
 
-import Control.Monad (void, (>=>))
-import Data.Char (isAlpha, isSpace)
-import Data.List (intercalate, nub, sort)
-import Data.List.Split (splitOn)
-import Data.Maybe (mapMaybe)
 import Lambdabot.Config.Haskell (ghciBinary)
 import Lambdabot.Plugin (
   Command (help, process),
@@ -34,6 +29,12 @@ import Lambdabot.Plugin (
  )
 import Lambdabot.Plugin.Haskell.Eval (findL_hs)
 import Lambdabot.Util (io, strip)
+
+import Control.Monad (void, (>=>))
+import Data.Char (isAlpha, isSpace)
+import Data.List (intercalate, nub, sort)
+import Data.List.Split (splitOn)
+import Data.Maybe (mapMaybe)
 import System.Process (readProcessWithExitCode)
 import Text.ParserCombinators.Parsec (
   CharParser,

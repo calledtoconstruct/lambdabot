@@ -17,6 +17,7 @@ import Lambdabot.Plugin (
   writeMS,
  )
 import Lambdabot.Util (io)
+
 import System.Process (readProcessWithExitCode)
 
 hooglePlugin :: Module [String]

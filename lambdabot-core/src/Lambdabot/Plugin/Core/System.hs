@@ -2,20 +2,8 @@ module Lambdabot.Plugin.Core.System (
   systemPlugin,
 ) where
 
-import Lambdabot.Bot (
-  ircCodepage,
-  ircPrivmsg,
-  ircQuit,
-  ircReconnect,
- )
-import Lambdabot.Compat.AltTime (
-  ClockTime,
-  TimeDiff,
-  diffClockTimes,
-  getClockTime,
-  noTimeDiff,
-  timeDiffPretty,
- )
+import Lambdabot.Bot (ircCodepage, ircPrivmsg, ircQuit, ircReconnect)
+import Lambdabot.Compat.AltTime (ClockTime, TimeDiff, diffClockTimes, getClockTime, noTimeDiff, timeDiffPretty)
 import Lambdabot.Compat.FreenodeNick (FreenodeNick (FreenodeNick))
 import Lambdabot.IRC (joinChannel, partChannel)
 import Lambdabot.Logging (debugM)
@@ -38,14 +26,7 @@ import Lambdabot.Module (
   ModuleT,
   newModule,
  )
-import Lambdabot.Monad (
-  MonadLB (..),
-  inModuleNamed,
-  listModules,
-  send,
-  withAllModules,
-  withCommand,
- )
+import Lambdabot.Monad (MonadLB (..), inModuleNamed, listModules, send, withAllModules, withCommand)
 import Lambdabot.Plugin (
   Cmd,
   Command (aliases, help, privileged, process),
@@ -63,11 +44,7 @@ import Lambdabot.Plugin (
  )
 import Lambdabot.Util (io, showClean, splitFirstWord)
 
-import Control.Monad.Reader (
-  MonadIO (liftIO),
-  MonadTrans (lift),
-  asks,
- )
+import Control.Monad.Reader (MonadIO (liftIO), MonadTrans (lift), asks)
 import Control.Monad.State (gets, modify)
 import qualified Data.Map as M
 import qualified Data.Set as S

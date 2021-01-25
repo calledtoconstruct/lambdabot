@@ -33,10 +33,7 @@ import Lambdabot.Plugin (
   say,
  )
 import Lambdabot.Util (arePrefixesWithSpaceOf, expandTab, io, strip)
-import Lambdabot.Util.Browser (browseLB)
 import qualified Language.Haskell.Exts.Simple as Hs
-import Network.Browser (request)
-import Network.HTTP (getRequest, rspBody)
 import System.Directory (copyFile, removeFile)
 import System.Exit (ExitCode (ExitSuccess))
 import System.Process (readProcessWithExitCode)
@@ -221,17 +218,18 @@ defineFromLPaste num = do
         return $ "That paste is too long! (maximum length: " ++ show maxlen ++ ")"
 
 fetchLPaste :: MonadLB m => String -> m (Either String String)
-fetchLPaste num =
-  browseLB $
-    if any (`notElem` ['0' .. '9']) num
-      then return $ Left "Invalid paste ID."
-      else do
-        let src = "http://lpaste.net/raw/" ++ num
-        (uri, resp) <- request $ getRequest src
-        return $
-          if show uri == src
-            then Right $ rspBody resp
-            else Left "I couldn't find any paste under that ID."
+fetchLPaste = undefined
+-- fetchLPaste num =
+--   browseLB $
+--     if any (`notElem` ['0' .. '9']) num
+--       then return $ Left "Invalid paste ID."
+--       else do
+--         let src = "http://lpaste.net/raw/" ++ num
+--         (uri, resp) <- request $ getRequest src
+--         return $
+--           if show uri == src
+--             then Right $ rspBody resp
+--             else Left "I couldn't find any paste under that ID."
 
 ------------------------------
 -- reset all bindings

@@ -27,10 +27,7 @@ import Lambdabot.Module (
   newModule,
  )
 import Lambdabot.Monad (MonadLB (lb), inModuleWithID, withCommand)
-import Lambdabot.Plugin (
-  MonadConfig (getConfig),
-  commandPrefixes,
- )
+import Lambdabot.Plugin (MonadConfig (getConfig), commandPrefixes)
 
 import Control.Arrow (first)
 import Control.Monad (msum, when)

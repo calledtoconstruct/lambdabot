@@ -7,10 +7,11 @@ module Lambdabot.Compat.FreenodeNick (
   freenodeNickMapSerial,
 ) where
 
-import Control.Arrow (Arrow (first))
-import qualified Data.Map as M
 import Lambdabot.Nick (Nick (..))
 import Lambdabot.Util.Serial (Serial (..), mapSerial)
+
+import Control.Arrow (Arrow (first))
+import qualified Data.Map as M
 
 newtype FreenodeNick = FreenodeNick {getFreenodeNick :: Nick}
   deriving (Eq, Ord)

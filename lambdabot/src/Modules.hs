@@ -6,9 +6,9 @@ import Lambdabot.Main (Modules, basePlugin, composePlugin, helpPlugin, morePlugi
 
 -- to add a new plugin, one must first add a qualified import here, and also
 -- add a string in the list below
--- import Lambdabot.Plugin.Haskell
 
 import Lambdabot.Plugin.Hangman (hangmanPlugin)
+import Lambdabot.Plugin.Haskell (typePlugin)
 import Lambdabot.Plugin.IRC (ircPlugin, localtimePlugin, topicPlugin)
 import Lambdabot.Plugin.Misc (dummyPlugin, freshPlugin, todoPlugin)
 import Lambdabot.Plugin.Novelty (bfPlugin, dicePlugin, elitePlugin, filterPlugin, numberwangPlugin, quotePlugin, slapPlugin, unlambdaPlugin, vixenPlugin)
@@ -19,7 +19,6 @@ import Lambdabot.Plugin.Suggest (suggestPlugin)
 import Lambdabot.Plugin.Twitch (twitchPlugin)
 
 import Data.Some (Some (Some))
-import Lambdabot.Plugin.Haskell (typePlugin)
 
 modulesInfo :: Modules
 modulesInfo =
