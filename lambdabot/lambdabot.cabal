@@ -43,7 +43,7 @@ data-files:             scripts/online.rc.sample,
 
 source-repository head
   type:                 git
-  location:             https://github.com/lambdabot/lambdabot.git
+  location:             https://github.com/calledtoconstruct/lambdabot.git
 
 executable lambdabot
   hs-source-dirs:       src
@@ -63,6 +63,7 @@ executable lambdabot
                         lambdabot-irc-plugins == 5.1.0.4,
                         lambdabot-twitch-plugins == 5.1.0.4,
                         lambdabot-hangman-plugins == 5.1.0.4,
+                        lambdabot-term-plugins == 5.1.0.4,
                         lambdabot-points-plugins == 5.1.0.4,
                         lambdabot-suggest-plugins == 5.1.0.4,
                         lambdabot-misc-plugins == 5.1.0.4,

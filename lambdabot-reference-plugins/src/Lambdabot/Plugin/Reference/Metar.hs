@@ -16,15 +16,13 @@ import Lambdabot.Plugin (
   newModule,
   say,
  )
-import Lambdabot.Util.Browser (doHttpRequest)
+import Lambdabot.Util.Browser (HttpResponseHandler, doHttpRequest)
 
 import qualified Control.Exception.Lifted as E
-import qualified Data.ByteString.Char8 as B
 import Data.Char (isAlpha, isNumber, toUpper)
 import qualified Data.Text as T
 import Data.XML.Types (Name (Name))
 import qualified Network.HTTP.Client.Conduit as S
-import Network.HTTP.Types (HeaderName)
 import Text.XML.Cursor (Cursor, attribute, content, element, ($//), (&/), (>=>))
 
 metarPlugin :: Module ()
@@ -57,11 +55,11 @@ doMetar :: String -> LB [String]
 doMetar code
   | length code == 4 && all isAlpha code = do
     request <- S.parseRequest $ addsSrc (map toUpper code)
-    doHttpRequest request extractResult `E.catch` \E.SomeException{} -> do
+    doHttpRequest request Nothing extractResult `E.catch` \E.SomeException{} -> do
       return ["I was not able to fetch a result for that request."]
   | otherwise = return ["Please enter a valid metar station code.  The list is available here: https://www.aviationweather.gov/docs/metar/stations.txt"]
 
-extractResult :: Int -> Cursor -> [(HeaderName, B.ByteString)] -> [String]
+extractResult :: HttpResponseHandler [String]
 extractResult statusCode body _ = case statusCode of
   200 -> do
     let numberOfResults = getAttributeValueFrom body dataElementName numberOfResultsAttributeName

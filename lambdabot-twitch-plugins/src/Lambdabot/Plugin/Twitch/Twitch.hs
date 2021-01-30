@@ -4,7 +4,7 @@ module Lambdabot.Plugin.Twitch.Twitch (twitchPlugin) where
 
 import Lambdabot.Config.Twitch (reconnectDelay)
 import Lambdabot.IRC (IrcMessage (..), joinChannel, pass, setNick, user)
-import Lambdabot.Logging (debugM, errorM)
+import Lambdabot.Logging (MonadLogging, infoM, debugM, errorM)
 import Lambdabot.Monad (
   IRCRWState (ircChannels, ircPersists, ircServerMap),
   MonadLB (lb),
@@ -31,6 +31,7 @@ import Lambdabot.Plugin (
  )
 import Lambdabot.Util (io)
 
+import Control.Exception
 import Control.Concurrent.Lifted (
   MVar,
   fork,
@@ -42,7 +43,7 @@ import Control.Concurrent.Lifted (
   threadDelay,
  )
 import qualified Control.Concurrent.SSem as SSem
-import Control.Exception.Lifted as E (SomeException (..), catch, throwIO)
+import Control.Exception.Lifted as E (catch, throwIO)
 import Control.Monad (forM_, forever, void, when)
 import Control.Monad.State (gets, modify)
 import Control.Monad.Trans (MonadTrans (lift))
@@ -59,6 +60,7 @@ import System.IO (
   hSetBuffering,
  )
 import System.Timeout.Lifted (timeout)
+import Data.Typeable (typeOf)
 
 data IRCState = IRCState
   { password :: Maybe String
@@ -245,7 +247,7 @@ goOnline hostn portnum tag nickn psw ui = do
   E.catch (registerServer tag (io . sendMsg sock sendmv fin)) (\err@SomeException{} -> io (hClose sock) >> E.throwIO err)
   lb $ twitchSignOn hostn (Nick tag nickn) psw ui
   ready <- io $ SSem.new 0
-  lb $ void $ forkFinally (E.catch (readerLoop tag nickn sock ready) (\e@SomeException{} -> errorM (show e))) (const $ io $ SSem.signal fin)
+  lb $ void $ forkFinally (readerLoop tag nickn sock ready `E.catch` handleReaderLoopException) (const $ io $ SSem.signal fin)
   void $
     fork $ do
       io $ SSem.wait fin
@@ -256,7 +258,7 @@ goOnline hostn portnum tag nickn psw ui = do
       doRetry delay hostn portnum tag nickn psw ui
   watch <- io $
     fork $ do
-      threadDelay 10000000
+      threadDelay 15000000
       errorM "Welcome timeout!"
       SSem.signal fin
   io $ SSem.wait ready
@@ -282,6 +284,11 @@ readerLoop tag nickn sock ready = forever $ do
       let msg = decodeMessage tag nickn line'
       when (ircMsgCommand msg == "001") $ io $ SSem.signal ready
       received msg
+
+handleReaderLoopException :: MonadLogging m => SomeException -> m ()
+handleReaderLoopException (SomeException e) = case show $ typeOf e of
+   "IOException" -> infoM "Ignoring io exception from reader loop."
+   _ -> errorM $ show e ++ show (typeOf e)
 
 sendMsg :: Handle -> MVar () -> SSem.SSem -> IrcMessage -> IO ()
 sendMsg sock mv fin msg =

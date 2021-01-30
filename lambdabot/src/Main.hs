@@ -24,6 +24,7 @@ import Lambdabot.Main (
   onStartupCmds,
   (==>),
  )
+import Lambdabot.Plugin.Haskell (languageExts, trustedPackages)
 
 import Control.Monad.Identity (Identity, unless, void, when, (<=<))
 import Data.Char (toUpper)
@@ -88,8 +89,10 @@ flagsOptionLogLevel =
               [DEBUG, INFO, NOTICE, WARNING, ERROR, CRITICAL, ALERT, EMERGENCY]
         ]
 
--- flagsOptionTrustPackage       = Option "t"  ["trust"] (arg "<package>" trustedPackages strs)  "Trust the specified packages when evaluating code"
--- flagsOptionLanguageExtensions = Option "X"  []        (arg "<extension>" languageExts strs)   "Set a GHC language extension for @run"
+flagsOptionTrustPackage :: OptDescr (IO (DSum Config Identity))
+flagsOptionTrustPackage = Option "t" ["trust"] (arg "<package>" trustedPackages strs) "Trust the specified packages when evaluating code"
+flagsOptionLanguageExtensions :: OptDescr (IO (DSum Config Identity))
+flagsOptionLanguageExtensions = Option "X" [] (arg "<extension>" languageExts strs) "Set a GHC language extension for @run"
 
 arg ::
   String ->
@@ -103,8 +106,9 @@ flags =
   [ flagsOptionHelp
   , flagsOptionEval
   , flagsOptionLogLevel
-  , {- flagsOptionTrustPackage, flagsOptionLanguageExtensions, -}
-    flagsOptionVersion
+  , flagsOptionTrustPackage
+  , flagsOptionLanguageExtensions
+  , flagsOptionVersion
   , flagsOptionNice
   ]
 

@@ -124,6 +124,8 @@ lambdabotRun ms = do
 
   -- clean up any dynamically loaded modules
   mapM_ ircUnloadModule =<< listModules
+  io L.removeAllHandlers
+  io $ putStrLn ""
   return ExitSuccess
 
 ------------------------------------------------------------------------

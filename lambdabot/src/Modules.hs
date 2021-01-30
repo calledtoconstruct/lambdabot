@@ -17,6 +17,7 @@ import Lambdabot.Plugin.Reference (dictPlugin, metarPlugin, oeisPlugin, searchPl
 import Lambdabot.Plugin.Social (activityPlugin, karmaPlugin, pollPlugin, seenPlugin, tellPlugin)
 import Lambdabot.Plugin.Suggest (suggestPlugin)
 import Lambdabot.Plugin.Twitch (twitchPlugin)
+import Lambdabot.Plugin.Term (termPlugin)
 
 import Data.Some (Some (Some))
 
@@ -62,4 +63,5 @@ modulesInfo =
   , ("numberwang", Some numberwangPlugin)
   , ("vixen", Some vixenPlugin)
   , ("type", Some typePlugin)
+  , ("term", Some termPlugin)
   ]

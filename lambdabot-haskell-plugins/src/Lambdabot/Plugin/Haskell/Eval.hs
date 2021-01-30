@@ -38,6 +38,7 @@ import qualified Language.Haskell.Exts.Simple as Hs
 import System.Directory (copyFile, removeFile)
 import System.Exit (ExitCode (ExitSuccess))
 import System.Process (readProcessWithExitCode)
+-- import Lambdabot.Logging (infoM)
 
 evalPlugin :: Module ()
 evalPlugin =
@@ -101,7 +102,9 @@ runGHC src = do
   binary <- getConfig muevalBinary
   exts <- getConfig languageExts
   trusted <- getConfig trustedPackages
-  (_, out, err) <- io (readProcessWithExitCode binary (args load src exts trusted) "")
+  let argList = args load src exts trusted
+  -- infoM $ concatMap (++ " ") argList
+  (_, out, err) <- io $ readProcessWithExitCode binary argList ""
   case (out, err) of
     ([], []) -> return "Terminated\n"
     _ -> do
@@ -175,7 +178,8 @@ comp src = do
   trusted <- getConfig trustedPackages
   let ghcArgs = concat [["-O", "-v0", "-c", "-Werror", "-fpackage-trust"], concat [["-trust", pkg] | pkg <- trusted], [".L.hs"]]
   ghc <- getConfig ghcBinary
-  (c, o', e') <- io (readProcessWithExitCode ghc ghcArgs "")
+  -- io $ infoM $ ghc ++ " " ++ concatMap (++ " ") ghcArgs
+  (c, o', e') <- io $ readProcessWithExitCode ghc ghcArgs ""
   -- cleanup, 'try' because in case of error the files are not generated
   _ <- io (try (removeFile ".L.hi") :: IO (Either SomeException ()))
   _ <- io (try (removeFile ".L.o") :: IO (Either SomeException ()))

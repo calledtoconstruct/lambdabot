@@ -83,7 +83,11 @@ initializeModule = do
     waitForInit
     lockRC
     cmds <- getConfig onStartupCmds
-    mapM_ feed cmds `finally` unlockRC
+    mapM_ feed (filter comment cmds) `finally` unlockRC
+
+comment :: String -> Bool 
+comment ('#' : _) = False
+comment _ = True
 
 loadPrivilegedUsers :: IRCRWState -> IRCRWState
 loadPrivilegedUsers moduleState =
@@ -95,17 +99,15 @@ loadPrivilegedUsers moduleState =
     }
 
 finalizeModule :: OfflineRC ()
-finalizeModule = void . forkUnmasked $ do
-  lockRC
-  cmds <- getConfig onShutdownCmds
-  mapM_ feed cmds `finally` unlockRC
+finalizeModule = do
+  return ()
 
 startOfflineConsole :: b -> Cmd OfflineRC ()
 startOfflineConsole = const . lift $ do
   lockRC
   histFile <- lb $ findLBFileForWriting "offlinerc"
   let settings = defaultSettings{historyFile = Just histFile}
-  _ <- fork (runInputT settings replLoop `finally` unlockRC)
+  _ <- fork $ runInputT settings replLoop `finally` unlockRC
   _ <- fork timerLoop
   return ()
 
@@ -126,9 +128,13 @@ timerLoop = do
 
 stopOfflineConsole :: p -> Cmd OfflineRC ()
 stopOfflineConsole _ = do
-  runScript "scripts/shutdown.rc"
-  lift $ unregisterServer "offlinerc"
-  lift stopRC
+  lift . void . forkUnmasked $ do
+    lockRC
+    cmds <- getConfig onShutdownCmds
+    mapM_ feed (filter comment cmds) `finally` do
+      unlockRC
+      unregisterServer "offlinerc"
+      stopRC
 
 runScript :: String -> Cmd OfflineRC ()
 runScript fileName = lift $ do
@@ -136,7 +142,7 @@ runScript fileName = lift $ do
   io $ evaluate $ foldr seq () txt
   let linesOfText = lines txt
   lockRC
-  _ <- fork $ finally (mapM_ feed linesOfText) unlockRC
+  _ <- fork $ mapM_ feed (filter comment linesOfText) `finally` unlockRC
   return ()
 
 feed :: String -> OfflineRC ()

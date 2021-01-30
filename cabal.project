@@ -9,6 +9,7 @@ packages:
     lambdabot-reference-plugins/lambdabot-reference-plugins.cabal
     lambdabot-social-plugins/lambdabot-social-plugins.cabal
     lambdabot-hangman-plugins/lambdabot-hangman-plugins.cabal
+    lambdabot-term-plugins/lambdabot-term-plugins.cabal
     lambdabot-points-plugins/lambdabot-points-plugins.cabal
     lambdabot-suggest-plugins/lambdabot-suggest-plugins.cabal
     lambdabot-twitch-plugins/lambdabot-twitch-plugins.cabal

@@ -41,7 +41,7 @@ import Lambdabot.Command (Cmd, Command, cmdNames)
 import Lambdabot.Config (Config, MonadConfig (..), getConfigDefault, mergeConfig)
 import Lambdabot.Config.Core (lbRootLoggerPath, uncaughtExceptionHandler)
 import Lambdabot.IRC (IrcMessage (ircMsgCommand))
-import Lambdabot.Logging (MonadLogging (..), warningM)
+import Lambdabot.Logging (infoM, MonadLogging (..), warningM)
 import qualified Lambdabot.Message as Msg
 import Lambdabot.Module (
   Callback,
@@ -262,16 +262,16 @@ registerServer sName sendf = do
 -- TODO: fix race condition
 unregisterServer :: String -> ModuleT mod LB ()
 unregisterServer tag = lb $ do
-  warningM $ "unregistering server " ++ tag
+  infoM $ "unregistering server " ++ tag
   s <- get
   let svrs = ircServerMap s
   case M.lookup tag svrs of
     Just _ -> do
       let svrs' = M.delete tag svrs
       put (s{ircServerMap = svrs'})
-      warningM "server unregistered"
+      infoM "server unregistered"
       when (M.null svrs') $ do
-        warningM "all servers unregistered"
+        infoM "all servers unregistered"
         quitMVar <- askLB ircQuitMVar
         io $ putMVar quitMVar ()
     Nothing -> fail $ "attempted to delete nonexistent servers named " ++ tag

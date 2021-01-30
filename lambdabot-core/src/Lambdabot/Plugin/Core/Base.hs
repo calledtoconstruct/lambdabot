@@ -233,7 +233,7 @@ doMsg msg cmd rest towhere = do
     _ | cmd `elem` ms -> docmd msg towhere rest cmd -- correct command (usual case)
     _ | otherwise -> case closests cmd allcmds of
       (n, [s]) | n < e, null ms -> docmd msg towhere rest s -- unique edit match
-      (n, ss) | n < e || ms /= [] -> lift . ircmsg $ "Maybe you meant: " ++ showClean (nub (ms ++ ss))
+      (n, ss) | n < e || ms /= [] -> lift . ircmsg $ "Maybe you meant: " ++ showClean (nub $ ms ++ ss)
       _ -> docmd msg towhere rest cmd -- no prefix, edit distance too far
 
 docmd :: IrcMessage -> Nick -> [Char] -> String -> Base ()

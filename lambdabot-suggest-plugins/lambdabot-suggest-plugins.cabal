@@ -26,7 +26,7 @@ tested-with:            GHC == 8.2.2, GHC == 8.4.4, GHC == 8.6.5, GHC == 8.8.4, 
 
 source-repository head
   type:                 git
-  location:             https://github.com/lambdabot/lambdabot.git
+  location:             https://github.com/calledtoconstruct/lambdabot.git
 
 library
   hs-source-dirs:       src
@@ -36,18 +36,10 @@ library
   default-language:     Haskell2010
 
   exposed-modules:      Lambdabot.Plugin.Suggest
+
+  other-modules:        Lambdabot.Plugin.Suggest.Suggest
+
   other-modules:        Lambdabot.Config.Suggest
-                        Lambdabot.Plugin.Suggest.Suggest
 
   build-depends:        base,
-                        binary,
-                        bytestring,
-                        containers,
-                        dice,
-                        directory,
-                        lambdabot-core == 5.1.0.4,
-                        mtl,
-                        misfortune,
-                        process,
-                        random-fu,
-                        regex-tdfa
+                        lambdabot-core == 5.1.0.4

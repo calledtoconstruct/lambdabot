@@ -1,4 +1,4 @@
-name:                   lambdabot-hangman-plugins
+name:                   lambdabot-term-plugins
 version:                5.1.0.4
 
 license:                GPL
@@ -8,11 +8,11 @@ author:                 Joseph Woolley
 maintainer:             
 
 category:               Development, Web
-synopsis:               Hangman plugins for Lambdabot
+synopsis:               Term plugins for Lambdabot
 description:            Lambdabot is an IRC bot written over several years by
                         those on the #haskell IRC channel.
                         .
-                        Provided plugins:
+                        Provided plugins: add-term, remove-term (rm-term), term
 
 homepage:               https://wiki.haskell.org/Lambdabot
 
@@ -31,21 +31,15 @@ library
                         
   default-language:     Haskell2010
 
-  exposed-modules:      Lambdabot.Plugin.Hangman
+  exposed-modules:      Lambdabot.Plugin.Term
 
-  other-modules:        Lambdabot.Plugin.Hangman.Configuration
-                        Lambdabot.Plugin.Hangman.Game
-                        Lambdabot.Plugin.Hangman.Hangman
-                        Lambdabot.Plugin.Hangman.Logic
-                        Lambdabot.Plugin.Hangman.Manage
+  other-modules:        Lambdabot.Plugin.Term.Term
+                        Lambdabot.Plugin.Term.Logic
+                        Lambdabot.Plugin.Term.Configuration
 
-  other-modules:        Lambdabot.Config.Hangman
+  other-modules:        Lambdabot.Config.Term
 
   build-depends:        base,
-                        containers,
                         lambdabot-core == 5.1.0.4,
-                        lifted-base,
                         mtl,
-                        random,
-                        split,
-                        universe-base
+                        time
