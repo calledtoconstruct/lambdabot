@@ -25,5 +25,5 @@ config "aspellBinary" [t|String|] [|"aspell"|]
 -- Notice: Check the site's usage guidelines.
 config "enableGoogle" [t|Bool|] [|True|]
 config "enableWikipedia" [t|Bool|] [|True|]
-config "enableImdb" [t|Bool|] [|False|]
-config "enableDiscogs" [t|Bool|] [|False|]
+config "enableImdb" [t|Bool|] [|True|]
+config "enableDiscogs" [t|Bool|] [|True|]

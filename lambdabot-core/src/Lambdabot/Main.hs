@@ -1,3 +1,5 @@
+{-# LANGUAGE TemplateHaskell #-}
+
 module Lambdabot.Main (
   lambdabotVersion,
   Config,
@@ -5,6 +7,7 @@ module Lambdabot.Main (
   (==>),
   lambdabotMain,
   Modules,
+  modules,
   module Lambdabot.Plugin.Core,
   Priority (..),
 ) where
@@ -54,8 +57,12 @@ import Control.Exception.Lifted as E (Exception (fromException), SomeException, 
 import Control.Monad.Identity (Identity)
 import Data.Dependent.Sum (DSum ((:=>)), (==>))
 import Data.IORef (newIORef)
+import Data.List (nub)
 import Data.Some (Some (..))
 import Data.Version (Version)
+import Language.Haskell.TH (Exp, Q, listE)
+import Language.Haskell.TH.Lib (varE)
+import Language.Haskell.TH.Syntax (mkName)
 import Network.Socket (withSocketsDo)
 import Paths_lambdabot_core (version)
 import System.Exit (ExitCode (..))
@@ -131,6 +138,13 @@ lambdabotRun ms = do
 ------------------------------------------------------------------------
 
 type Modules = [(String, Some Module)]
+
+modules :: [String] -> Q Exp
+modules xs = [|$(listE $ map instalify (nub xs))|]
+ where
+  instalify x =
+    let module' = varE $ mkName (x ++ "Plugin")
+     in [|(x, Some $module')|]
 
 withModules :: Modules -> LB a -> LB a
 withModules [] = id

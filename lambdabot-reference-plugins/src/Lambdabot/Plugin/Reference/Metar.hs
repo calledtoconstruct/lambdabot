@@ -75,11 +75,9 @@ extractResult statusCode body _ = case statusCode of
             windSpeed = getContentFrom body windSpeedElementName
             windDirection = getContentFrom body windDirectionElementName
             visibility = getContentFrom body visibilityElementName
-         in unlines
-              [ station ++ ": Sits at " ++ elevation ++ " meters above sea level at (latitude, longitude) of (" ++ latitude ++ ", " ++ longitude ++ ")."
-              , station ++ ": Current temperature is " ++ temperature ++ "C with a dewpoint of " ++ dewpoint ++ "C.  Over the last two hours, the precipitation was " ++ precipitation ++ " inches."
-              , station ++ ": Visibility is " ++ visibility ++ " miles with a " ++ generalizeDirection windDirection ++ " wind of " ++ windSpeed ++ " miles per hour."
-              ]
+         in station ++ ": Sits at " ++ elevation ++ " meters above sea level at (latitude, longitude) of (" ++ latitude ++ ", " ++ longitude ++ ")."
+          ++ "  Current temperature is " ++ temperature ++ "C with a dewpoint of " ++ dewpoint ++ "C.  Over the last two hours, the precipitation was " ++ precipitation ++ " inches."
+          ++ "  Visibility is " ++ visibility ++ " miles with a " ++ generalizeDirection windDirection ++ " wind of " ++ windSpeed ++ " miles per hour."
       0 -> "No results for that station."
       _ -> "One station at a time, please."
   _ -> return $ show statusCode ++ ": No Result Found."

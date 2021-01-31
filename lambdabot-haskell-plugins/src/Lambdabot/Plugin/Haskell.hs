@@ -46,7 +46,7 @@ import Lambdabot.Plugin.Haskell.Undo (undoPlugin)
 haskellPlugins :: [String]
 haskellPlugins =
   [ "check"
-  , "djinn"
+  -- , "djinn"
   , "eval"
   , "free"
   , "haddock"
