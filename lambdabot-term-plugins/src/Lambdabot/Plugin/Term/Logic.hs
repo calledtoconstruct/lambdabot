@@ -10,7 +10,7 @@ import Lambdabot.Plugin.Term.Configuration (
     terms
   ),
  )
-import Lambdabot.Util (io, random)
+import Lambdabot.Util (io, randomElem)
 
 import Control.Monad.Trans (MonadIO)
 import Data.Maybe (fromJust, isJust)
@@ -74,12 +74,12 @@ findTerm termState msg = do
   let recent = lockedTerms termState
   let spokenWords = fst . last $ readP_to_S sentenceParser msg
   let mts = filter (`elem` spokenWords) $ filter (`notElem` recent) $ concatMap fst $ terms termState
-  x <- io $ random mts
+  randomMts <- io $ randomElem mts
   doIt <- shouldQuoteTerm
   let mt = case length mts of
         0 -> Nothing
         1 -> Just $ head mts
-        _ -> Just x
+        _ -> Just randomMts
   if doIt && isJust mt
     then pure $ Just $ quoteTerm termState $ fromJust mt
     else pure Nothing
@@ -87,7 +87,7 @@ findTerm termState msg = do
 shouldQuoteTerm :: MonadIO m => MonadConfig m => m Bool
 shouldQuoteTerm = do
   (frequency, outOf) <- getConfig termFrequency
-  notTooChatty <- random [1 .. (abs outOf)]
+  notTooChatty <- randomElem [1 .. (abs outOf)]
   pure $ notTooChatty <= frequency
 
 quoteTerm :: TermState -> String -> FindTermResult

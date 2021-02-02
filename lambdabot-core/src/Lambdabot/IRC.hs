@@ -25,6 +25,7 @@ import Data.Char (chr, isSpace)
 import Data.List.Split (splitOn)
 
 import Control.Monad (liftM2)
+import Data.List (intercalate)
 
 {- | An IRC message is a server, a prefix, a command and a list of parameters.
 
@@ -37,7 +38,16 @@ data IrcMessage = IrcMessage
   , ircMsgCommand :: !String
   , ircMsgParams :: ![String]
   }
-  deriving (Show)
+
+instance Show IrcMessage where
+  show msg
+    | ircMsgCommand msg == "PASS" && head (ircMsgParams msg) /= "***" = show $ msg{ircMsgParams = ["***"]}
+    | otherwise =
+      let command =
+            if null $ ircMsgPrefix msg
+              then ircMsgCommand msg
+              else ircMsgPrefix msg ++ ircMsgCommand msg
+       in concat ["IrcMessage to ", ircMsgServer msg, " command ", command, " (", intercalate ", " (ircMsgParams msg), ")"]
 
 instance Message IrcMessage where
   nick = liftM2 Nick ircMsgServer (takeWhile (/= '!') . ircMsgPrefix)
@@ -75,6 +85,13 @@ getTopic chan = mkMessage (nTag chan) "TOPIC" [nName chan]
 setTopic :: Nick -> String -> IrcMessage
 setTopic chan topic = mkMessage (nTag chan) "TOPIC" [nName chan, ':' : topic]
 
+{- | Send a message to a channel
+>>> privmsg Nick { nTag = "tag", nName = "name" } "/me waves"
+IrcMessage to tag command PRIVMSG (name, :ACTION waves)
+
+>>> privmsg Nick { nTag = "tag", nName = "name" } "waves"
+IrcMessage to tag command PRIVMSG (name, :waves)
+-}
 privmsg :: Nick -> String -> IrcMessage
 privmsg who msg =
   if action
@@ -99,6 +116,9 @@ codepage svr theCodePage = mkMessage svr "CODEPAGE" [' ' : theCodePage]
 
 {- | 'quit' creates a server QUIT message. The input string given is the
    quit message, given to other parties when leaving the network.
+
+>>> quit "server" "message"
+IrcMessage to server command QUIT (:message)
 -}
 quit :: String -> String -> IrcMessage
 quit svr msg = mkMessage svr "QUIT" [':' : msg]
@@ -106,6 +126,9 @@ quit svr msg = mkMessage svr "QUIT" [':' : msg]
 {- | Construct a privmsg from the CTCP TIME notice, to feed up to
  the @localtime-reply plugin, which then passes the output to
  the appropriate client.
+
+>>> timeReply IrcMessage {ircMsgServer = "server", ircMsgLBName = "urk!<outputmessage>", ircMsgPrefix = "", ircMsgCommand = "USER", ircMsgParams = ["nick-name","localhost","srvr","irc-name"]}
+IrcMessage to server command PRIVMSG (nick-name, :@localtime-reply :)
 -}
 timeReply :: IrcMessage -> IrcMessage
 timeReply msg =
@@ -120,12 +143,24 @@ timeReply msg =
         ]
     }
 
+{- | Make a USER message
+>>> user "server" "nick-name" "srvr" "irc-name"
+IrcMessage to server command USER (nick-name, localhost, srvr, irc-name)
+-}
 user :: String -> String -> String -> String -> IrcMessage
 user svr nick_ server_ ircname =
   mkMessage svr "USER" [nick_, "localhost", server_, ircname]
 
+{- | Make a PASS message
+>>> pass "server" "pA$$w0rP"
+IrcMessage to server command PASS (***)
+-}
 pass :: String -> String -> IrcMessage
 pass svr pwd = mkMessage svr "PASS" [pwd]
 
+{- | Make a NICK message from a nickname
+>>> setNick Nick { nTag = "tag", nName = "name" }
+IrcMessage to tag command NICK (name)
+-}
 setNick :: Nick -> IrcMessage
 setNick nick_ = mkMessage (nTag nick_) "NICK" [nName nick_]

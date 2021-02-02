@@ -3,7 +3,6 @@ module Lambdabot.Plugin.Suggest (
   suggestPlugins,
 ) where
 
-import Lambdabot.Config.Suggest ()
 import Lambdabot.Plugin.Suggest.Suggest (suggestPlugin)
 
 suggestPlugins :: [String]

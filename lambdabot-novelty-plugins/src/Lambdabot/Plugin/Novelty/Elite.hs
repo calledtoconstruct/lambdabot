@@ -17,7 +17,7 @@ import Lambdabot.Plugin (
   process,
   say,
  )
-import Lambdabot.Util (io, random)
+import Lambdabot.Util (io, randomElem)
 
 import Control.Arrow (first)
 import Data.Char (isSpace, toLower, toUpper)
@@ -64,7 +64,7 @@ translate str = do
         , let match' = mrMatch mr
               rest = mrAfter mr
         ]
-  (subst, rest) <- random alts
+  (subst, rest) <- randomElem alts
   fmap (subst ++) (translate rest)
 
 ruleList :: [(Regex, String -> String)]

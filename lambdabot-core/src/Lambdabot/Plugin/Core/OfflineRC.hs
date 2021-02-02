@@ -2,7 +2,7 @@
 
 module Lambdabot.Plugin.Core.OfflineRC (offlineRCPlugin) where
 
-import Lambdabot.Config.Core (commandPrefixes, onShutdownCmds, onStartupCmds)
+import Lambdabot.Config.Core (onShutdownCmds, onStartupCmds)
 import Lambdabot.IRC (IrcMessage (..))
 import Lambdabot.Monad (
   IRCRWState (ircPersists, ircPrivilegedUsers),
@@ -22,6 +22,7 @@ import Lambdabot.Plugin (
   MonadLBState (withMS),
   Nick (Nick),
   command,
+  commandPrefixes,
   findLBFileForWriting,
   newModule,
   say,
@@ -85,7 +86,7 @@ initializeModule = do
     cmds <- getConfig onStartupCmds
     mapM_ feed (filter comment cmds) `finally` unlockRC
 
-comment :: String -> Bool 
+comment :: String -> Bool
 comment ('#' : _) = False
 comment _ = True
 

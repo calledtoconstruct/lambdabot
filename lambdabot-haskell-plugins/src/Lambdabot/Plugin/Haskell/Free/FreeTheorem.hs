@@ -17,7 +17,6 @@ import Lambdabot.Plugin.Haskell.Free.Type (TyVar, Type (..), parseType)
 import Lambdabot.Plugin.Haskell.Free.Util (Mode (PageMode), Pretty (pretty), Style (Style, lineLength, mode, ribbonsPerLine), renderStyle)
 
 import Control.Monad (MonadPlus (mplus))
-import Control.Monad.Fail ()
 import Control.Monad.Identity (Identity (runIdentity))
 import Control.Monad.State (
   MonadPlus (mplus),
@@ -29,7 +28,6 @@ import Control.Monad.State (
   modify,
   runState,
  )
-import Data.Char ()
 import qualified Data.Map as M
 import Data.Maybe (fromMaybe)
 

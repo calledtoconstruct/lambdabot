@@ -36,12 +36,11 @@ module Lambdabot.Monad (
   withAllModules,
 ) where
 
-import Lambdabot.ChanName ()
 import Lambdabot.Command (Cmd, Command, cmdNames)
 import Lambdabot.Config (Config, MonadConfig (..), getConfigDefault, mergeConfig)
 import Lambdabot.Config.Core (lbRootLoggerPath, uncaughtExceptionHandler)
 import Lambdabot.IRC (IrcMessage (ircMsgCommand))
-import Lambdabot.Logging (infoM, MonadLogging (..), warningM)
+import Lambdabot.Logging (MonadLogging (..), infoM, warningM)
 import qualified Lambdabot.Message as Msg
 import Lambdabot.Module (
   Callback,
@@ -191,16 +190,7 @@ registerCommands cmds = do
 registerCallback :: String -> Callback st -> ModuleT st LB ()
 registerCallback str f = do
   mTag <- asks moduleID
-
-  lift . modify $ \s ->
-    s
-      { ircCallbacks =
-          M.insertWith
-            D.union
-            str
-            (D.singleton mTag (CallbackRef f))
-            (ircCallbacks s)
-      }
+  lift . modify $ \s -> s{ircCallbacks = M.insertWith D.union str (D.singleton mTag (CallbackRef f)) (ircCallbacks s)}
 
 registerOutputFilter :: OutputFilter st -> ModuleT st LB ()
 registerOutputFilter f = do
@@ -249,14 +239,7 @@ registerServer sName sendf = do
     case M.lookup sName (ircServerMap s) of
       Just _ -> (Just $ "attempted to create two servers named " ++ sName, s)
       Nothing ->
-        let s' =
-              s
-                { ircServerMap =
-                    M.insert
-                      sName
-                      (mTag :=> ServerRef sendf)
-                      (ircServerMap s)
-                }
+        let s' = s{ircServerMap = M.insert sName (mTag :=> ServerRef sendf) (ircServerMap s)}
          in (Nothing, s')
 
 -- TODO: fix race condition
@@ -284,22 +267,20 @@ withUEHandler f = do
 send :: IrcMessage -> LB ()
 send msg = do
   s <- gets ircServerMap
-  let bogus = warningM $ "sending message to bogus server: " ++ show msg
-  case M.lookup (Msg.server msg) s of
-    Just (mTag :=> ServerRef sendf) ->
-      withUEHandler (inModuleWithID mTag bogus (sendf msg))
-    Nothing -> bogus
+  let bogusServer = warningM $ "sending message to bogus server: " ++ show msg
+  let maybeServerName = M.lookup (Msg.server msg) s
+  maybe bogusServer (\(mTag :=> ServerRef sendf) -> withUEHandler $ inModuleWithID mTag bogusServer $ sendf msg) maybeServerName
 
 received :: IrcMessage -> LB ()
 received msg = do
-  s <- get
-  case M.lookup (ircMsgCommand msg) (ircCallbacks s) of
-    Just cbs -> forM_ (D.toList cbs) $ \(tag :=> CallbackRef cb) ->
-      withUEHandler (inModuleWithID tag (return ()) (cb msg))
-    _ -> return ()
+  ircState <- get
+  let maybeCallback = M.lookup (ircMsgCommand msg) (ircCallbacks ircState)
+  let doNothing = return ()
+  let doCallback = \(tag :=> CallbackRef cb) -> withUEHandler (inModuleWithID tag doNothing (cb msg))
+  let doCallbacks = \cbs -> forM_ (D.toList cbs) doCallback
+  maybe doNothing doCallbacks maybeCallback
 
-applyOutputFilter ::
-  Nick -> DSum ModuleID OutputFilterRef -> [String] -> LB [String]
+applyOutputFilter :: Nick -> DSum ModuleID OutputFilterRef -> [String] -> LB [String]
 applyOutputFilter who (mTag :=> OutputFilterRef f) msg =
   inModuleWithID mTag (return msg) (f who msg)
 
@@ -315,27 +296,17 @@ applyOutputFilters who msg = do
 inModuleNamed :: String -> LB a -> (forall st. ModuleT st LB a) -> LB a
 inModuleNamed name nothing just = do
   mbMod <- gets (M.lookup name . ircModulesByName)
-  case mbMod of
-    Nothing -> nothing
-    Just (Some modInfo) -> runModuleT just modInfo
+  maybe nothing (\(Some modInfo) -> runModuleT just modInfo) mbMod
 
 inModuleWithID :: ModuleID st -> LB a -> ModuleT st LB a -> LB a
 inModuleWithID tag nothing just = do
   mbMod <- gets (D.lookup tag . ircModulesByID)
-  case mbMod of
-    Nothing -> nothing
-    Just modInfo -> runModuleT just modInfo
+  maybe nothing (runModuleT just) mbMod
 
-withCommand ::
-  String ->
-  LB a ->
-  (forall st. Command (ModuleT st LB) -> ModuleT st LB a) ->
-  LB a
+withCommand :: String -> LB a -> (forall st. Command (ModuleT st LB) -> ModuleT st LB a) -> LB a
 withCommand cmdname def f = do
   mbCmd <- gets (M.lookup cmdname . ircCommands)
-  case mbCmd of
-    Just (tag :=> CommandRef cmd) -> inModuleWithID tag def (f cmd)
-    _ -> def
+  maybe def (\(tag :=> CommandRef cmd) -> inModuleWithID tag def $ f cmd) mbCmd
 
 listModules :: LB [String]
 listModules = gets (M.keys . ircModulesByName)

@@ -2,7 +2,7 @@
 
 module Modules (modulesInfo) where
 
-import Lambdabot.Main (Modules, basePlugin, composePlugin, helpPlugin, modules, morePlugin, offlineRCPlugin, systemPlugin, versionPlugin)
+import Lambdabot.Main (Modules, modules)
 
 -- to add a new plugin, one must first add a qualified import here, and also
 -- add a string in the list below
@@ -19,7 +19,7 @@ import Lambdabot.Plugin.Suggest (suggestPlugin, suggestPlugins)
 import Lambdabot.Plugin.Term (termPlugin, termPlugins)
 import Lambdabot.Plugin.Twitch (twitchPlugin, twitchPlugins)
 
-import Lambdabot.Plugin.Core (corePlugins)
+import Lambdabot.Plugin.Core (corePlugins, basePlugin, composePlugin, helpPlugin, morePlugin, offlineRCPlugin, systemPlugin, versionPlugin)
 
 modulesInfo :: Modules
 modulesInfo =

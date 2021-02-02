@@ -4,7 +4,7 @@ module Lambdabot.Plugin.Twitch.Twitch (twitchPlugin) where
 
 import Lambdabot.Config.Twitch (reconnectDelay)
 import Lambdabot.IRC (IrcMessage (..), joinChannel, pass, setNick, user)
-import Lambdabot.Logging (MonadLogging, infoM, debugM, errorM)
+import Lambdabot.Logging (MonadLogging, debugM, errorM, infoM)
 import Lambdabot.Monad (
   IRCRWState (ircChannels, ircPersists, ircServerMap),
   MonadLB (lb),
@@ -28,10 +28,10 @@ import Lambdabot.Plugin (
   readMS,
   readNick,
   say,
+  withMS,
  )
 import Lambdabot.Util (io)
 
-import Control.Exception
 import Control.Concurrent.Lifted (
   MVar,
   fork,
@@ -43,6 +43,7 @@ import Control.Concurrent.Lifted (
   threadDelay,
  )
 import qualified Control.Concurrent.SSem as SSem
+import Control.Exception (SomeException (..))
 import Control.Exception.Lifted as E (catch, throwIO)
 import Control.Monad (forM_, forever, void, when)
 import Control.Monad.State (gets, modify)
@@ -51,6 +52,7 @@ import qualified Data.ByteString.Char8 as P
 import Data.List (isPrefixOf)
 import Data.List.Split (splitOn)
 import qualified Data.Map as M
+import Data.Typeable (typeOf)
 import Network (HostName, PortID (..), connectTo)
 import System.IO (
   BufferMode (NoBuffering),
@@ -60,15 +62,15 @@ import System.IO (
   hSetBuffering,
  )
 import System.Timeout.Lifted (timeout)
-import Data.Typeable (typeOf)
 
-data IRCState = IRCState
+data TwitchState = TwitchState
   { password :: Maybe String
+  , writable :: [String]
   }
 
-type IRC = ModuleT IRCState LB
+type Twitch = ModuleT TwitchState LB
 
-twitchPlugin :: Module IRCState
+twitchPlugin :: Module TwitchState
 twitchPlugin =
   newModule
     { moduleCmds =
@@ -104,6 +106,16 @@ twitchPlugin =
                   pwd : _ -> modifyMS (\ms -> ms{password = Just pwd})
                   _ -> say "Not enough parameters!"
               }
+          , (command "twitch-interactive")
+              { privileged = True
+              , help = say "twitch-interactive <channel>.  allow bot to respond in specified channel"
+              , process = \rest -> modifyMS (\ms -> ms{writable = rest : filter (/= rest) (writable ms)})
+              }
+          , (command "twitch-listen-only")
+              { privileged = True
+              , help = say "twitch-listen-only <channel>.  do not allow bot to respond in specified channel"
+              , process = \rest -> modifyMS (\ms -> ms{writable = filter (/= rest) $ writable ms})
+              }
           , (command "twitch-join")
               { privileged = True
               , help = say "twitch-join <channel>"
@@ -113,7 +125,7 @@ twitchPlugin =
                   lb $ send (joinChannel chan)
               }
           ]
-    , moduleDefState = return $ IRCState{password = Nothing}
+    , moduleDefState = return $ TwitchState{password = Nothing, writable = []}
     }
 
 ----------------------------------------------------------------------
@@ -208,11 +220,14 @@ twitchSignOn svr nickn pwd ircname = do
 -- We have a main loop which reads offline commands, and synchronously
 -- interprets them.
 
-doRetry :: Int -> HostName -> PortID -> String -> String -> Maybe String -> String -> ModuleT st LB ()
+doRetry :: Int -> HostName -> PortID -> String -> String -> Maybe String -> String -> ModuleT TwitchState LB ()
 doRetry delay hostn portnum tag nickn psw ui = do
   continue <- lift $ gets $ \st -> M.member tag (ircPersists st) && not (M.member tag $ ircServerMap st)
   if continue
-    then E.catch (goOnline hostn portnum tag nickn psw ui) (showErrorAndRetry delay hostn portnum tag nickn psw ui)
+    then let 
+      tryToGoOnline = goOnline hostn portnum tag nickn psw ui
+      exception = showErrorAndRetry delay hostn portnum tag nickn psw ui
+      in tryToGoOnline `E.catch` exception
     else do
       chans <- lift $ gets ircChannels
       forM_ (M.keys chans) $
@@ -221,13 +236,13 @@ doRetry delay hostn portnum tag nickn psw ui = do
             modify $
               \state' -> state'{ircChannels = M.delete chan $ ircChannels state'}
 
-showErrorAndRetry :: Int -> HostName -> PortID -> String -> String -> Maybe String -> String -> SomeException -> ModuleT st LB ()
+showErrorAndRetry :: Int -> HostName -> PortID -> String -> String -> Maybe String -> String -> SomeException -> ModuleT TwitchState LB ()
 showErrorAndRetry delay hostn portnum tag nickn psw ui e@SomeException{} = do
   errorM (show e)
   io $ threadDelay delay
   doRetry delay hostn portnum tag nickn psw ui
 
-goOnline :: HostName -> PortID -> String -> String -> Maybe String -> String -> ModuleT st LB ()
+goOnline :: HostName -> PortID -> String -> String -> Maybe String -> String -> ModuleT TwitchState LB ()
 goOnline hostn portnum tag nickn psw ui = do
   sock <- io $ connectTo hostn portnum
   io $ hSetBuffering sock NoBuffering
@@ -244,7 +259,9 @@ goOnline hostn portnum tag nickn psw ui = do
     putMVar sendmv ()
     SSem.signal sem1
   fin <- io $ SSem.new 0
-  E.catch (registerServer tag (io . sendMsg sock sendmv fin)) (\err@SomeException{} -> io (hClose sock) >> E.throwIO err)
+  interactiveChannels <- withMS $ \ms _ -> do
+    pure $ writable ms
+  E.catch (registerServer tag (io . sendMsg interactiveChannels sock sendmv fin)) (\err@SomeException{} -> io (hClose sock) >> E.throwIO err)
   lb $ twitchSignOn hostn (Nick tag nickn) psw ui
   ready <- io $ SSem.new 0
   lb $ void $ forkFinally (readerLoop tag nickn sock ready `E.catch` handleReaderLoopException) (const $ io $ SSem.signal fin)
@@ -264,12 +281,9 @@ goOnline hostn portnum tag nickn psw ui = do
   io $ SSem.wait ready
   killThread watch
 
--- goodbye :: Nick -> IrcMessage
--- goodbye loc = mkMessage (nTag loc)  "Goodbye all!"  [nName loc]
-
-online :: String -> String -> PortID -> String -> String -> IRC ()
+online :: String -> String -> PortID -> String -> String -> Twitch ()
 online tag hostn portnum nickn ui = do
-  pwd <- password `fmap` readMS
+  pwd <- password <$> readMS
   modifyMS $ \ms -> ms{password = Nothing}
   goOnline hostn portnum tag nickn pwd ui
 
@@ -287,17 +301,29 @@ readerLoop tag nickn sock ready = forever $ do
 
 handleReaderLoopException :: MonadLogging m => SomeException -> m ()
 handleReaderLoopException (SomeException e) = case show $ typeOf e of
-   "IOException" -> infoM "Ignoring io exception from reader loop."
-   _ -> errorM $ show e ++ show (typeOf e)
+  "IOException" -> infoM "Ignoring io exception from reader loop."
+  _ -> errorM $ show e ++ show (typeOf e)
 
-sendMsg :: Handle -> MVar () -> SSem.SSem -> IrcMessage -> IO ()
-sendMsg sock mv fin msg =
-  E.catch
-    ( do
-        takeMVar mv
-        P.hPut sock $ P.pack $ encodeMessage msg "\r\n"
-    )
-    ( \err -> do
-        errorM $ show (err :: IOError)
-        SSem.signal fin
-    )
+sendMsg :: [String] -> Handle -> MVar () -> SSem.SSem -> IrcMessage -> IO ()
+sendMsg interactiveChannels sock mv fin msg =
+  let tryToSend = maybeSendEncodedMessage interactiveChannels msg $ putEncodedMessage sock mv
+      exception = handleSocketPutError fin
+   in tryToSend `E.catch` exception
+
+maybeSendEncodedMessage :: [String] -> IrcMessage -> (IrcMessage -> IO ()) -> IO ()
+maybeSendEncodedMessage interactiveChannels msg write =
+  let controlMessage = ircMsgCommand msg /= "PRIVMSG"
+      interactiveChannel = head (ircMsgParams msg) `elem` interactiveChannels
+      shouldRespond = controlMessage || interactiveChannel
+   in when shouldRespond $ write msg
+
+putEncodedMessage :: Handle -> MVar () -> IrcMessage -> IO ()
+putEncodedMessage sock mv msg = do
+  debugM $ show msg
+  takeMVar mv
+  P.hPut sock $ P.pack $ encodeMessage msg "\r\n"
+
+handleSocketPutError :: SSem.SSem -> IOError -> IO ()
+handleSocketPutError fin err = do
+  errorM $ show (err :: IOError)
+  SSem.signal fin

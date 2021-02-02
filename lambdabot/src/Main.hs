@@ -5,24 +5,12 @@ module Main where
 
 import Lambdabot.Main (
   Config,
-  DSum,
-  Priority (
-    ALERT,
-    CRITICAL,
-    DEBUG,
-    EMERGENCY,
-    ERROR,
-    INFO,
-    NOTICE,
-    WARNING
-  ),
+  Priority (..),
   consoleLogLevel,
-  dataDir,
   enableInsults,
   lambdabotMain,
   lbVersion,
   onStartupCmds,
-  (==>),
  )
 import Lambdabot.Plugin.Haskell (languageExts, trustedPackages)
 
@@ -41,6 +29,8 @@ import System.Console.GetOpt (
 import System.Environment (getArgs, getProgName)
 import System.Exit (ExitCode (ExitFailure, ExitSuccess), exitSuccess, exitWith)
 import System.IO (hPutStr, hPutStrLn, stderr, stdout)
+import Data.Dependent.Sum ( DSum, (==>) )
+import Lambdabot.Config.Core (dataDir)
 
 strs :: a -> IO [a]
 strs = return . (: [])

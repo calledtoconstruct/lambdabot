@@ -28,7 +28,7 @@ import Lambdabot.Plugin (
   say,
   withMS,
  )
-import Lambdabot.Util (io, random, randomFailureMsg, randomSuccessMsg, strip)
+import Lambdabot.Util (io, randomElem, randomFailureMsg, randomSuccessMsg, strip)
 
 import qualified Data.ByteString.Char8 as P
 import Data.Char (isSpace)
@@ -199,9 +199,9 @@ search :: Key -> P.ByteString -> Quotes -> Cmd Quote String
 search key pat db
   | M.null db = return "No quotes yet."
   | P.null key = do
-    (key', qs) <- random (M.toList db) -- quote a random person
-    fmap (display key') (random qs)
-  | P.null pat, Just qs <- mquotes = fmap (display key) (random qs)
+    (key', qs) <- randomElem $ M.toList db -- quote a random person
+    fmap (display key') (randomElem qs)
+  | P.null pat, Just qs <- mquotes = fmap (display key) (randomElem qs)
   | P.null pat = match' key allquotes
   | Just qs <- mquotes = match' pat (zip (repeat key) qs)
   | otherwise = do
@@ -224,7 +224,7 @@ search key pat db
         r <- randomFailureMsg
         return $ "No quotes match. " ++ r
       else do
-        (who, saying) <- random rs
+        (who, saying) <- randomElem rs
         return $ P.unpack who ++ " says: " ++ P.unpack saying
 
   display k msg = (if P.null k then "  " else who ++ " says: ") ++ saying

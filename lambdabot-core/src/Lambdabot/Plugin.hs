@@ -6,6 +6,12 @@
 -- Simplifies import lists, and abstracts over common patterns
 --
 module Lambdabot.Plugin (
+  module Lambdabot.Config,
+  module Lambdabot.Config.Core,
+  module Lambdabot.Command,
+  module Lambdabot.State,
+  module Lambdabot.File,
+  module Lambdabot.Util.Serial,
   Module (..),
   ModuleT,
   newModule,
@@ -16,12 +22,6 @@ module Lambdabot.Plugin (
   getCN,
   Nick (..),
   ircPrivmsg,
-  module Lambdabot.Config,
-  module Lambdabot.Config.Core,
-  module Lambdabot.Command,
-  module Lambdabot.State,
-  module Lambdabot.File,
-  module Lambdabot.Util.Serial,
 ) where
 
 import Lambdabot.Bot (ircPrivmsg)
@@ -41,33 +41,9 @@ import Lambdabot.Command (
   showNick,
   withMsg,
  )
-import Lambdabot.Config (Config, MonadConfig (..), config, configWithMerge, getConfigDefault, mergeConfig)
-import Lambdabot.Config.Core (
-  commandPrefixes,
-  consoleLogFormat,
-  consoleLogHandle,
-  consoleLogLevel,
-  dataDir,
-  disabledCommands,
-  editDistanceLimit,
-  enableInsults,
-  lbRootLoggerPath,
-  lbVersion,
-  onShutdownCmds,
-  onStartupCmds,
-  outputDir,
-  replaceRootLogger,
-  textWidth,
-  uncaughtExceptionHandler,
- )
-import Lambdabot.File (
-  findLBFile,
-  findLBFileForReading,
-  findLBFileForWriting,
-  findOrCreateLBFile,
-  outputDir,
-  stateDir,
- )
+import Lambdabot.Config (MonadConfig (getConfig))
+import Lambdabot.Config.Core (commandPrefixes, lbVersion)
+import Lambdabot.File (findLBFileForReading, findLBFileForWriting, findOrCreateLBFile)
 import Lambdabot.Module (LB, Module (..), ModuleT, newModule)
 import Lambdabot.Monad (MonadLB (..))
 import Lambdabot.Nick (Nick (..))

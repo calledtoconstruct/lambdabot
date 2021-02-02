@@ -3,7 +3,6 @@ module Lambdabot.Plugin.Points (
   pointsPlugins,
 ) where
 
-import Lambdabot.Config.Points ()
 import Lambdabot.Plugin.Points.Points (pointsPlugin)
 
 pointsPlugins :: [String]
