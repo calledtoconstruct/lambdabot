@@ -14,7 +14,6 @@ config
   [t|[String]|]
   [|
     [ "MONKATOS"
-    , "TWITCH SINGS"
     , "BEST STREAMER"
     , "IN REAL LIFE"
     , "SCIENCE AND TECHNOLOGY"

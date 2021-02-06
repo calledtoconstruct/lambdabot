@@ -65,9 +65,10 @@ executable lambdabot
                         lambdabot-hangman-plugins == 5.1.0.4,
                         lambdabot-term-plugins == 5.1.0.4,
                         lambdabot-points-plugins == 5.1.0.4,
-                        lambdabot-suggest-plugins == 5.1.0.4,
                         lambdabot-misc-plugins == 5.1.0.4,
                         lambdabot-novelty-plugins == 5.1.0.4,
                         lambdabot-reference-plugins == 5.1.0.4,
                         lambdabot-social-plugins == 5.1.0.4,
+                        lambdabot-story-plugins == 5.1.0.4,
+                        lambdabot-suggest-plugins == 5.1.0.4,
                         lambdabot-trusted-plugins == 5.1.0.4

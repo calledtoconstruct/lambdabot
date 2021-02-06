@@ -23,7 +23,7 @@ module Lambdabot.Config.Core (
 ) where
 
 import Lambdabot.Config (config, configWithMerge)
-import Lambdabot.Logging (Priority (WARNING), errorM)
+import Lambdabot.Logging (Priority (DEBUG), errorM)
 
 import Control.Exception (SomeException)
 import Data.Version (Version (Version))
@@ -53,7 +53,7 @@ config "textWidth" [t|Int|] [|500 :: Int|]
 config "replaceRootLogger" [t|Bool|] [|True|]
 config "lbRootLoggerPath" [t|[String]|] [|[]|]
 config "consoleLogHandle" [t|Handle|] [|stderr|]
-config "consoleLogLevel" [t|Priority|] [|WARNING|]
+config "consoleLogLevel" [t|Priority|] [|DEBUG|]
 config "consoleLogFormat" [t|String|] [|"[$prio] $loggername: $msg"|]
 
 --------------------------------------------

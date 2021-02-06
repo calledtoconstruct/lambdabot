@@ -26,6 +26,7 @@ module Lambdabot.Command (
 ) where
 
 import Lambdabot.Config (MonadConfig (..))
+import Lambdabot.Config.Core (textWidth)
 import Lambdabot.Logging (MonadLogging (..))
 import qualified Lambdabot.Message as Msg
 import Lambdabot.Nick (Nick, fmtNick, parseNick)
@@ -38,7 +39,6 @@ import Control.Monad.Trans.Control (ComposeSt, MonadBaseControl (..), MonadTrans
 import Control.Monad.Writer (MonadWriter (tell), WriterT (..), execWriterT)
 import Data.Char (isAlphaNum)
 import Data.List (inits, tails)
-import Lambdabot.Config.Core (textWidth)
 
 data CmdArgs = forall a.
   Msg.Message a =>

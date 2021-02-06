@@ -22,6 +22,8 @@ cradle:
       component: lambdabot-reference-plugins
     - path: ./lambdabot-social-plugins
       component: lambdabot-social-plugins
+    - path: ./lambdabot-story-plugins
+      component: lambdabot-story-plugins
     - path: ./lambdabot-suggest-plugins
       component: lambdabot-suggest-plugins
     - path: ./lambdabot-trusted-plugins

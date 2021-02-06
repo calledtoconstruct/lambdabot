@@ -16,6 +16,7 @@ module Lambdabot.IRC (
   pass,
   user,
   setNick,
+  MessageDirection (..),
 ) where
 
 import Lambdabot.Message (Message (..))
@@ -27,6 +28,9 @@ import Data.List.Split (splitOn)
 import Control.Monad (liftM2)
 import Data.List (intercalate)
 
+data MessageDirection = Inbound | Outbound deriving (Eq)
+type IrcTag = (String, String)
+
 {- | An IRC message is a server, a prefix, a command and a list of parameters.
 
  Note that the strings here are treated as lists of bytes!
@@ -37,17 +41,18 @@ data IrcMessage = IrcMessage
   , ircMsgPrefix :: !String
   , ircMsgCommand :: !String
   , ircMsgParams :: ![String]
+  , ircDirection :: MessageDirection
+  , ircTags :: [IrcTag]
   }
 
 instance Show IrcMessage where
   show msg
     | ircMsgCommand msg == "PASS" && head (ircMsgParams msg) /= "***" = show $ msg{ircMsgParams = ["***"]}
     | otherwise =
-      let command =
-            if null $ ircMsgPrefix msg
-              then ircMsgCommand msg
-              else ircMsgPrefix msg ++ ircMsgCommand msg
-       in concat ["IrcMessage to ", ircMsgServer msg, " command ", command, " (", intercalate ", " (ircMsgParams msg), ")"]
+      let command = if null $ ircMsgPrefix msg then ircMsgCommand msg else ircMsgPrefix msg ++ "." ++ ircMsgCommand msg
+          direction = if ircDirection msg == Inbound then "from" else "to"
+          tags = intercalate ", " $ map show $ ircTags msg
+       in concat ["IrcMessage ", direction, " :: ", ircMsgServer msg, " command ", command, " (", intercalate ", " (ircMsgParams msg), ") ", tags]
 
 instance Message IrcMessage where
   nick = liftM2 Nick ircMsgServer (takeWhile (/= '!') . ircMsgPrefix)
@@ -71,6 +76,8 @@ mkMessage svr cmd params =
     , ircMsgCommand = cmd
     , ircMsgParams = params
     , ircMsgLBName = "urk!<outputmessage>"
+    , ircDirection = Outbound
+    , ircTags = []
     }
 
 joinChannel :: Nick -> IrcMessage

@@ -3,7 +3,7 @@
 module Lambdabot.Plugin.Twitch.Twitch (twitchPlugin) where
 
 import Lambdabot.Config.Twitch (reconnectDelay)
-import Lambdabot.IRC (IrcMessage (..), joinChannel, pass, setNick, user)
+import Lambdabot.IRC (IrcMessage (..), joinChannel, pass, setNick, user, MessageDirection (Inbound, Outbound))
 import Lambdabot.Logging (MonadLogging, debugM, errorM, infoM)
 import Lambdabot.Monad (
   IRCRWState (ircChannels, ircPersists, ircServerMap),
@@ -49,7 +49,7 @@ import Control.Monad (forM_, forever, void, when)
 import Control.Monad.State (gets, modify)
 import Control.Monad.Trans (MonadTrans (lift))
 import qualified Data.ByteString.Char8 as P
-import Data.List (isPrefixOf)
+import Data.List (isPrefixOf, elemIndex)
 import Data.List.Split (splitOn)
 import qualified Data.Map as M
 import Data.Typeable (typeOf)
@@ -62,6 +62,7 @@ import System.IO (
   hSetBuffering,
  )
 import System.Timeout.Lifted (timeout)
+import Data.Maybe (fromJust)
 
 data TwitchState = TwitchState
   { password :: Maybe String
@@ -138,9 +139,17 @@ twitchPlugin =
 -}
 encodeMessage :: IrcMessage -> String -> String
 encodeMessage msg =
-  encodePrefix (ircMsgPrefix msg)
+  encodeTags (ircTags msg)
+    . encodePrefix (ircMsgPrefix msg)
     . encodeCommand (ircMsgCommand msg)
     . encodeParams (ircMsgParams msg)
+
+encodeTags :: [TwitchTag] -> String -> String
+encodeTags [] = id
+encodeTags tags = showChar '@' . showString' (concatMap encodeTag tags) . showChar ' '
+
+encodeTag :: TwitchTag -> String
+encodeTag (name, value) = name ++ "=" ++ value
 
 encodePrefix :: String -> String -> String
 encodePrefix [] = id
@@ -171,11 +180,31 @@ decodeMessage svr lbn line =
     , ircMsgPrefix = prefix
     , ircMsgCommand = cmd
     , ircMsgParams = params
+    , ircDirection = Inbound
+    , ircTags = tags
     }
  where
-  (prefix, rest1) = decodePrefix (,) line
-  (cmd, rest2) = decodeCmd (,) rest1
-  params = decodeParams rest2
+    (tags, rest0) = decodeTags (,) line
+    (prefix, rest1) = decodePrefix (,) rest0
+    (cmd, rest2) = decodeCmd (,) rest1
+    params = decodeParams rest2
+
+type TwitchTag = (String, String)
+
+decodeTags :: ([TwitchTag] -> String -> ([TwitchTag], String)) -> String -> ([TwitchTag], String)
+decodeTags k ('@' : cs) = let
+  maybeIndex = elemIndex ' ' cs
+  (parms, msg) = splitAt (fromJust maybeIndex) cs
+  tags = map decodeTag $ splitOn ";" parms
+  in k tags $ tail msg
+decodeTags k cs = k [] cs
+
+decodeTag :: String -> TwitchTag
+decodeTag tagString = let
+  tagParts = splitOn "=" tagString
+  name = head tagParts
+  value = last tagParts
+  in (name, value)
 
 decodePrefix :: (String -> String -> (String, String)) -> String -> (String, String)
 decodePrefix k (':' : cs) = decodePrefix' k cs
@@ -208,10 +237,26 @@ decodeParams' param params (c : cs) = decodeParams' (c : param) params cs
 
 twitchSignOn :: String -> Nick -> Maybe String -> String -> LB ()
 twitchSignOn svr nickn pwd ircname = do
-  maybe (return ()) (send . pass (nTag nickn)) pwd
-  send $ user (nTag nickn) (nName nickn) svr ircname
-  send $ setNick nickn
+  maybe (return ()) (delaySend 333 . pass (nTag nickn)) pwd
+  delaySend 333 $ user (nTag nickn) (nName nickn) svr ircname
+  delaySend 333 $ setNick nickn
+  delaySend 333 $ capabilityRequestMessage (nTag nickn)
 
+delaySend :: Int -> IrcMessage -> LB ()
+delaySend milliseconds message = do
+  threadDelay $ milliseconds * 1000
+  send message
+
+capabilityRequestMessage :: String -> IrcMessage
+capabilityRequestMessage server = IrcMessage {
+  ircMsgServer = server,
+  ircMsgCommand = "CAP REQ",
+  ircMsgParams = [":twitch.tv/tags", "twitch.tv/commands", "twitch.tv/membership"],
+  ircMsgPrefix = "",
+  ircMsgLBName = "",
+  ircTags = [],
+  ircDirection = Outbound
+}
 ------------------------------------------------------------------------
 --
 -- Lambdabot is mostly synchronous.  We have a main loop, which reads
@@ -224,7 +269,7 @@ doRetry :: Int -> HostName -> PortID -> String -> String -> Maybe String -> Stri
 doRetry delay hostn portnum tag nickn psw ui = do
   continue <- lift $ gets $ \st -> M.member tag (ircPersists st) && not (M.member tag $ ircServerMap st)
   if continue
-    then let 
+    then let
       tryToGoOnline = goOnline hostn portnum tag nickn psw ui
       exception = showErrorAndRetry delay hostn portnum tag nickn psw ui
       in tryToGoOnline `E.catch` exception
@@ -290,12 +335,12 @@ online tag hostn portnum nickn ui = do
 readerLoop :: String -> String -> Handle -> SSem.SSem -> LB ()
 readerLoop tag nickn sock ready = forever $ do
   line <- io $ hGetLine sock
-  let line' = filter (`notElem` "\r\n") line
-  debugM $ "Received from " ++ tag ++ " :: " ++ nickn ++ " >> " ++ line'
-  if "PING" `isPrefixOf` line'
+  let singleLine = filter (`notElem` "\r\n") line
+  if "PING" `isPrefixOf` singleLine
     then io $ P.hPut sock $ P.pack "PONG\r\n"
     else void . fork . void . timeout 15000000 $ do
-      let msg = decodeMessage tag nickn line'
+      let msg = decodeMessage tag nickn singleLine
+      debugM $ show msg
       when (ircMsgCommand msg == "001") $ io $ SSem.signal ready
       received msg
 

@@ -5,7 +5,7 @@ module Lambdabot.Plugin.IRC.IRC (
 ) where
 
 import Lambdabot.Config.IRC (reconnectDelay)
-import Lambdabot.IRC (IrcMessage (..), pass, setNick, user)
+import Lambdabot.IRC (IrcMessage (..), pass, setNick, user, MessageDirection (Inbound))
 import Lambdabot.Logging (MonadLogging, infoM, debugM, errorM)
 import Lambdabot.Monad (
   IRCRWState (ircChannels, ircPersists, ircServerMap),
@@ -144,6 +144,8 @@ decodeMessage svr lbn line =
         , ircMsgPrefix = prefix
         , ircMsgCommand = cmd
         , ircMsgParams = params
+        , ircDirection = Inbound
+        , ircTags = []
         }
  where
   decodePrefix k (':' : cs) = decodePrefix' k cs
@@ -269,11 +271,12 @@ readerLoop :: String -> String -> IORef Bool -> Handle -> SSem.SSem -> LB ()
 readerLoop tag nickn pongref sock ready = forever $ do
   line <- io $ hGetLine sock
   let line' = filter (`notElem` "\r\n") line
-  debugM $ "Received from " ++ tag ++ " :: " ++ nickn ++ " >> " ++ line'
+  -- debugM $ "Received from " ++ tag ++ " :: " ++ nickn ++ " >> " ++ line'
   if "PING " `isPrefixOf` line'
     then io $ P.hPut sock $ P.pack $ "PONG " ++ drop 5 line' ++ "\r\n"
     else void . fork . void . timeout 15000000 $ do
       let msg = decodeMessage tag nickn line'
+      debugM $ show msg
       if ircMsgCommand msg == "PONG"
         then io $ writeIORef pongref True
         else do

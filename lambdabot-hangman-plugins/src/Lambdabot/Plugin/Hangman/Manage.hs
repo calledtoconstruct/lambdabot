@@ -40,7 +40,7 @@ addPhrase previous phrase
  where
   configuration = getConfiguration previous
   upperPhrase = map toUpper phrase
-  isValid = not $ any (`notElem` validCharacters) upperPhrase
+  isValid = not $ any (`notElem` ' ' : validCharacters) upperPhrase
 
 addPhraseToGame :: Game -> String -> Game
 addPhraseToGame (NoGame configuration) phrase = NoGame $ addPhraseToConfiguration configuration phrase

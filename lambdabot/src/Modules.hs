@@ -15,6 +15,7 @@ import Lambdabot.Plugin.Novelty (dicePlugin, elitePlugin, filterPlugin, noveltyP
 import Lambdabot.Plugin.Points (pointsPlugin, pointsPlugins)
 import Lambdabot.Plugin.Reference (dictPlugin, metarPlugin, oeisPlugin, referencePlugins, searchPlugin, spellPlugin, tickerPlugin, urlPlugin, wherePlugin)
 import Lambdabot.Plugin.Social (activityPlugin, karmaPlugin, pollPlugin, seenPlugin, socialPlugins, tellPlugin)
+import Lambdabot.Plugin.Story (storyPlugin, storyPlugins)
 import Lambdabot.Plugin.Suggest (suggestPlugin, suggestPlugins)
 import Lambdabot.Plugin.Term (termPlugin, termPlugins)
 import Lambdabot.Plugin.Twitch (twitchPlugin, twitchPlugins)
@@ -33,6 +34,7 @@ modulesInfo =
         ++ pointsPlugins
         ++ referencePlugins
         ++ socialPlugins
+        ++ storyPlugins
         ++ suggestPlugins
         ++ twitchPlugins
         ++ termPlugins

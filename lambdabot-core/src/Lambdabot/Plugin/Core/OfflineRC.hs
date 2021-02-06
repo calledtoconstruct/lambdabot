@@ -3,7 +3,7 @@
 module Lambdabot.Plugin.Core.OfflineRC (offlineRCPlugin) where
 
 import Lambdabot.Config.Core (onShutdownCmds, onStartupCmds)
-import Lambdabot.IRC (IrcMessage (..))
+import Lambdabot.IRC (IrcMessage (..), MessageDirection (Outbound))
 import Lambdabot.Monad (
   IRCRWState (ircPersists, ircPrivilegedUsers),
   MonadLB (lb),
@@ -123,6 +123,8 @@ timerLoop = do
       , ircMsgPrefix = "null!n=user@null"
       , ircMsgCommand = "PRIVMSG"
       , ircMsgParams = ["offline", ":" ++ cmdPrefix ++ "flush"]
+      , ircDirection = Outbound
+      , ircTags = []
       }
   continue <- lift $ gets (M.member "offlinerc" . ircPersists)
   when continue timerLoop
@@ -161,6 +163,8 @@ feed msg = do
       , ircMsgPrefix = "null!n=user@null"
       , ircMsgCommand = "PRIVMSG"
       , ircMsgParams = ["offline", ":" ++ encodeString msg']
+      , ircDirection = Outbound
+      , ircTags = []
       }
 
 handleMsg :: IrcMessage -> OfflineRC ()
