@@ -182,6 +182,11 @@ confirmation =
   , "I will never forget."
   , "It is forever etched in my memory."
   , "Nice!"
+  , "How do you like Them apples?!?"
+  , "Booyah!"
+  , "You got it!"
+  , "Consider it done."
+  , "Your wish is my command."
   ]
 
 randomSuccessMsg :: MonadIO m => m String

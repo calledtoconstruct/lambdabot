@@ -27,18 +27,19 @@ import Lambdabot.Plugin (
   withMS,
   withMsg,
  )
-import Lambdabot.Plugin.Story.Configuration (Definition, GameState (..), StoryState (..), Vote, newGameState, newStoryState)
-import Lambdabot.Util (io, randomElem)
+import Lambdabot.Plugin.Story.Configuration (Definition, GameState (..), StoryState (..), newGameState, newStoryState)
+import Lambdabot.Util (io, randomElem, randomSuccessMsg)
 
 import Control.Concurrent.Lifted (fork, threadDelay)
 import Control.Monad.Reader (MonadTrans (lift), unless, void, when)
-import Data.Either (fromLeft, fromRight)
+import Data.Char (isAlpha, isNumber)
+import Data.Either (fromLeft)
 import Data.List (findIndex, isPrefixOf, partition)
-import Data.List.Split (splitOn, splitWhen)
+import Data.List.Split (splitOn)
 import Data.Maybe (fromJust)
-import GHC.Int (Int64)
 import Lambdabot.Logging (debugM)
 import qualified Lambdabot.Message as Msg
+import Text.ParserCombinators.ReadP (ReadP, between, munch, munch1, readP_to_S, sepBy)
 
 type Story = ModuleT StoryState LB
 
@@ -71,8 +72,13 @@ storyPlugin =
               }
           , (command "reset-story")
               { aliases = ["rst-story"]
-              , help = say "reset-story <story> - Reset active stories."
+              , help = say "reset-story - Reset active story."
               , process = commandResetStory
+              , privileged = True
+              }
+          , (command "factory-reset-story")
+              { help = say "factory-reset-story - Reset entire story state to factory defaults."
+              , process = commandResetFactoryDefaultStory
               , privileged = True
               }
           ]
@@ -117,7 +123,6 @@ commandStartStory :: String -> Cmd Story ()
 commandStartStory _ = withMsg $ \msg ->
   let srvr = Msg.server msg
       chan = head $ Msg.channels msg
-      sndr = Msg.nick msg
       botn = Msg.lambdabotName msg
    in withMS $ \storyState writer ->
         let channelName = srvr ++ nTag chan ++ nName chan
@@ -127,7 +132,7 @@ commandStartStory _ = withMsg $ \msg ->
               sts <- io $ randomElem $ stories storyState
               let newGame = newGameState srvr chan botn sts
               writer storyState{games = (channelName, newGame) : other}
-              say $ "Let's make a story together, I will title it '" ++ fst sts ++ "'."
+              say $ "Let's make a story together, the title will be '" ++ fst sts ++ "'."
               say $ nextNeed $ fromLeft ("", "") $ nextWord newGame
               void $ lift $ fork $ storyLoop delay channelName
 
@@ -205,21 +210,70 @@ sendText gameState text = do
       , ircTags = []
       }
 
+storyParameterParser :: ReadP [String]
+storyParameterParser = storyPartParser `sepBy` storySpaceParser
+
+storySpaceParser :: ReadP String
+storySpaceParser = munch1 (' ' ==)
+
+storyPartParser :: ReadP String
+storyPartParser = between storyQuoteParser storyQuoteParser storyTokenParser
+
+storyTokenParser :: ReadP String
+storyTokenParser = munch1 (\c -> isAlpha c || isNumber c || elem c " !@#$%^&*()-_=+\'\\|;:,<.>[]{}/?")
+
+storyQuoteParser :: ReadP String
+storyQuoteParser = munch ('"' ==)
+
 commandAddStory :: String -> Cmd Story ()
-commandAddStory msg = say msg
+commandAddStory msg =
+  let parts = fst $ last $ readP_to_S storyParameterParser msg
+      twoParts = length parts == 2
+      titleExists = not $ null $ head parts
+      storyExists = not $ null $ last parts
+   in if twoParts && titleExists && storyExists
+        then withMS $ \storyState writer -> do
+          let title = head parts
+          let stry = last parts
+          let newStory = (title, stry)
+          let otherStories = filter ((/=) title . fst) $ stories storyState
+          writer storyState{stories = newStory : otherStories}
+          confirmation <- randomSuccessMsg
+          say confirmation
+        else do
+          debugM $ show parts
+          say "Incorrect parameters, please provide a title and a story both enclosed in double-quotes and separated by a space."
 
 commandRemoveStory :: String -> Cmd Story ()
-commandRemoveStory msg = say msg
+commandRemoveStory msg =
+  let title = fst $ last $ readP_to_S storyPartParser msg
+   in if not $ null title
+        then withMS $ \storyState writer ->
+          let sts = stories storyState
+              (_, other) = partition ((==) title . fst) sts
+           in if length other /= length sts
+                then do
+                  writer storyState{stories = other}
+                  confirmation <- randomSuccessMsg
+                  say confirmation
+                else say "I couldn't find a story with that title."
+        else say "Incorrect parameters, please provide a title enclosed in double-quotes."
 
 commandResetStory :: String -> Cmd Story ()
-commandResetStory _ = withMS $ \storyState writer -> do
-  writer
-    storyState
-      { games = []
-      }
+commandResetStory resetAll = withMsg $ \msg ->
+  let srvr = Msg.server msg
+      chan = head $ Msg.channels msg
+   in withMS $ \storyState writer -> do
+        let channelName = srvr ++ nTag chan ++ nName chan
+        let others = filter ((/=) channelName . fst) $ games storyState
+        writer storyState{games = if resetAll == "all" then [] else others}
+        confirmation <- randomSuccessMsg
+        say confirmation
 
-parseStory :: String -> Either (String, String) String
-parseStory input = Right input
-
-updateStory :: String -> [Vote] -> String
-updateStory input votes = input
+commandResetFactoryDefaultStory :: String -> Cmd Story ()
+commandResetFactoryDefaultStory _ = withMS $ \_ writer -> do
+  ds <- getConfig defaultStories
+  nss <- newStoryState ds
+  writer nss
+  confirmation <- randomSuccessMsg
+  say confirmation
