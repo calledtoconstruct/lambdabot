@@ -2,7 +2,6 @@ module Lambdabot.Plugin.Story.Story (storyPlugin) where
 
 import Lambdabot.Config.Story (defaultStories, secondsToWaitBeforeMovingToTheNextWord)
 import Lambdabot.IRC (IrcMessage (IrcMessage), MessageDirection (Outbound), ircDirection, ircMsgCommand, ircMsgLBName, ircMsgParams, ircMsgPrefix, ircMsgServer, ircTags)
-import Lambdabot.Monad (send)
 import Lambdabot.Plugin (
   Cmd,
   LB,
@@ -13,6 +12,7 @@ import Lambdabot.Plugin (
   command,
   contextual,
   help,
+  io,
   moduleCmds,
   moduleDefState,
   moduleInit,
@@ -22,13 +22,15 @@ import Lambdabot.Plugin (
   newModule,
   privileged,
   process,
+  randomElem,
+  randomSuccessMsg,
   say,
+  send,
   stdSerial,
   withMS,
   withMsg,
  )
-import Lambdabot.Plugin.Story.Configuration (Definition, GameState (..), StoryState (..), newGameState, newStoryState)
-import Lambdabot.Util (io, randomElem, randomSuccessMsg)
+import Lambdabot.Plugin.Story.Configuration (Definition, GameState (..), StoryState (..), newGameState, newStoryState, Vote)
 
 import Control.Concurrent.Lifted (fork, threadDelay)
 import Control.Monad.Reader (MonadTrans (lift), unless, void, when)
@@ -116,6 +118,13 @@ addVote word (channelName, gameState) =
           else [(word, 1 + snd (head same))]
    in (channelName, gameState{votes = newScore ++ other})
 
+-- | Extract the game for the current channel
+-- >>> ss <- newStoryState []
+-- >>> let gs = MkGameState { server = "srvr", channel = "chnl", name = "name", botName = "btnm", story = ("title", "stry"), votes = [] }
+-- >>> let (game, other) = extractGame "def" ss { games = [("abc", gs), ("def", gs)]}
+-- >>> (not $ null game) && ("def" == fst (head game)) && (not $ null other) && ("abc" == fst (head other))
+-- True
+-- 
 extractGame :: String -> StoryState -> ([(String, GameState)], [(String, GameState)])
 extractGame channelName = partition ((==) channelName . fst) . games
 
@@ -136,6 +145,13 @@ commandStartStory _ = withMsg $ \msg ->
               say $ nextNeed $ fromLeft ("", "") $ nextWord newGame
               void $ lift $ fork $ storyLoop delay channelName
 
+-- | Find the next placeholder or return the completed story
+-- >>> nextWord MkGameState {story = ("title", "This is a __story__ with __two__ placeholders.")}
+-- Left ("story","")
+--
+-- >>> nextWord MkGameState {story = ("title", "This is a story with zero placeholders.")}
+-- Right "This is a story with zero placeholders."
+--
 nextWord :: GameState -> Either (String, String) String
 nextWord gameState =
   let stry = story gameState
@@ -168,7 +184,7 @@ storyLoop delayInSeconds channelName = do
           title = fst $ story gameState
        in case nextWord gameState of
             Left needed -> do
-              let mostVoted = foldr (\l r -> if snd l > snd r then l else r) ("", 0) $ votes gameState
+              let mostVoted = mostVotes $ votes gameState
               let updatedGameState = gameState{votes = [], story = replace mostVoted $ story gameState}
               writer $
                 storyState
@@ -189,7 +205,19 @@ storyLoop delayInSeconds channelName = do
                   { games = other
                   }
 
-replace :: ([Char], Int) -> Definition -> Definition
+-- | Select the vote with the highest rating
+-- >>> mostVotes [("abc", 2), ("def", 3), ("ghi", 1)]
+-- ("def",3)
+--
+mostVotes :: [Vote] -> Vote
+mostVotes = foldr (\l r -> if snd l > snd r then l else r) ("", 0)
+
+-- | Replace a placeholder with the word which received the most votes
+-- | Note, this fails if no placeholder exists.
+-- >>> replace ("word", 1) ("title", "This is the __story__ text.")
+-- ("title","This is the word text.")
+--
+replace :: Vote -> Definition -> Definition
 replace (wrd, _) (ttl, stry) =
   let wrds = words stry
       location = fromJust $ findIndex ("__" `isPrefixOf`) wrds
@@ -210,12 +238,26 @@ sendText gameState text = do
       , ircTags = []
       }
 
+-- | Parser tests
+-- >>> fst $ last $ readP_to_S storyParameterParser "\"title\" \"this is the story.\""
+-- ["title","this is the story."]
+--
+-- >>> fst $ last $ readP_to_S storyParameterParser "\"title\" this is the story."
+-- ["title","this is the story."]
+--
 storyParameterParser :: ReadP [String]
 storyParameterParser = storyPartParser `sepBy` storySpaceParser
 
 storySpaceParser :: ReadP String
 storySpaceParser = munch1 (' ' ==)
 
+-- | Quoted string
+-- >>> fst $ last $ readP_to_S storyPartParser "\"some text goes here\""
+-- "some text goes here"
+--
+-- >>> fst $ last $ readP_to_S storyPartParser "some text goes here"
+-- "some text goes here"
+--
 storyPartParser :: ReadP String
 storyPartParser = between storyQuoteParser storyQuoteParser storyTokenParser
 

@@ -5,6 +5,7 @@ packages = [
   "lambdabot-core-5.1.0.4"
     , "mtl"
     , "lifted-base"
+    , "split"
   ]
 
 main =

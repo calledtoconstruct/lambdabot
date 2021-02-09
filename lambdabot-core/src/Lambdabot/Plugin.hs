@@ -11,6 +11,7 @@ module Lambdabot.Plugin (
   module Lambdabot.Command,
   module Lambdabot.State,
   module Lambdabot.File,
+  module Lambdabot.Util,
   module Lambdabot.Util.Serial,
   Module (..),
   ModuleT,
@@ -22,6 +23,7 @@ module Lambdabot.Plugin (
   getCN,
   Nick (..),
   ircPrivmsg,
+  send,
 ) where
 
 import Lambdabot.Bot (ircPrivmsg)
@@ -35,6 +37,7 @@ import Lambdabot.Command (
   getLambdabotName,
   getSender,
   getServer,
+  getTags,
   getTarget,
   readNick,
   say,
@@ -45,7 +48,7 @@ import Lambdabot.Config (MonadConfig (getConfig))
 import Lambdabot.Config.Core (commandPrefixes, lbVersion)
 import Lambdabot.File (findLBFileForReading, findLBFileForWriting, findOrCreateLBFile)
 import Lambdabot.Module (LB, Module (..), ModuleT, newModule)
-import Lambdabot.Monad (MonadLB (..))
+import Lambdabot.Monad (MonadLB (..), send)
 import Lambdabot.Nick (Nick (..))
 import Lambdabot.State (
   GlobalPrivate,
@@ -63,7 +66,7 @@ import Lambdabot.State (
   writeMS,
   writePS,
  )
-import Lambdabot.Util (readPackedEntry)
+import Lambdabot.Util (io, randomElem, randomSuccessMsg, readPackedEntry)
 import Lambdabot.Util.Serial (
   Packable (..),
   Serial (..),

@@ -7,6 +7,7 @@ import Lambdabot.Main (Modules, modules)
 -- to add a new plugin, one must first add a qualified import here, and also
 -- add a string in the list below
 
+import Lambdabot.Plugin.Dashboard (dashboardPlugin, dashboardPlugins)
 import Lambdabot.Plugin.Hangman (hangmanPlugin, hangmanPlugins)
 import Lambdabot.Plugin.Haskell (checkPlugin, evalPlugin, freePlugin, haddockPlugin, haskellPlugins, hooglePlugin, instancesPlugin, plPlugin, pointfulPlugin, prettyPlugin, sourcePlugin, typePlugin, undoPlugin, unmtlPlugin)
 import Lambdabot.Plugin.IRC (ircPlugin, ircPlugins, localtimePlugin, logPlugin, topicPlugin)
@@ -26,6 +27,7 @@ modulesInfo :: Modules
 modulesInfo =
   $( modules $
       corePlugins
+        ++ dashboardPlugins
         ++ hangmanPlugins
         ++ haskellPlugins
         ++ ircPlugins

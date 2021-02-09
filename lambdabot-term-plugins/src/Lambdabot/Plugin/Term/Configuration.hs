@@ -9,7 +9,7 @@ module Lambdabot.Plugin.Term.Configuration (
   Definition,
 ) where
 
-import Lambdabot.Util (io)
+import Lambdabot.Plugin (io)
 
 import Control.Monad.Trans (MonadIO)
 import Data.Time.Clock.System (SystemTime (systemSeconds), getSystemTime)

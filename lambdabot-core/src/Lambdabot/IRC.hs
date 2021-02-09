@@ -51,8 +51,7 @@ instance Show IrcMessage where
     | otherwise =
       let command = if null $ ircMsgPrefix msg then ircMsgCommand msg else ircMsgPrefix msg ++ "." ++ ircMsgCommand msg
           direction = if ircDirection msg == Inbound then "from" else "to"
-          tags = intercalate ", " $ map show $ ircTags msg
-       in concat ["IrcMessage ", direction, " :: ", ircMsgServer msg, " command ", command, " (", intercalate ", " (ircMsgParams msg), ") ", tags]
+       in concat ["IrcMessage ", direction, " :: ", ircMsgServer msg, " command ", command, " (", intercalate ", " (ircMsgParams msg), ") ", intercalate ", " $ map show $ ircTags msg]
 
 instance Message IrcMessage where
   nick = liftM2 Nick ircMsgServer (takeWhile (/= '!') . ircMsgPrefix)
@@ -63,6 +62,8 @@ instance Message IrcMessage where
      in map
           (Nick (server msg) . (\(x : xs) -> if x == ':' then xs else x : xs))
           (splitOn "," cstr)
+
+  tags = ircTags
 
   -- solves what seems to be an inconsistency in the parser
   lambdabotName msg = Nick (server msg) (ircMsgLBName msg)

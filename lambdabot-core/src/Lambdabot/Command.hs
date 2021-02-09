@@ -20,6 +20,7 @@ module Lambdabot.Command (
   getServer,
   getSender,
   getTarget,
+  getTags,
   getLambdabotName,
   say,
   lineify,
@@ -174,6 +175,9 @@ getServer = withMsg (return . Msg.server)
 
 getSender :: Monad m => Cmd m Nick
 getSender = withMsg (return . Msg.nick)
+
+getTags :: Monad m => Cmd m [(String, String)]
+getTags = withMsg (pure . Msg.tags)
 
 getLambdabotName :: Monad m => Cmd m Nick
 getLambdabotName = withMsg (return . Msg.lambdabotName)

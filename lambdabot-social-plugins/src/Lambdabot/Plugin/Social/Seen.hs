@@ -8,19 +8,8 @@ module Lambdabot.Plugin.Social.Seen (
 ) where
 
 import Lambdabot.Bot (ircGetChannels, ircPrivmsg)
-import Lambdabot.Compat.AltTime (
-  ClockTime,
-  TimeDiff (TimeDiff),
-  diffClockTimes,
-  getClockTime,
-  noTimeDiff,
-  timeDiffPretty,
- )
-import Lambdabot.Compat.PackedNick (
-  PackedNick,
-  packNick,
-  unpackNick,
- )
+import Lambdabot.Compat.AltTime (ClockTime, TimeDiff (TimeDiff), diffClockTimes, getClockTime, noTimeDiff, timeDiffPretty)
+import Lambdabot.Compat.PackedNick (PackedNick, packNick, unpackNick)
 import Lambdabot.IRC (IrcMessage (ircMsgParams))
 import Lambdabot.Logging (noticeM, warningM)
 import qualified Lambdabot.Message as G
@@ -326,7 +315,7 @@ joinCB msg _ct nick fm
   | nick == lbNick = Right fm
   | otherwise = Right $! insertUpd (updateJ Nothing chans) nick newInfo fm
  where
-  insertUpd f = M.insertWith (\_ -> f)
+  insertUpd f = M.insertWith (const f)
   lbNick = packNick $ G.lambdabotName msg
   newInfo = Present Nothing chans
   chans = msgChans msg
@@ -351,7 +340,7 @@ partCB :: IrcMessage -> ClockTime -> PackedNick -> SeenMap -> Either String Seen
 partCB msg ct nick fm
   | nick == lbNick = Right $ botPart ct (msgChans msg) fm
   | otherwise = case M.lookup nick fm of
-    Just (Present mct xs) -> case xs \\ (msgChans msg) of
+    Just (Present mct xs) -> case xs \\ msgChans msg of
       [] -> Right $! M.insert nick (NotPresent ct zeroWatch xs) fm
       ys -> Right $! M.insert nick (Present mct ys) fm
     _ -> Left "someone who isn't known parted"

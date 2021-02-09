@@ -1,7 +1,7 @@
 module Lambdabot.Plugin.Term.Logic where
 
 import Lambdabot.Config.Term (termFrequency)
-import Lambdabot.Plugin (MonadConfig (getConfig))
+import Lambdabot.Plugin (MonadConfig (getConfig), randomElem)
 import Lambdabot.Plugin.Term.Configuration (
   TermState (
     lockedTerms,
@@ -10,7 +10,6 @@ import Lambdabot.Plugin.Term.Configuration (
     terms
   ),
  )
-import Lambdabot.Util (randomElem)
 
 import Control.Monad.Trans (MonadIO)
 import Data.Maybe (fromJust, isJust)

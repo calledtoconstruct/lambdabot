@@ -33,7 +33,7 @@ module Lambdabot.Monad (
   inModuleWithID,
   withCommand,
   listModules,
-  withAllModules,
+  withAllModules
 ) where
 
 import Lambdabot.Command (Cmd, Command, cmdNames)

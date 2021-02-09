@@ -59,6 +59,7 @@ executable lambdabot
                         mtl,
                         dependent-sum,
                         lambdabot-core == 5.1.0.4,
+                        lambdabot-dashboard-plugins == 5.1.0.4,
                         lambdabot-haskell-plugins == 5.1.0.4,
                         lambdabot-irc-plugins == 5.1.0.4,
                         lambdabot-twitch-plugins == 5.1.0.4,

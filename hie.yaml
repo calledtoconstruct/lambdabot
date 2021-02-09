@@ -4,6 +4,8 @@ cradle:
       component: lambdabot
     - path: ./lambdabot-core
       component: lambdabot-core
+    - path: ./lambdabot-dashboard-plugins
+      component: lambdabot-dashboard-plugins
     - path: ./lambdabot-hangman-plugins
       component: lambdabot-hangman-plugins
     - path: ./lambdabot-term-plugins

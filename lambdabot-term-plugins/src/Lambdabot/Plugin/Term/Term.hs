@@ -11,6 +11,7 @@ import Lambdabot.Plugin (
   command,
   contextual,
   help,
+  io,
   moduleCmds,
   moduleDefState,
   moduleInit,
@@ -24,7 +25,6 @@ import Lambdabot.Plugin (
  )
 import Lambdabot.Plugin.Term.Configuration (TermState (lastUnlockedTerm, lockedTerms), newTermState, terms)
 import Lambdabot.Plugin.Term.Logic (FindTermResult (foundDefinition, foundTerm), addTerm, findTerm, message, newState, removeTerm)
-import Lambdabot.Util (io)
 
 import Control.Monad (when)
 import Data.Time.Clock.System (SystemTime (systemSeconds), getSystemTime)
