@@ -1,5 +1,7 @@
 module Lambdabot.Plugin.Dashboard.Service (startListening) where
 
+import Lambdabot.Plugin.Dashboard.Configuration (Channel, ChannelName, Dashboard, DashboardState, Message, MessageUniqueIdentifier, Spoken, WatcherName, messages, shutdown, speaking, watchers, watching)
+
 import Lambdabot.Logging (debugM)
 import Lambdabot.Plugin (MonadLBState (withMS), readMS)
 import Lambdabot.Util (io)
@@ -8,13 +10,12 @@ import Control.Concurrent.Lifted (ThreadId, fork, killThread, threadDelay)
 import Control.Monad.Reader (liftIO)
 import Data.Functor (void)
 import Data.IORef (IORef, newIORef, readIORef, writeIORef)
+import Data.List.Unique (sortUniq)
 import qualified Data.Text.Lazy as T
-import Lambdabot.Plugin.Dashboard.Configuration (ChannelName, Dashboard, DashboardState, WatcherName, shutdown, watchers, watching, speaking, messages, MessageUniqueIdentifier, Message, Spoken, Channel)
 import Network.HTTP.Types.Status (status404)
 import Network.Wai.Middleware.Cors (simpleCors)
 import Web.Scotty (get, json, param, scotty, text)
 import Web.Scotty.Trans (capture, middleware, status)
-import Data.List.Unique (sortUniq)
 
 startListening :: Int -> Dashboard ()
 startListening port = do
@@ -46,20 +47,14 @@ startListening port = do
         get (capture "/:channel/chat") $ do
           requestedChannel <- param (T.pack "channel")
           dashboardState <- liftIO $ readIORef ioref
-          let thisChannel = filter ((==) requestedChannel . fst) $ speaking dashboardState
-          if not $ null thisChannel
-            then let
-              messageUniqueIdentifiers = snd $ head thisChannel
-              relevantMessages = filter (relevantMessage messageUniqueIdentifiers) $ messages dashboardState
-              in json relevantMessages
-            else status status404 *> text (T.pack "Channel Not Found")
+          case listChat requestedChannel dashboardState of
+            Just chat -> json chat
+            Nothing -> status status404 *> text (T.pack "Channel Not Found")
 
         get (capture "/channel/list") $ do
           dashboardState <- liftIO $ readIORef ioref
-          let spokenChannels = map getSpokenChannel $ speaking dashboardState
-              watchedChannels = map getWatchedChannel $ watching dashboardState
-              channels = sortUniq $ spokenChannels ++ watchedChannels
-          json channels
+          json $ listChannels dashboardState
+
   void $ fork $ shutdownLoop threadId ioref
 
 getWatchedChannel :: Channel -> ChannelName
@@ -90,3 +85,19 @@ listViewers requestedChannel dashboardState = do
       let listOfWatcher = map fst $ snd $ head watchersOfChannel
        in map (\(_, watcherName, _) -> watcherName) $ filter (\(uniqueWatcherIdentifier, _, _) -> uniqueWatcherIdentifier `elem` listOfWatcher) $ watchers dashboardState
     else []
+
+listChat :: ChannelName -> DashboardState -> Maybe [Message]
+listChat requestedChannel dashboardState =
+  let thisChannel = filter ((==) requestedChannel . fst) $ speaking dashboardState
+   in if not $ null thisChannel
+        then
+          let messageUniqueIdentifiers = snd $ head thisChannel
+              relevantMessages = filter (relevantMessage messageUniqueIdentifiers) $ messages dashboardState
+           in Just relevantMessages
+        else Nothing
+
+listChannels :: DashboardState -> [ChannelName]
+listChannels dashboardState =
+  let spokenChannels = map getSpokenChannel $ speaking dashboardState
+      watchedChannels = map getWatchedChannel $ watching dashboardState
+   in sortUniq $ spokenChannels ++ watchedChannels
