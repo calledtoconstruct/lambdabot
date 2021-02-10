@@ -1,5 +1,6 @@
 module Lambdabot.Plugin.Dashboard.Configuration (
   DashboardState (..),
+  Dashboard,
   WatcherUniqueIdentifier,
   WatcherSystemIdentifier,
   MessageUniqueIdentifier,
@@ -20,6 +21,8 @@ module Lambdabot.Plugin.Dashboard.Configuration (
   Spoken,
 ) where
 
+import Lambdabot.Plugin (LB, ModuleT)
+
 -- Currently Twitch centric
 
 type WatcherSystemIdentifier = Maybe Int
@@ -36,11 +39,11 @@ type BadgeVersion = Int
 
 type Watcher = (WatcherUniqueIdentifier, WatcherName, WatcherSystemIdentifier)
 type Badge = (BadgeName, BadgeVersion)
-type Watching = (WatcherName, [Badge])
+type Watching = (WatcherUniqueIdentifier, [Badge])
 type Channel = (ChannelName, [Watching])
 
 type EmotePosition = (EmoteUniqueIdentifier, EmoteStartPosition, EmoteEndPosition)
-type Message = (MessageUniqueIdentifier, WatcherName, MessageText, [EmotePosition])
+type Message = (MessageUniqueIdentifier, WatcherUniqueIdentifier, MessageText, [EmotePosition])
 type Spoken = (ChannelName, [MessageUniqueIdentifier])
 
 data DashboardState = MkDashboardState
@@ -52,3 +55,5 @@ data DashboardState = MkDashboardState
   , speaking :: [Spoken]
   }
   deriving (Read, Show)
+
+type Dashboard = ModuleT DashboardState LB

@@ -35,6 +35,8 @@ library
 
   other-modules:        Lambdabot.Plugin.Dashboard.Configuration
                         Lambdabot.Plugin.Dashboard.Dashboard
+                        Lambdabot.Plugin.Dashboard.Service
+                        Lambdabot.Plugin.Dashboard.Garbage
 
   other-modules:        Lambdabot.Config.Dashboard
 
@@ -51,5 +53,6 @@ library
                         scotty,
                         split,
                         text,
+                        Unique,
                         universe-base,
                         wai-cors

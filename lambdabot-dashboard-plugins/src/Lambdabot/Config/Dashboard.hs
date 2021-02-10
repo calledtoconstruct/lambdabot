@@ -12,5 +12,5 @@ module Lambdabot.Config.Dashboard (
 import Lambdabot.Config (config)
 
 config "dashboardPort" [t|Int|] [|8080|]
-config "maximumNumberOfMessages" [t|Int|] [|500|]
+config "maximumNumberOfMessages" [t|Int|] [|10000|]
 config "garbageCollectionIntervalInSeconds" [t|Int|] [|5 * 60|]

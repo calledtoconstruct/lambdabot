@@ -2,29 +2,29 @@
 
 module Lambdabot.Plugin.Dashboard.Dashboard where
 
-import Lambdabot.Config.Dashboard (dashboardPort)
-import Lambdabot.Plugin.Dashboard.Configuration
+import Lambdabot.Config.Dashboard (dashboardPort, garbageCollectionIntervalInSeconds)
+import Lambdabot.Plugin.Dashboard.Configuration (
+  Channel,
+  ChannelName,
+  Dashboard,
+  DashboardState (..),
+  Message,
+  Spoken,
+  Watcher,
+  WatcherName,
+  Watching,
+ )
+import Lambdabot.Plugin.Dashboard.Garbage (startCollectingGarbage)
+import Lambdabot.Plugin.Dashboard.Service (startListening)
 
-import Lambdabot.IRC (IrcMessage, ircMsgParams)
-import Lambdabot.Logging (debugM, noticeM)
+import Lambdabot.IRC (IrcMessage, ircMsgParams, ircTags)
+import Lambdabot.Logging (noticeM)
 import qualified Lambdabot.Message as Msg
 import Lambdabot.Monad (registerCallback)
-import Lambdabot.Plugin (LB, Module, ModuleT, MonadLBState (withMS), Nick (..), getConfig, moduleDefState, moduleExit, moduleInit, moduleSerialize, newModule, readMS, stdSerial)
-import Lambdabot.Util (io)
+import Lambdabot.Plugin (Module, MonadLBState (withMS), Nick (..), getConfig, moduleDefState, moduleExit, moduleInit, moduleSerialize, newModule, stdSerial)
 
-import Control.Concurrent.Lifted (ThreadId, fork, killThread, threadDelay)
-import Control.Monad.Reader (liftIO)
-import Data.Functor (void)
-import Data.IORef (IORef, newIORef, readIORef, writeIORef)
-import Data.List (isInfixOf, partition)
-import Data.Maybe (fromJust)
-import qualified Data.Text.Lazy as T
-import Network.HTTP.Types.Status (status404)
-import Network.Wai.Middleware.Cors (simpleCors)
-import Web.Scotty (get, json, param, scotty, text)
-import Web.Scotty.Trans (capture, middleware, status)
-
-type Dashboard = ModuleT DashboardState LB
+import Data.List (partition)
+import Data.Maybe (fromJust, fromMaybe)
 
 data MessageType = Join | Part | Quit | Rename | Speak | Room | User | Audience deriving (Eq)
 
@@ -51,45 +51,75 @@ dashboardPlugin =
                 , updateState Room
                 ]
           ]
+        interval <- getConfig garbageCollectionIntervalInSeconds
         port <- getConfig dashboardPort
         startListening port
+        startCollectingGarbage interval
     , moduleExit = withMS $ \dashboardState writer -> writer dashboardState{shutdown = True}
     }
 
 withDashboardFM :: Msg.Message a => (a -> Nick -> Nick -> DashboardState -> Maybe DashboardState) -> (a -> Dashboard ())
 withDashboardFM handler msg = do
-  debugM "executing withDashboardFM"
   let channel = head . Msg.channels $! msg
-  let nickname = Msg.nick msg
+      nickname = Msg.nick msg
   noticeM $ "Received :: " ++ nTag channel ++ " <> " ++ nName channel ++ " <> " ++ nTag nickname ++ " <> " ++ nName nickname
   withMS $ \dashboardState writer -> case handler msg channel nickname dashboardState of
     Just updatedState -> writer updatedState
     Nothing -> pure ()
 
 updateState :: MessageType -> IrcMessage -> Nick -> Nick -> DashboardState -> Maybe DashboardState
-updateState notice msg chnl sndr dashboardState =
+updateState User _ chnl _ dashboardState =
+  let channelName = nName chnl
+      (_, otherChannel) = partition ((==) channelName . fst) $ watching dashboardState
+   in Just dashboardState{watching = (channelName, []) : otherChannel}
+updateState Audience msg chnl sndr dashboardState =
+  let sansBotName = tail $ tail $ ircMsgParams msg
+      channelName = head sansBotName
+      listOfWatcher = words $ tail $ head $ tail sansBotName
+   in Just $ foldl (audienceJoin msg chnl{nName = channelName} sndr) dashboardState listOfWatcher
+updateState messageType msg chnl sndr dashboardState =
   let uniqueWatcherIdentifier = nName sndr
       channelName = nName chnl
       watcherName = nName sndr
       wtchr = (uniqueWatcherIdentifier, watcherName, Nothing)
       newWatching = (uniqueWatcherIdentifier, [])
-      maybeMessage = if notice == Speak then Just ("100-200", watcherName, unwords $ ircMsgParams msg, []) else Nothing
-   in updateState' notice channelName wtchr newWatching maybeMessage dashboardState
+   in updateState' messageType msg channelName wtchr newWatching dashboardState
 
-updateState' :: MessageType -> ChannelName -> Watcher -> Watching -> Maybe Message -> DashboardState -> Maybe DashboardState
-updateState' messageType channelName watcher newWatching maybeMessage dashboardState =
+audienceJoin :: IrcMessage -> Nick -> Nick -> DashboardState -> WatcherName -> DashboardState
+audienceJoin msg chnl sndr dashboardState watcher = fromMaybe dashboardState (updateState Join msg chnl (Nick{nName = watcher, nTag = nTag sndr}) dashboardState)
+
+updateState' :: MessageType -> IrcMessage -> ChannelName -> Watcher -> Watching -> DashboardState -> Maybe DashboardState
+updateState' Speak msg channelName watcher newWatching@(uniqueWatcherIdentifier, _) dashboardState =
+  if null $ ircTags msg
+    then Nothing
+    else
+      let idTags = tagNamed "id" $ ircTags msg
+       in if null idTags
+            then Nothing
+            else
+              let uniqueMessageIdentifier = snd $ head idTags
+                  maybeMessage = Just (uniqueMessageIdentifier, uniqueWatcherIdentifier, unwords $ tail $ ircMsgParams msg, [])
+               in updateState'' Speak channelName watcher newWatching maybeMessage dashboardState
+updateState' messageType _ channelName watcher newWatching dashboardState = updateState'' messageType channelName watcher newWatching Nothing dashboardState
+
+updateState'' :: MessageType -> ChannelName -> Watcher -> Watching -> Maybe Message -> DashboardState -> Maybe DashboardState
+updateState'' messageType channelName watcher newWatching maybeMessage dashboardState =
   let partitionedWatching = partition ((==) channelName . fst) $ watching dashboardState
       partitionedWatchers = partition (`sameWatcher` watcher) (watchers dashboardState)
       partitionedSpeaking = partition ((==) channelName . fst) $ speaking dashboardState
+      addWatcher' = addWatcher partitionedWatchers watcher
+      addWatching' = addWatching partitionedWatching channelName newWatching
+      addMessage' = addMessage partitionedSpeaking channelName (fromJust maybeMessage)
+      removeWatching' = removeWatching partitionedWatching channelName newWatching
       todo = case messageType of
-        Join -> Just [addWatcher partitionedWatchers watcher, addWatching partitionedWatching channelName newWatching]
-        Speak -> Just [addMessage partitionedSpeaking channelName (fromJust maybeMessage), addWatcher partitionedWatchers watcher, addWatching partitionedWatching channelName newWatching]
-        Part -> Just [addWatcher partitionedWatchers watcher, removeWatching partitionedWatching channelName newWatching]
+        Join -> Just [addWatcher', addWatching']
+        Speak -> Just [addMessage', addWatcher', addWatching']
+        Part -> Just [addWatcher', removeWatching']
         _ -> Nothing
-   in updateState'' todo dashboardState
+   in updateState''' todo dashboardState
 
-updateState'' :: Maybe [Either DashboardState DashboardState -> Either DashboardState DashboardState] -> DashboardState -> Maybe DashboardState
-updateState'' todo dashboardState = case todo of
+updateState''' :: Maybe [Either DashboardState DashboardState -> Either DashboardState DashboardState] -> DashboardState -> Maybe DashboardState
+updateState''' todo dashboardState = case todo of
   Just fs -> case foldl (\c f -> f c) (Left dashboardState) fs of
     Right updatedState -> Just updatedState
     Left _ -> Nothing
@@ -173,75 +203,3 @@ removeWatching (thisChannel, otherChannel) channelName (uniqueWatcherIdentifier,
 
 tagNamed :: Eq a => a -> [(a, b)] -> [(a, b)]
 tagNamed named = filter ((==) named . fst)
-
-isTruthy :: [(a, String)] -> Bool
-isTruthy = (==) "1" . (snd . head)
-
-whenNotNull :: ([a] -> Bool) -> [a] -> Bool
-whenNotNull _ [] = False
-whenNotNull f ls = f ls
-
-tagValueContains :: String -> [(a, String)] -> Bool
-tagValueContains named = isInfixOf named . (snd . head)
-
-listViewers :: ChannelName -> DashboardState -> [WatcherName]
-listViewers requestedChannel dashboardState = do
-  let watchersOfChannel = filter ((==) requestedChannel . fst) $ watching dashboardState
-  if (not . null) watchersOfChannel
-    then
-      let listOfWatcher = map fst $ snd $ head watchersOfChannel
-       in map (\(_, watcherName, _) -> watcherName) $ filter (\(uniqueWatcherIdentifier, _, _) -> uniqueWatcherIdentifier `elem` listOfWatcher) $ watchers dashboardState
-    else []
-
-startListening :: Int -> Dashboard ()
-startListening port = do
-  debugM "Starting Server..."
-
-  ids <- readMS
-  ioref <- liftIO $ newIORef ids
-
-  threadId <- fork $
-    io $
-      scotty port $ do
-        middleware simpleCors
-        -- only recognizes active channels
-        -- produces Array<[string, boolean, boolean]>
-        --                 nick  , sub    , mod
-        get (capture "/:channel/viewer/list") $ do
-          requestedChannel <- param (T.pack "channel")
-          dashboardState <- liftIO $ readIORef ioref
-          let viewerList = listViewers requestedChannel dashboardState
-          json viewerList
-
-        -- only recognizes active channels
-        -- produces ["NormalParticipation" | "FollowerOnly" | "SubscriberOnly", "NormalSpeed" | "SlowSpeed"]
-        --                                  participation                     ,       speed
-        get (capture "/:channel/chat/mode") $ do
-          requestedChannel <- param (T.pack "channel")
-          status status404 *> text (T.pack $ "Not Implemented: " ++ requestedChannel)
-        -- only recognizes active channels
-        -- produces "Online" | "Offline"
-        get (capture "/:channel/state") $ do
-          requestedChannel <- param (T.pack "channel")
-          status status404 *> text (T.pack $ "Not Implemented: " ++ requestedChannel)
-        -- produces Array<[string, boolean]>
-        get (capture "/channel/list") $ do
-          json channelList
-  void $ fork $ shutdownLoop threadId ioref
-
-channelList :: [(String, Bool)]
-channelList =
-  [ ("#swarmcollective", True)
-  , ("#android272", True)
-  ]
-
-shutdownLoop :: ThreadId -> IORef DashboardState -> Dashboard ()
-shutdownLoop threadId ioref = do
-  threadDelay $ 500 * 1000
-  withMS $ \dashboardState _ -> do
-    void $ liftIO $ writeIORef ioref dashboardState
-    if shutdown dashboardState
-      then do
-        debugM "Killing listener thread."
-        killThread threadId
-      else void $ fork $ shutdownLoop threadId ioref
