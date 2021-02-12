@@ -55,4 +55,7 @@ library
                         text,
                         Unique,
                         universe-base,
-                        wai-cors
+                        wai-cors,
+                        wai-middleware-static,
+                        wai-extra,
+                        warp

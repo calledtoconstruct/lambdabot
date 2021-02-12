@@ -37,8 +37,9 @@ collectGarbage :: DashboardState -> Int -> DashboardState
 collectGarbage fullState maximumMessages =
   let everyoneWatching = sortUniq $ map fst $ concatMap snd $ watching fullState
       watchersStillWatching = filter (stillWatcher everyoneWatching) $ watchers fullState
-      relevantMessages = filter (spokenBy everyoneWatching) $ messages fullState
-      cleanMessages = take maximumMessages relevantMessages
+      -- relevantMessages = filter (spokenBy everyoneWatching) $ messages fullState
+      -- cleanMessages = take maximumMessages relevantMessages
+      cleanMessages = take maximumMessages $ messages fullState
       relevantMessageUniqueIdentifiers = map getMessageUniqueIdentifier cleanMessages
       cleanSpoken = map (cleanSpokenInChannel relevantMessageUniqueIdentifiers) $ speaking fullState
    in fullState { messages = cleanMessages, watchers = watchersStillWatching, speaking = cleanSpoken }
@@ -46,8 +47,8 @@ collectGarbage fullState maximumMessages =
 stillWatcher :: [WatcherUniqueIdentifier] -> Watcher -> Bool
 stillWatcher everyoneWatching (watcherUniqueIdentifier, _, _) = watcherUniqueIdentifier `elem` everyoneWatching
 
-spokenBy :: [WatcherUniqueIdentifier] -> Message -> Bool
-spokenBy everyoneWatching (_, watcherUniqueIdentifier, _, _) = watcherUniqueIdentifier `elem` everyoneWatching
+-- spokenBy :: [WatcherUniqueIdentifier] -> Message -> Bool
+-- spokenBy everyoneWatching (_, watcherUniqueIdentifier, _, _) = watcherUniqueIdentifier `elem` everyoneWatching
 
 getMessageUniqueIdentifier :: Message -> MessageUniqueIdentifier
 getMessageUniqueIdentifier (messageUniqueIdentifier, _, _, _) = messageUniqueIdentifier

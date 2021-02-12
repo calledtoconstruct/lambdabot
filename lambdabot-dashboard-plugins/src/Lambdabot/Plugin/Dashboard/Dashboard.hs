@@ -17,7 +17,8 @@ import Lambdabot.Plugin.Dashboard.Configuration (
 import Lambdabot.Plugin.Dashboard.Garbage (startCollectingGarbage)
 import Lambdabot.Plugin.Dashboard.Service (startListening)
 
-import Lambdabot.IRC (IrcMessage, ircMsgParams, ircTags)
+
+import Lambdabot.IRC (IrcMessage, ircMsgParams, ircTags, IrcTag)
 import Lambdabot.Logging (noticeM)
 import qualified Lambdabot.Message as Msg
 import Lambdabot.Monad (registerCallback)
@@ -94,27 +95,38 @@ updateState' Speak msg channelName watcher newWatching@(uniqueWatcherIdentifier,
     then Nothing
     else
       let idTags = tagNamed "id" $ ircTags msg
+          updatedWatcher = maybeUpdateWatcherName watcher $ tagNamed "display-name" $ ircTags msg
        in if null idTags
             then Nothing
             else
               let uniqueMessageIdentifier = snd $ head idTags
-                  maybeMessage = Just (uniqueMessageIdentifier, uniqueWatcherIdentifier, unwords $ tail $ ircMsgParams msg, [])
-               in updateState'' Speak channelName watcher newWatching maybeMessage dashboardState
+                  maybeMessage = Just (uniqueMessageIdentifier, uniqueWatcherIdentifier, getTextOfMessage msg, [])
+               in updateState'' Speak channelName updatedWatcher newWatching maybeMessage dashboardState
 updateState' messageType _ channelName watcher newWatching dashboardState = updateState'' messageType channelName watcher newWatching Nothing dashboardState
+
+-- Skip first param (channel name)
+-- Trim colon prefix
+getTextOfMessage :: IrcMessage -> String
+getTextOfMessage = tail . unwords . drop 1 . ircMsgParams
+
+maybeUpdateWatcherName :: Watcher -> [IrcTag] -> Watcher
+maybeUpdateWatcherName watcher@(uniqueWatcherIdentifier, _, watcherSystemIdentifier) displayNameTag = if not $ null displayNameTag
+  then (uniqueWatcherIdentifier, snd $ head displayNameTag, watcherSystemIdentifier)
+  else watcher
 
 updateState'' :: MessageType -> ChannelName -> Watcher -> Watching -> Maybe Message -> DashboardState -> Maybe DashboardState
 updateState'' messageType channelName watcher newWatching maybeMessage dashboardState =
   let partitionedWatching = partition ((==) channelName . fst) $ watching dashboardState
       partitionedWatchers = partition (`sameWatcher` watcher) (watchers dashboardState)
       partitionedSpeaking = partition ((==) channelName . fst) $ speaking dashboardState
-      addWatcher' = addWatcher partitionedWatchers watcher
+      addOrUpdateWatcher' = addOrUpdateWatcher partitionedWatchers watcher
       addWatching' = addWatching partitionedWatching channelName newWatching
       addMessage' = addMessage partitionedSpeaking channelName (fromJust maybeMessage)
       removeWatching' = removeWatching partitionedWatching channelName newWatching
       todo = case messageType of
-        Join -> Just [addWatcher', addWatching']
-        Speak -> Just [addMessage', addWatcher', addWatching']
-        Part -> Just [addWatcher', removeWatching']
+        Join -> Just [addOrUpdateWatcher', addWatching']
+        Speak -> Just [addMessage', addOrUpdateWatcher', addWatching']
+        Part -> Just [addOrUpdateWatcher', removeWatching']
         _ -> Nothing
    in updateState''' todo dashboardState
 
@@ -147,21 +159,21 @@ addMessage (channelSpoken, otherSpoken) channelName theMessage@(uniqueMessageIde
           , speaking = (channelName, uniqueMessageIdentifier : umids) : otherSpoken
           }
 
-addWatcher :: ([Watcher], [Watcher]) -> Watcher -> Either DashboardState DashboardState -> Either DashboardState DashboardState
-addWatcher (thisWatcher, otherWatcher) newWatcher (Left dashboardState) =
+addOrUpdateWatcher :: ([Watcher], [Watcher]) -> Watcher -> Either DashboardState DashboardState -> Either DashboardState DashboardState
+addOrUpdateWatcher (thisWatcher, otherWatcher) newWatcher (Left dashboardState) =
   if null thisWatcher
     then Right dashboardState{watchers = newWatcher : otherWatcher}
     else
       let existingWatcher = head thisWatcher
-       in if existingWatcher `sameWatcher` newWatcher
+       in if existingWatcher == newWatcher
             then Left dashboardState
             else Right dashboardState{watchers = newWatcher : otherWatcher}
-addWatcher (thisWatcher, otherWatcher) newWatcher (Right dashboardState) =
+addOrUpdateWatcher (thisWatcher, otherWatcher) newWatcher (Right dashboardState) =
   if null thisWatcher
     then Right dashboardState{watchers = newWatcher : otherWatcher}
     else
       let existingWatcher = head thisWatcher
-       in if existingWatcher `sameWatcher` newWatcher
+       in if existingWatcher == newWatcher
             then Right dashboardState
             else Right dashboardState{watchers = newWatcher : otherWatcher}
 

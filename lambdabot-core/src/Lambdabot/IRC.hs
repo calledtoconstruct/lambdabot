@@ -17,6 +17,7 @@ module Lambdabot.IRC (
   user,
   setNick,
   MessageDirection (..),
+  IrcTag
 ) where
 
 import Lambdabot.Message (Message (..))
