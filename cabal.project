@@ -18,7 +18,8 @@ packages:
     lambdabot-twitch-plugins/lambdabot-twitch-plugins.cabal
     lambdabot/lambdabot.cabal
 
-with-compiler: /opt/ghc/8.10.2/bin/ghc
+with-compiler: /opt/ghc/bin/ghc
+optimization: 2
 
 package lambdabot
-    optimization: True
+    ghc-options: -threaded +RTS -N -RTS

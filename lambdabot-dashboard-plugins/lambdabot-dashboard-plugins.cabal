@@ -37,6 +37,7 @@ library
                         Lambdabot.Plugin.Dashboard.Dashboard
                         Lambdabot.Plugin.Dashboard.Service
                         Lambdabot.Plugin.Dashboard.Garbage
+                        Lambdabot.Plugin.Dashboard.StateChange
 
   other-modules:        Lambdabot.Config.Dashboard
 

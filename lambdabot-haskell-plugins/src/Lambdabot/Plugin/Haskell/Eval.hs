@@ -72,9 +72,11 @@ evalPlugin =
           ]
     , contextual = \txt -> do
         shouldRespond <- isEval txt
-        x <- (runGHC . dropPrefix) txt
-        resultOfEvaluation <- lineify [x]
-        when shouldRespond $ say resultOfEvaluation
+        if shouldRespond then do
+          x <- (runGHC . dropPrefix) txt
+          resultOfEvaluation <- lineify [x]
+          say resultOfEvaluation
+        else pure ()
     }
 
 args :: String -> String -> [String] -> [String] -> [String]

@@ -4,28 +4,35 @@ module Lambdabot.Plugin.Dashboard.Dashboard where
 
 import Lambdabot.Config.Dashboard (dashboardPort, garbageCollectionIntervalInSeconds)
 import Lambdabot.Plugin.Dashboard.Configuration (
-  Channel,
+  Badge (MkBadge),
+  Channel (..),
   ChannelName,
   Dashboard,
   DashboardState (..),
-  Message,
-  Spoken,
-  Watcher,
+  Message (..),
+  Spoken (..),
+  Watcher (..),
   WatcherName,
-  Watching,
+  Watching (..),
+  channelNameFromSpoken,
+  listOfMessageUniqueIdentifierFromSpoken,
+  nameFromChannel,
+  uniqueIdentifierFromWatcher,
+  uniqueIdentifierFromWatching,
+  watchingFromChannel,
  )
 import Lambdabot.Plugin.Dashboard.Garbage (startCollectingGarbage)
 import Lambdabot.Plugin.Dashboard.Service (startListening)
 
-
-import Lambdabot.IRC (IrcMessage, ircMsgParams, ircTags, IrcTag)
+import Lambdabot.IRC (IrcMessage, IrcTag, ircMsgParams, ircTags)
 import Lambdabot.Logging (noticeM)
 import qualified Lambdabot.Message as Msg
 import Lambdabot.Monad (registerCallback)
 import Lambdabot.Plugin (Module, MonadLBState (withMS), Nick (..), getConfig, moduleDefState, moduleExit, moduleInit, moduleSerialize, newModule, stdSerial)
+import Lambdabot.Plugin.Dashboard.StateChange (StateChange (..), fromStateChange, whenModified)
 
 import Data.List (partition)
-import Data.Maybe (fromJust, fromMaybe)
+import Data.Maybe (fromJust)
 
 data MessageType = Join | Part | Quit | Rename | Speak | Room | User | Audience deriving (Eq)
 
@@ -40,69 +47,73 @@ dashboardPlugin =
         sequence_
           [ registerCallback signal (withDashboardFM cb)
           | (signal, cb) <-
-              zip
-                ["JOIN", "PART", "QUIT", "NICK", "353", "PRIVMSG", "USERSTATE", "ROOMSTATE"]
-                [ updateState Join
-                , updateState Part
-                , updateState Quit
-                , updateState Rename
-                , updateState Audience
-                , updateState Speak
-                , updateState User
-                , updateState Room
-                ]
+              [ ("JOIN", updateState Join)
+              , ("PART", updateState Part)
+              , ("QUIT", updateState Quit)
+              , ("NICK", updateState Rename)
+              , ("353", updateState Audience)
+              , ("PRIVMSG", updateState Speak)
+              , ("USERSTATE", updateState User)
+              , ("ROOMSTATE", updateState Room)
+              ]
           ]
-        interval <- getConfig garbageCollectionIntervalInSeconds
-        port <- getConfig dashboardPort
-        startListening port
-        startCollectingGarbage interval
+        getConfig dashboardPort >>= startListening
+        getConfig garbageCollectionIntervalInSeconds >>= startCollectingGarbage
     , moduleExit = withMS $ \dashboardState writer -> writer dashboardState{shutdown = True}
     }
 
-withDashboardFM :: Msg.Message a => (a -> Nick -> Nick -> DashboardState -> Maybe DashboardState) -> (a -> Dashboard ())
+withDashboardFM :: Msg.Message a => (a -> Nick -> Nick -> StateChange DashboardState -> StateChange DashboardState) -> (a -> Dashboard ())
 withDashboardFM handler msg = do
   let channel = head . Msg.channels $! msg
       nickname = Msg.nick msg
   noticeM $ "Received :: " ++ nTag channel ++ " <> " ++ nName channel ++ " <> " ++ nTag nickname ++ " <> " ++ nName nickname
-  withMS $ \dashboardState writer -> case handler msg channel nickname dashboardState of
-    Just updatedState -> writer updatedState
-    Nothing -> pure ()
+  withMS $ \dashboardState writer -> whenModified (pure ()) writer $ handler msg channel nickname (Original dashboardState)
 
-updateState :: MessageType -> IrcMessage -> Nick -> Nick -> DashboardState -> Maybe DashboardState
-updateState User _ chnl _ dashboardState =
-  let channelName = nName chnl
-      (_, otherChannel) = partition ((==) channelName . fst) $ watching dashboardState
-   in Just dashboardState{watching = (channelName, []) : otherChannel}
-updateState Audience msg chnl sndr dashboardState =
+updateState :: MessageType -> IrcMessage -> Nick -> Nick -> StateChange DashboardState -> StateChange DashboardState
+updateState User _ chnl _ stateChange =
+  let dashboardState = fromStateChange stateChange
+      channelName = nName chnl
+      otherChannel = filter ((channelName /=) . nameFromChannel) $ watching dashboardState
+   in Modified dashboardState{watching = MkChannel (channelName, []) : otherChannel}
+updateState Audience msg chnl sndr stateChange =
   let sansBotName = tail $ tail $ ircMsgParams msg
       channelName = head sansBotName
       listOfWatcher = words $ tail $ head $ tail sansBotName
-   in Just $ foldl (audienceJoin msg chnl{nName = channelName} sndr) dashboardState listOfWatcher
-updateState messageType msg chnl sndr dashboardState =
+   in foldl (audienceJoin msg chnl{nName = channelName} sndr) stateChange listOfWatcher
+updateState messageType msg chnl sndr stateChange =
   let uniqueWatcherIdentifier = nName sndr
       channelName = nName chnl
       watcherName = nName sndr
-      wtchr = (uniqueWatcherIdentifier, watcherName, Nothing)
-      newWatching = (uniqueWatcherIdentifier, [])
-   in updateState' messageType msg channelName wtchr newWatching dashboardState
+      wtchr = MkWatcher (uniqueWatcherIdentifier, watcherName, Nothing)
+      newWatching = MkWatching (uniqueWatcherIdentifier, [])
+   in updateState' messageType msg channelName wtchr newWatching stateChange
 
-audienceJoin :: IrcMessage -> Nick -> Nick -> DashboardState -> WatcherName -> DashboardState
-audienceJoin msg chnl sndr dashboardState watcher = fromMaybe dashboardState (updateState Join msg chnl (Nick{nName = watcher, nTag = nTag sndr}) dashboardState)
+audienceJoin :: IrcMessage -> Nick -> Nick -> StateChange DashboardState -> WatcherName -> StateChange DashboardState
+audienceJoin msg chnl sndr stateChange watcher = updateState Join msg chnl (Nick{nName = watcher, nTag = nTag sndr}) stateChange
 
-updateState' :: MessageType -> IrcMessage -> ChannelName -> Watcher -> Watching -> DashboardState -> Maybe DashboardState
-updateState' Speak msg channelName watcher newWatching@(uniqueWatcherIdentifier, _) dashboardState =
+updateState' :: MessageType -> IrcMessage -> ChannelName -> Watcher -> Watching -> StateChange DashboardState -> StateChange DashboardState
+updateState' Speak msg channelName watcher newWatching@(MkWatching (uniqueWatcherIdentifier, _)) stateChange =
   if null $ ircTags msg
-    then Nothing
+    then stateChange
     else
       let idTags = tagNamed "id" $ ircTags msg
           updatedWatcher = maybeUpdateWatcherName watcher $ tagNamed "display-name" $ ircTags msg
+          updatedWatching = maybeAddTagToWatchingBadges newWatching $ tagNamed "mod" $ ircTags msg
        in if null idTags
-            then Nothing
+            then stateChange
             else
               let uniqueMessageIdentifier = snd $ head idTags
-                  maybeMessage = Just (uniqueMessageIdentifier, uniqueWatcherIdentifier, getTextOfMessage msg, [])
-               in updateState'' Speak channelName updatedWatcher newWatching maybeMessage dashboardState
-updateState' messageType _ channelName watcher newWatching dashboardState = updateState'' messageType channelName watcher newWatching Nothing dashboardState
+                  maybeMessage = Just $ MkMessage (uniqueMessageIdentifier, uniqueWatcherIdentifier, getTextOfMessage msg, [])
+               in updateState'' Speak channelName updatedWatcher updatedWatching maybeMessage stateChange
+updateState' messageType _ channelName watcher newWatching stateChange = updateState'' messageType channelName watcher newWatching Nothing stateChange
+
+maybeAddTagToWatchingBadges :: Watching -> [IrcTag] -> Watching
+maybeAddTagToWatchingBadges existingWatching@(MkWatching (uniqueWatcherIdentifier, badges)) modTag =
+  if not $ null modTag
+    then
+      let (tagName, tagValue) = head modTag
+       in MkWatching (uniqueWatcherIdentifier, MkBadge (tagName, read tagValue) : badges)
+    else existingWatching
 
 -- Skip first param (channel name)
 -- Trim colon prefix
@@ -110,108 +121,108 @@ getTextOfMessage :: IrcMessage -> String
 getTextOfMessage = tail . unwords . drop 1 . ircMsgParams
 
 maybeUpdateWatcherName :: Watcher -> [IrcTag] -> Watcher
-maybeUpdateWatcherName watcher@(uniqueWatcherIdentifier, _, watcherSystemIdentifier) displayNameTag = if not $ null displayNameTag
-  then (uniqueWatcherIdentifier, snd $ head displayNameTag, watcherSystemIdentifier)
-  else watcher
+maybeUpdateWatcherName watcher@(MkWatcher (uniqueWatcherIdentifier, _, watcherSystemIdentifier)) displayNameTag =
+  if not $ null displayNameTag
+    then MkWatcher (uniqueWatcherIdentifier, snd $ head displayNameTag, watcherSystemIdentifier)
+    else watcher
 
-updateState'' :: MessageType -> ChannelName -> Watcher -> Watching -> Maybe Message -> DashboardState -> Maybe DashboardState
-updateState'' messageType channelName watcher newWatching maybeMessage dashboardState =
-  let partitionedWatching = partition ((==) channelName . fst) $ watching dashboardState
+updateState'' :: MessageType -> ChannelName -> Watcher -> Watching -> Maybe Message -> StateChange DashboardState -> StateChange DashboardState
+updateState'' messageType channelName watcher newWatching maybeMessage stateChange =
+  let dashboardState = fromStateChange stateChange
+      partitionedWatching = partition ((channelName ==) . nameFromChannel) $ watching dashboardState
       partitionedWatchers = partition (`sameWatcher` watcher) (watchers dashboardState)
-      partitionedSpeaking = partition ((==) channelName . fst) $ speaking dashboardState
+      partitionedSpeaking = partition ((channelName ==) . channelNameFromSpoken) $ speaking dashboardState
       addOrUpdateWatcher' = addOrUpdateWatcher partitionedWatchers watcher
-      addWatching' = addWatching partitionedWatching channelName newWatching
+      addOrUpdateWatching' = addOrUpdateWatching partitionedWatching channelName newWatching
       addMessage' = addMessage partitionedSpeaking channelName (fromJust maybeMessage)
       removeWatching' = removeWatching partitionedWatching channelName newWatching
       todo = case messageType of
-        Join -> Just [addOrUpdateWatcher', addWatching']
-        Speak -> Just [addMessage', addOrUpdateWatcher', addWatching']
+        Join -> Just [addOrUpdateWatcher', addOrUpdateWatching']
+        Speak -> Just [addMessage', addOrUpdateWatcher', addOrUpdateWatching']
         Part -> Just [addOrUpdateWatcher', removeWatching']
         _ -> Nothing
-   in updateState''' todo dashboardState
+   in updateState''' todo stateChange
 
-updateState''' :: Maybe [Either DashboardState DashboardState -> Either DashboardState DashboardState] -> DashboardState -> Maybe DashboardState
-updateState''' todo dashboardState = case todo of
-  Just fs -> case foldl (\c f -> f c) (Left dashboardState) fs of
-    Right updatedState -> Just updatedState
-    Left _ -> Nothing
-  Nothing -> Nothing
+updateState''' :: Maybe [StateChange DashboardState -> StateChange DashboardState] -> StateChange DashboardState -> StateChange DashboardState
+updateState''' todo stateChange = case todo of
+  Just strategies -> foldl (\state strategy -> strategy state) stateChange strategies
+  Nothing -> stateChange
 
 sameWatcher :: Watcher -> Watcher -> Bool
-sameWatcher (lwuid, _, _) (rwuid, _, _) = lwuid == rwuid
+sameWatcher a b = uniqueIdentifierFromWatcher a == uniqueIdentifierFromWatcher b
 
 sameWatching :: Watching -> Watching -> Bool
-sameWatching (lwn, _) (rwn, _) = lwn == rwn
+sameWatching a b = uniqueIdentifierFromWatching a == uniqueIdentifierFromWatching b
 
-addMessage :: ([Spoken], [Spoken]) -> ChannelName -> Message -> Either DashboardState DashboardState -> Either DashboardState DashboardState
-addMessage (channelSpoken, otherSpoken) channelName theMessage@(uniqueMessageIdentifier, _, _, _) (Left dashboardState) =
-  let umids = if null channelSpoken then [] else snd $ head channelSpoken
-   in Right
+addMessage :: ([Spoken], [Spoken]) -> ChannelName -> Message -> StateChange DashboardState -> StateChange DashboardState
+addMessage (channelSpoken, otherSpoken) channelName theMessage@(MkMessage (uniqueMessageIdentifier, _, _, _)) (Original dashboardState) =
+  let umids = if null channelSpoken then [] else listOfMessageUniqueIdentifierFromSpoken $ head channelSpoken
+   in Modified
         dashboardState
           { messages = theMessage : messages dashboardState
-          , speaking = (channelName, uniqueMessageIdentifier : umids) : otherSpoken
+          , speaking = MkSpoken (channelName, uniqueMessageIdentifier : umids) : otherSpoken
           }
-addMessage (channelSpoken, otherSpoken) channelName theMessage@(uniqueMessageIdentifier, _, _, _) (Right dashboardState) =
-  let umids = if null channelSpoken then [] else snd $ head channelSpoken
-   in Right
+addMessage (channelSpoken, otherSpoken) channelName theMessage@(MkMessage (uniqueMessageIdentifier, _, _, _)) (Modified dashboardState) =
+  let umids = if null channelSpoken then [] else listOfMessageUniqueIdentifierFromSpoken $ head channelSpoken
+   in Modified
         dashboardState
           { messages = theMessage : messages dashboardState
-          , speaking = (channelName, uniqueMessageIdentifier : umids) : otherSpoken
+          , speaking = MkSpoken (channelName, uniqueMessageIdentifier : umids) : otherSpoken
           }
 
-addOrUpdateWatcher :: ([Watcher], [Watcher]) -> Watcher -> Either DashboardState DashboardState -> Either DashboardState DashboardState
-addOrUpdateWatcher (thisWatcher, otherWatcher) newWatcher (Left dashboardState) =
+addOrUpdateWatcher :: ([Watcher], [Watcher]) -> Watcher -> StateChange DashboardState -> StateChange DashboardState
+addOrUpdateWatcher (thisWatcher, otherWatcher) newWatcher (Original dashboardState) =
   if null thisWatcher
-    then Right dashboardState{watchers = newWatcher : otherWatcher}
+    then Modified dashboardState{watchers = newWatcher : otherWatcher}
     else
       let existingWatcher = head thisWatcher
        in if existingWatcher == newWatcher
-            then Left dashboardState
-            else Right dashboardState{watchers = newWatcher : otherWatcher}
-addOrUpdateWatcher (thisWatcher, otherWatcher) newWatcher (Right dashboardState) =
+            then Original dashboardState
+            else Modified dashboardState{watchers = newWatcher : otherWatcher}
+addOrUpdateWatcher (thisWatcher, otherWatcher) newWatcher (Modified dashboardState) =
   if null thisWatcher
-    then Right dashboardState{watchers = newWatcher : otherWatcher}
+    then Modified dashboardState{watchers = newWatcher : otherWatcher}
     else
       let existingWatcher = head thisWatcher
        in if existingWatcher == newWatcher
-            then Right dashboardState
-            else Right dashboardState{watchers = newWatcher : otherWatcher}
+            then Modified dashboardState
+            else Modified dashboardState{watchers = newWatcher : otherWatcher}
 
-addWatching :: ([Channel], [Channel]) -> ChannelName -> Watching -> Either DashboardState DashboardState -> Either DashboardState DashboardState
-addWatching (thisChannel, otherChannel) channelName newWatching (Left dashboardState) =
+addOrUpdateWatching :: ([Channel], [Channel]) -> ChannelName -> Watching -> StateChange DashboardState -> StateChange DashboardState
+addOrUpdateWatching (thisChannel, otherChannel) channelName newWatching (Original dashboardState) =
   if null thisChannel
-    then Right dashboardState{watching = (channelName, [newWatching]) : otherChannel}
+    then Modified dashboardState{watching = MkChannel (channelName, [newWatching]) : otherChannel}
     else
-      let (thisWatching, otherWatching) = partition (`sameWatching` newWatching) $ snd $ head thisChannel
-       in if null thisWatching
-            then Right dashboardState{watching = (channelName, newWatching : otherWatching) : otherChannel}
-            else Left dashboardState
-addWatching (thisChannel, otherChannel) channelName newWatching (Right dashboardState) =
+      let (thisWatching, otherWatching) = partition (`sameWatching` newWatching) $ watchingFromChannel $ head thisChannel
+       in if null thisWatching || head thisWatching /= newWatching
+            then Modified dashboardState{watching = MkChannel (channelName, newWatching : otherWatching) : otherChannel}
+            else Original dashboardState
+addOrUpdateWatching (thisChannel, otherChannel) channelName newWatching (Modified dashboardState) =
   if null thisChannel
-    then Right dashboardState{watching = (channelName, [newWatching]) : otherChannel}
+    then Modified dashboardState{watching = MkChannel (channelName, [newWatching]) : otherChannel}
     else
-      let (thisWatching, otherWatching) = partition (`sameWatching` newWatching) $ snd $ head thisChannel
-       in if null thisWatching
-            then Right dashboardState{watching = (channelName, newWatching : otherWatching) : otherChannel}
-            else Right dashboardState
+      let (thisWatching, otherWatching) = partition (`sameWatching` newWatching) $ watchingFromChannel $ head thisChannel
+       in if null thisWatching || head thisWatching /= newWatching
+            then Modified dashboardState{watching = MkChannel (channelName, newWatching : otherWatching) : otherChannel}
+            else Modified dashboardState
 
-removeWatching :: ([Channel], [Channel]) -> ChannelName -> Watching -> Either DashboardState DashboardState -> Either DashboardState DashboardState
-removeWatching (thisChannel, otherChannel) channelName (uniqueWatcherIdentifier, _) (Left dashboardState) =
+removeWatching :: ([Channel], [Channel]) -> ChannelName -> Watching -> StateChange DashboardState -> StateChange DashboardState
+removeWatching (thisChannel, otherChannel) channelName (MkWatching (uniqueWatcherIdentifier, _)) (Original dashboardState) =
   if not $ null thisChannel
     then
-      let (thisWatching, otherWatching) = partition ((==) uniqueWatcherIdentifier . fst) $ snd $ head thisChannel
+      let (thisWatching, otherWatching) = partition ((==) uniqueWatcherIdentifier . uniqueIdentifierFromWatching) $ watchingFromChannel $ head thisChannel
        in if not $ null thisWatching
-            then Right dashboardState{watching = (channelName, otherWatching) : otherChannel}
-            else Left dashboardState
-    else Left dashboardState
-removeWatching (thisChannel, otherChannel) channelName (uniqueWatcherIdentifier, _) (Right dashboardState) =
+            then Modified dashboardState{watching = MkChannel (channelName, otherWatching) : otherChannel}
+            else Original dashboardState
+    else Original dashboardState
+removeWatching (thisChannel, otherChannel) channelName (MkWatching (uniqueWatcherIdentifier, _)) (Modified dashboardState) =
   if not $ null thisChannel
     then
-      let (thisWatching, otherWatching) = partition ((==) uniqueWatcherIdentifier . fst) $ snd $ head thisChannel
+      let (thisWatching, otherWatching) = partition ((==) uniqueWatcherIdentifier . uniqueIdentifierFromWatching) $ watchingFromChannel $ head thisChannel
        in if not $ null thisWatching
-            then Right dashboardState{watching = (channelName, otherWatching) : otherChannel}
-            else Right dashboardState
-    else Right dashboardState
+            then Modified dashboardState{watching = MkChannel (channelName, otherWatching) : otherChannel}
+            else Modified dashboardState
+    else Modified dashboardState
 
 tagNamed :: Eq a => a -> [(a, b)] -> [(a, b)]
 tagNamed named = filter ((==) named . fst)
