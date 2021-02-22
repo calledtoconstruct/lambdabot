@@ -99,6 +99,19 @@
     const channelTimerSubject = new ReplaySubject(1)
     const channelTimerObservable = channelTimerSubject
 
+    const chatScrollSubject = new ReplaySubject(1)
+    const chatScrollObservable = chatScrollSubject.pipe(
+      map(event => {
+        const el = document.getElementById('chat-container')
+        const parent = el.parentElement
+        return (parent.clientHeight >= el.scrollHeight - el.scrollTop)
+      }),
+      startWith(true)
+    )
+
+    const chatUpdateSubject = new ReplaySubject(1)
+    const chatUpdateObservable = chatUpdateSubject
+
     // Services
 
     function loadChannelList() {
@@ -170,8 +183,8 @@
     function layoutComponent() {
       return {
         view: vnode => m('div', { class: 'mdl-layout mdl-js-layout mdl-layout--fixed-header' },
-          m('header', { id: headerElementIdentifier, class: 'mdl-layout__header mdl-layout__header--scroll mdl-color--primary' }),
-          m('main', { id: mainElementIdentifier, class: 'mdl-layout__content mdl-grid' })
+          m('header', { id: headerElementIdentifier, class: 'mdl-layout__header mdl-color--primary' }),
+          m('main', { id: tabPanelsElementIdentifier, class: 'mdl-layout__content mdl-grid mdl-grid--no-spacing' })
         )
       }
     }
@@ -190,31 +203,23 @@
 
     function tabBarComponent() {
       return {
-        view: vnode => m('div', { class: 'mdl-layout__tab-bar mdl-js-ripple-effect mdl-color--primary-dark' },
-          Object.keys(tabConfiguration).map(tab => m('a', {
-            href: `#${tab}-panel`,
-            class: (tab === vnode.attrs.selectedTab)
-              ? 'mdl-layout__tab is-active'
-              : 'mdl-layout__tab',
-            onclick: function () {
-              tabSubject.next(tab)
-            }
-          }, tab))
-        )
-      }
-    }
-
-    function mainComponent() {
-      return {
-        view: vnode => m('div', { id: tabPanelsElementIdentifier, class: 'mdl-layout__content' })
+        view: vnode => Object.keys(tabConfiguration).map(tab => m('a', {
+          href: `#${tab}-panel`,
+          class: (tab === vnode.attrs.selectedTab)
+            ? 'mdl-layout__tab is-active'
+            : 'mdl-layout__tab',
+          onclick: function () {
+            tabSubject.next(tab)
+          }
+        }, tab))
       }
     }
 
     function tabPanelsComponent() {
-      const nonActiveClass = 'section--center mdl-cell mdl-cell--12-col mdl-layout__tab-panel'
+      const nonActiveClass = 'mdl-demo mdl-cell mdl-cell--12-col mdl-layout__tab-panel'
       const activeClass = `${nonActiveClass} is-active`
       return {
-        view: vnode => Object.keys(tabConfiguration).map(key => m('section', {
+        view: vnode => Object.keys(tabConfiguration).map(key => m('div', {
           id: `${key}-panel`,
           class: key === vnode.attrs.selectedTab
             ? activeClass
@@ -258,15 +263,15 @@
     function liveTabPanelComponent() {
       return {
         view: vnode => {
-          return m('div', { class: 'mdl-grid' },
-            m('section', {
+          return m('div', { class: 'mdl-grid mdl-client-bound-height' },
+            m('div', {
               id: watcherListElementIdentifier,
-              class: 'section--center md-card mdl-cell mdl-cell--5-col mdl-cell--1-col-phone mdl-shadow--2dp'
+              class: 'md-card mdl-cell mdl-cell--5-col mdl-cell--12-col-tablet mdl-cell--4-col-phone mdl-shadow--2dp'
             }
             ),
-            m('section', {
+            m('div', {
               id: channelChatListElementIdentifier,
-              class: 'section--center md-card mdl-cell mdl-cell--7-col mdl-cell--1-col-phone mdl-shadow--2dp'
+              class: 'md-card mdl-cell mdl-cell--7-col mdl-cell--12-col-tablet mdl-cell--4-col-phone mdl-shadow--2dp'
             }
             )
           )
@@ -307,27 +312,30 @@
           }, [])
           if (vnode.attrs.channelName && 0 < (moderators.length + watchers.length)) {
             const moderatorsSection = moderators.length > 0
-              ? m('div', { class: 'mdl-card mdl-cell mdl-cell--10-col-desktop mdl-cell--6-col-tablet mdl-cell--4-col-phone' },
-                m('div', { class: 'mdl-card__supporting-text' },
-                  m('h4', 'Moderators'),
+              ? [
+                m('div', { class: 'mdl-watcher-header-row mdl-cell mdl-cell--12-col mdl-color--teal-200 mdl-color-text--white' },
+                  m('h4', 'Moderators')
+                ),
+                m('div', { class: 'mdl-cell mdl-cell--12-col' },
                   m('p', moderators)
                 )
-              )
+              ]
               : []
             const watchersSection = watchers.length > 0
-              ? m('div', { class: 'mdl-card mdl-cell mdl-cell--10-col-desktop mdl-cell--6-col-tablet mdl-cell--4-col-phone' },
-                m('div', { class: 'mdl-card__supporting-text' },
-                  m('h4', 'Watchers'),
+              ? [
+                m('div', { class: 'mdl-watcher-header-row mdl-cell mdl-cell--12-col mdl-color--teal-200 mdl-color-text--white' },
+                  m('h4', 'Watchers')
+                ),
+                m('div', { class: 'mdl-cell mdl-cell--12-col' },
                   m('p', watchers)
                 )
-              )
+              ]
               : []
-            return m('div', { class: 'mdl-cell mdl-cell--12-col mdl-grid mdl-grid--no-spacing' },
-              m('header', { class: 'mdl-cell mdl-cell--2-col-desktop mdl-cell--2-col-tablet mdl-cell--4-col-phone mdl-color--teal-200 mdl-color-text--white' },
-                m('i', { class: 'material-icons' }, 'face')
-              ),
-              moderatorsSection,
-              watchersSection
+            return m('div', { class: 'mdl-card mdl-cell mdl-cell--12-col mdl-grid mdl-grid--no-spacing' },
+              m('div', { class: 'scrollable' },
+                moderatorsSection,
+                watchersSection
+              )
             )
           } else return []
         }
@@ -362,9 +370,9 @@
                 ++i
               }
               other.splice(0, 0,
-                m('div', { class: 'section__text mdl-cell mdl-cell--12-col-desktop mdl-cell--6-col-tablet mdl-cell--3-col-phone mdl-chat-bubble' },
+                m('div', { class: 'section__text mdl-cell mdl-cell--12-col mdl-chat-bubble' },
                   m('div', { class: 'mdl-chat-bubble-content-header mdl-color--primary-dark mdl-color-text--white' },
-                    m('h5', { class: 'chat-message-from' }, message[1])
+                    m('div', { class: 'chat-message-from' }, message[1])
                   ),
                   m('div', { class: 'mdl-chat-bubble-content mdl-color--white' },
                     items
@@ -377,14 +385,18 @@
             return other
           }, [])
           if (vnode.attrs.channelName && 0 < listItems.length) {
-            return m('div', { class: 'mdl-card mdl-cell mdl-cell--12-col mdl-grid mdl-grid--no-spacing mdl-color--primary' },
-              m('div', { class: 'mdl-card__supporting-text mdl-cell--12-col' },
-                m('h3', { class: 'mdl-color-text--white' }, 'Chat for ' + vnode.attrs.channelName),
+            return m('div', {
+              id: 'chat-container',
+              class: 'mdl-card mdl-cell mdl-cell--12-col mdl-grid mdl-color--primary scrollable',
+              onscroll: ev => chatScrollSubject.next(ev)
+            },
+              m('div', { class: 'mdl-cell mdl-cell--12-col' },
                 listItems
               )
             )
           } else return []
-        }
+        },
+        onupdate: () => chatUpdateSubject.next()
       }
     }
 
@@ -522,10 +534,15 @@
     m(headerComponent)
   )
 
-  m.render(
-    document.getElementById(mainElementIdentifier),
-    m(mainComponent)
-  )
+  const chatUpdateSubscription = chatUpdateObservable.pipe(
+    withLatestFrom(chatScrollObservable)
+  ).subscribe(([_, allow]) => {
+    if (allow) {
+      const el = document.getElementById('chat-container')
+      const distance = el.scrollHeight - el.scrollTop
+      el.scrollBy({ top: distance, behavior: 'smooth' })
+    }
+  })
 
   const channelSubscription = channelObservable.subscribe(channelName => {
     channelTimerSubject.next()

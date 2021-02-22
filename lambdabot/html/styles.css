@@ -29,6 +29,28 @@ html, body {
   background-color: white;
 }
 
+.mdl-watcher-header-row {
+  border-radius: 3px;
+}
+
+.mdl-watcher-header-row > h4 {
+  padding: 10px;
+}
+
+.scrollable {
+  max-height: calc(100vh - 300px);
+  overflow: auto;
+}
+
+.is-small-screen .scrollable {
+  max-height: calc(100vh - 172px);
+  overflow: auto;
+}
+
+.chat-message-from {
+  font-weight: bold;
+}
+
 .mdl-demo .mdl-layout__header-row {
   padding-left: 40px;
 }
@@ -121,10 +143,10 @@ html, body {
   margin-bottom: 48px;
 }
 .mdl-demo section.section--center {
-  max-width: 1240px;
+  max-width: 80vw;
 }
 .mdl-demo #features section.section--center {
-  max-width: 620px;
+  max-width: 70vw;
 }
 .mdl-demo section > header{
   display: -webkit-flex;
