@@ -9,22 +9,18 @@
  directory but nowhere else, then it is picked up from the data directory.
 -}
 module Lambdabot.File (
-  stateDir,
   findLBFileForReading,
   findLBFileForWriting,
   findOrCreateLBFile,
-  findLBFile,
-  -- deprecated
-  outputDir,
 ) where
 
 import Lambdabot.Config (MonadConfig (getConfig))
 import Lambdabot.Config.Core (dataDir, outputDir)
+import Lambdabot.Module (LB)
 import Lambdabot.Monad ()
 import Lambdabot.Util (io)
 
 import Control.Monad (unless)
-import Lambdabot.Module (LB)
 import System.Directory (
   copyFile,
   createDirectoryIfMissing,

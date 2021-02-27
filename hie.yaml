@@ -4,8 +4,12 @@ cradle:
       component: lambdabot
     - path: ./lambdabot-core
       component: lambdabot-core
+    - path: ./lambdabot-dashboard-plugins
+      component: lambdabot-dashboard-plugins
     - path: ./lambdabot-hangman-plugins
       component: lambdabot-hangman-plugins
+    - path: ./lambdabot-term-plugins
+      component: lambdabot-term-plugins
     - path: ./lambdabot-haskell-plugins
       component: lambdabot-haskell-plugins
     - path: ./lambdabot-irc-plugins
@@ -20,6 +24,8 @@ cradle:
       component: lambdabot-reference-plugins
     - path: ./lambdabot-social-plugins
       component: lambdabot-social-plugins
+    - path: ./lambdabot-story-plugins
+      component: lambdabot-story-plugins
     - path: ./lambdabot-suggest-plugins
       component: lambdabot-suggest-plugins
     - path: ./lambdabot-trusted-plugins

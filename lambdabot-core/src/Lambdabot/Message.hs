@@ -23,3 +23,5 @@ class Show a => Message a where
 
   -- TODO: there must be a better way of handling this ...
   lambdabotName :: a -> Nick
+
+  tags :: a -> [(String, String)]

@@ -17,7 +17,7 @@ ARG COMMON_SCRIPT_SHA="dev-mode"
 
 # Configure apt and install packages
 RUN apt update \
-    && apt --yes install wget coreutils ca-certificates \
+    && apt --yes install wget coreutils ca-certificates zlib1g-dev libpcre2-dev libpcre3-dev libghc-curl-dev \
     && wget -q -O /tmp/common-setup.sh $COMMON_SCRIPT_SOURCE \
     && if [ "$COMMON_SCRIPT_SHA" != "dev-mode" ]; then echo "$COMMON_SCRIPT_SHA /tmp/common-setup.sh" | sha256sum -c - ; fi \
     && /bin/bash /tmp/common-setup.sh "$INSTALL_ZSH" "$USERNAME" "$USER_UID" "$USER_GID" \

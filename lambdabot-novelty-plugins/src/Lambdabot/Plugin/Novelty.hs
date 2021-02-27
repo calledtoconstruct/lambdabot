@@ -24,4 +24,14 @@ import Lambdabot.Plugin.Novelty.Unlambda (unlambdaPlugin)
 import Lambdabot.Plugin.Novelty.Vixen (vixenPlugin)
 
 noveltyPlugins :: [String]
-noveltyPlugins = ["bf", "dice", "elite", "filter", "numberwang", "quote", "slap", "unlambda", "vixen"]
+noveltyPlugins =
+  [ -- "bf",
+    "dice"
+  , "elite"
+  , "filter"
+  , "numberwang"
+  , "quote"
+  , "slap"
+  , "unlambda"
+  , "vixen"
+  ]

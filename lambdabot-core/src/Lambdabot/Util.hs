@@ -15,7 +15,7 @@ module Lambdabot.Util (
   arePrefixesOf,
   io,
   forkUnmasked,
-  random,
+  randomElem,
   randomFailureMsg,
   randomSuccessMsg,
   readPackedEntry,
@@ -54,8 +54,8 @@ listToStr conj (item : items) =
 ------------------------------------------------------------------------
 
 -- | Pick a random element of the list.
-random :: MonadIO m => [a] -> m a
-random = io . sample . randomElement
+randomElem :: MonadIO m => [a] -> m a
+randomElem = io . sample . randomElement
 
 ------------------------------------------------------------------------
 
@@ -166,7 +166,7 @@ apology =
 randomFailureMsg :: (MonadIO m, MonadConfig m) => m String
 randomFailureMsg = do
   useInsults <- getConfig enableInsults
-  random (if useInsults then insult ++ apology else apology)
+  randomElem (if useInsults then insult ++ apology else apology)
 
 --
 -- Some more interesting confirmations for @remember and @where
@@ -182,7 +182,12 @@ confirmation =
   , "I will never forget."
   , "It is forever etched in my memory."
   , "Nice!"
+  , "How do you like Them apples?!?"
+  , "Booyah!"
+  , "You got it!"
+  , "Consider it done."
+  , "Your wish is my command."
   ]
 
 randomSuccessMsg :: MonadIO m => m String
-randomSuccessMsg = random confirmation
+randomSuccessMsg = randomElem confirmation

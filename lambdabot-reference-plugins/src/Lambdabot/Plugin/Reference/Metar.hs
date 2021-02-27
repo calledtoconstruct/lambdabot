@@ -16,15 +16,13 @@ import Lambdabot.Plugin (
   newModule,
   say,
  )
-import Lambdabot.Util.Browser (doHttpRequest)
+import Lambdabot.Util.Browser (HttpResponseHandler, doHttpRequest)
 
 import qualified Control.Exception.Lifted as E
-import qualified Data.ByteString.Char8 as B
 import Data.Char (isAlpha, isNumber, toUpper)
 import qualified Data.Text as T
 import Data.XML.Types (Name (Name))
 import qualified Network.HTTP.Client.Conduit as S
-import Network.HTTP.Types (HeaderName)
 import Text.XML.Cursor (Cursor, attribute, content, element, ($//), (&/), (>=>))
 
 metarPlugin :: Module ()
@@ -57,11 +55,11 @@ doMetar :: String -> LB [String]
 doMetar code
   | length code == 4 && all isAlpha code = do
     request <- S.parseRequest $ addsSrc (map toUpper code)
-    doHttpRequest request extractResult `E.catch` \E.SomeException{} -> do
+    doHttpRequest request Nothing extractResult `E.catch` \E.SomeException{} -> do
       return ["I was not able to fetch a result for that request."]
   | otherwise = return ["Please enter a valid metar station code.  The list is available here: https://www.aviationweather.gov/docs/metar/stations.txt"]
 
-extractResult :: Int -> Cursor -> [(HeaderName, B.ByteString)] -> [String]
+extractResult :: HttpResponseHandler [String]
 extractResult statusCode body _ = case statusCode of
   200 -> do
     let numberOfResults = getAttributeValueFrom body dataElementName numberOfResultsAttributeName
@@ -77,11 +75,9 @@ extractResult statusCode body _ = case statusCode of
             windSpeed = getContentFrom body windSpeedElementName
             windDirection = getContentFrom body windDirectionElementName
             visibility = getContentFrom body visibilityElementName
-         in unlines
-              [ station ++ ": Sits at " ++ elevation ++ " meters above sea level at (latitude, longitude) of (" ++ latitude ++ ", " ++ longitude ++ ")."
-              , station ++ ": Current temperature is " ++ temperature ++ "C with a dewpoint of " ++ dewpoint ++ "C.  Over the last two hours, the precipitation was " ++ precipitation ++ " inches."
-              , station ++ ": Visibility is " ++ visibility ++ " miles with a " ++ generalizeDirection windDirection ++ " wind of " ++ windSpeed ++ " miles per hour."
-              ]
+         in station ++ ": Sits at " ++ elevation ++ " meters above sea level at (latitude, longitude) of (" ++ latitude ++ ", " ++ longitude ++ ")."
+          ++ "  Current temperature is " ++ temperature ++ "C with a dewpoint of " ++ dewpoint ++ "C.  Over the last two hours, the precipitation was " ++ precipitation ++ " inches."
+          ++ "  Visibility is " ++ visibility ++ " miles with a " ++ generalizeDirection windDirection ++ " wind of " ++ windSpeed ++ " miles per hour."
       0 -> "No results for that station."
       _ -> "One station at a time, please."
   _ -> return $ show statusCode ++ ": No Result Found."

@@ -5,25 +5,14 @@ module Main where
 
 import Lambdabot.Main (
   Config,
-  DSum,
-  Priority (
-    ALERT,
-    CRITICAL,
-    DEBUG,
-    EMERGENCY,
-    ERROR,
-    INFO,
-    NOTICE,
-    WARNING
-  ),
+  Priority (..),
   consoleLogLevel,
-  dataDir,
   enableInsults,
   lambdabotMain,
   lbVersion,
   onStartupCmds,
-  (==>),
  )
+import Lambdabot.Plugin.Haskell (languageExts, trustedPackages)
 
 import Control.Monad.Identity (Identity, unless, void, when, (<=<))
 import Data.Char (toUpper)
@@ -40,6 +29,8 @@ import System.Console.GetOpt (
 import System.Environment (getArgs, getProgName)
 import System.Exit (ExitCode (ExitFailure, ExitSuccess), exitSuccess, exitWith)
 import System.IO (hPutStr, hPutStrLn, stderr, stdout)
+import Data.Dependent.Sum ( DSum, (==>) )
+import Lambdabot.Config.Core (dataDir)
 
 strs :: a -> IO [a]
 strs = return . (: [])
@@ -88,8 +79,10 @@ flagsOptionLogLevel =
               [DEBUG, INFO, NOTICE, WARNING, ERROR, CRITICAL, ALERT, EMERGENCY]
         ]
 
--- flagsOptionTrustPackage       = Option "t"  ["trust"] (arg "<package>" trustedPackages strs)  "Trust the specified packages when evaluating code"
--- flagsOptionLanguageExtensions = Option "X"  []        (arg "<extension>" languageExts strs)   "Set a GHC language extension for @run"
+flagsOptionTrustPackage :: OptDescr (IO (DSum Config Identity))
+flagsOptionTrustPackage = Option "t" ["trust"] (arg "<package>" trustedPackages strs) "Trust the specified packages when evaluating code"
+flagsOptionLanguageExtensions :: OptDescr (IO (DSum Config Identity))
+flagsOptionLanguageExtensions = Option "X" [] (arg "<extension>" languageExts strs) "Set a GHC language extension for @run"
 
 arg ::
   String ->
@@ -103,8 +96,9 @@ flags =
   [ flagsOptionHelp
   , flagsOptionEval
   , flagsOptionLogLevel
-  , {- flagsOptionTrustPackage, flagsOptionLanguageExtensions, -}
-    flagsOptionVersion
+  , flagsOptionTrustPackage
+  , flagsOptionLanguageExtensions
+  , flagsOptionVersion
   , flagsOptionNice
   ]
 

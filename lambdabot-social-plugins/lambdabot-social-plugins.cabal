@@ -32,7 +32,7 @@ tested-with:            GHC == 8.2.2, GHC == 8.4.4, GHC == 8.6.5, GHC == 8.8.4, 
 
 source-repository head
   type:                 git
-  location:             https://github.com/lambdabot/lambdabot.git
+  location:             https://github.com/calledtoconstruct/lambdabot.git
 
 library
   hs-source-dirs:       src
@@ -50,7 +50,8 @@ library
                         Lambdabot.Plugin.Social.Seen.StopWatch
                         Lambdabot.Plugin.Social.Seen.UserStatus
                         Lambdabot.Plugin.Social.Tell
-                        Lambdabot.Util.NickEq
+
+  other-modules:        Lambdabot.Util.NickEq
 
   build-depends:        base,
                         binary,

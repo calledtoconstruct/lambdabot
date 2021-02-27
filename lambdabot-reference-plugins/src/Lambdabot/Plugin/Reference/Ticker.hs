@@ -1,7 +1,7 @@
 -- | Pull quotes down from alphavantage.
 module Lambdabot.Plugin.Reference.Ticker (tickerPlugin) where
 
-import Lambdabot.Plugin (writeMS, 
+import Lambdabot.Plugin (writeMS,
   Cmd,
   Command(privileged, help, process),
   LB,
@@ -11,17 +11,17 @@ import Lambdabot.Plugin (writeMS,
   command,
   newModule,
   readMS,
-  readPS,
   say,
   withPS,
  )
-import Lambdabot.Util.Browser (doHttpRequest')
+import Lambdabot.Util.Browser (AlternateHttpResponseHandler, doHttpRequest')
 
 import Control.Monad.Catch (MonadThrow)
 import qualified Data.ByteString.Lazy.Char8 as LB
 import Data.List.Split (splitOn)
 import Network.HTTP (urlEncode)
 import qualified Network.HTTP.Simple as S
+import Control.Monad (unless)
 
 type Ticker = ModuleT String LB
 
@@ -49,10 +49,11 @@ tickerCmd :: String -> Cmd Ticker ()
 tickerCmd [] = say "Empty ticker."
 tickerCmd tickers = do
   apiKey <- readMS
-  quotes <- getPage $ tickerUrl apiKey $ head $ words tickers
-  case quotes of
-    [] -> say "No Result Found."
-    xs -> mapM_ say xs
+  unless (null apiKey) $ do
+    quotes <- getPage $ tickerUrl apiKey $ head $ words tickers
+    case quotes of
+      [] -> say "No Result Found."
+      xs -> mapM_ say xs
 
 tickerUrl :: String -> String -> String
 tickerUrl apiKey ticker =
@@ -65,7 +66,10 @@ tickerUrl apiKey ticker =
 getPage :: MonadThrow m => MonadLB m => String -> m [String]
 getPage url = do
   request <- S.parseRequest url
-  doHttpRequest' request $ \statusCode body _ -> case statusCode of
+  doHttpRequest' request Nothing getPageResponseHandler
+
+getPageResponseHandler :: AlternateHttpResponseHandler [String]
+getPageResponseHandler statusCode body _ = case statusCode of
     200 -> case csv $ map LB.unpack $ LB.lines $ LB.filter (/= '\r') body of
       Nothing -> []
       Just entries ->

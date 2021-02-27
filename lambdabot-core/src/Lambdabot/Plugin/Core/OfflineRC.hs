@@ -2,8 +2,9 @@
 
 module Lambdabot.Plugin.Core.OfflineRC (offlineRCPlugin) where
 
-import Lambdabot.Config.Core (commandPrefixes, onShutdownCmds, onStartupCmds)
-import Lambdabot.IRC (IrcMessage (..))
+import Lambdabot.Config.Core (onShutdownCmds, onStartupCmds)
+import Lambdabot.IRC (IrcMessage (..), MessageDirection (Outbound))
+
 import Lambdabot.Monad (
   IRCRWState (ircPersists, ircPrivilegedUsers),
   MonadLB (lb),
@@ -22,6 +23,7 @@ import Lambdabot.Plugin (
   MonadLBState (withMS),
   Nick (Nick),
   command,
+  commandPrefixes,
   findLBFileForWriting,
   newModule,
   say,
@@ -83,7 +85,11 @@ initializeModule = do
     waitForInit
     lockRC
     cmds <- getConfig onStartupCmds
-    mapM_ feed cmds `finally` unlockRC
+    mapM_ feed (filter comment cmds) `finally` unlockRC
+
+comment :: String -> Bool
+comment ('#' : _) = False
+comment _ = True
 
 loadPrivilegedUsers :: IRCRWState -> IRCRWState
 loadPrivilegedUsers moduleState =
@@ -95,17 +101,15 @@ loadPrivilegedUsers moduleState =
     }
 
 finalizeModule :: OfflineRC ()
-finalizeModule = void . forkUnmasked $ do
-  lockRC
-  cmds <- getConfig onShutdownCmds
-  mapM_ feed cmds `finally` unlockRC
+finalizeModule = do
+  return ()
 
 startOfflineConsole :: b -> Cmd OfflineRC ()
 startOfflineConsole = const . lift $ do
   lockRC
   histFile <- lb $ findLBFileForWriting "offlinerc"
   let settings = defaultSettings{historyFile = Just histFile}
-  _ <- fork (runInputT settings replLoop `finally` unlockRC)
+  _ <- fork $ runInputT settings replLoop `finally` unlockRC
   _ <- fork timerLoop
   return ()
 
@@ -120,15 +124,21 @@ timerLoop = do
       , ircMsgPrefix = "null!n=user@null"
       , ircMsgCommand = "PRIVMSG"
       , ircMsgParams = ["offline", ":" ++ cmdPrefix ++ "flush"]
+      , ircDirection = Outbound
+      , ircTags = []
       }
   continue <- lift $ gets (M.member "offlinerc" . ircPersists)
   when continue timerLoop
 
 stopOfflineConsole :: p -> Cmd OfflineRC ()
 stopOfflineConsole _ = do
-  runScript "scripts/shutdown.rc"
-  lift $ unregisterServer "offlinerc"
-  lift stopRC
+  lift . void . forkUnmasked $ do
+    lockRC
+    cmds <- getConfig onShutdownCmds
+    mapM_ feed (filter comment cmds) `finally` do
+      unlockRC
+      unregisterServer "offlinerc"
+      stopRC
 
 runScript :: String -> Cmd OfflineRC ()
 runScript fileName = lift $ do
@@ -136,7 +146,7 @@ runScript fileName = lift $ do
   io $ evaluate $ foldr seq () txt
   let linesOfText = lines txt
   lockRC
-  _ <- fork $ finally (mapM_ feed linesOfText) unlockRC
+  _ <- fork $ mapM_ feed (filter comment linesOfText) `finally` unlockRC
   return ()
 
 feed :: String -> OfflineRC ()
@@ -154,6 +164,8 @@ feed msg = do
       , ircMsgPrefix = "null!n=user@null"
       , ircMsgCommand = "PRIVMSG"
       , ircMsgParams = ["offline", ":" ++ encodeString msg']
+      , ircDirection = Outbound
+      , ircTags = []
       }
 
 handleMsg :: IrcMessage -> OfflineRC ()

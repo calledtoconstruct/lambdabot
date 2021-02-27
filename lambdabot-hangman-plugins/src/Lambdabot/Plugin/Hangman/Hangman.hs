@@ -5,7 +5,7 @@
 module Lambdabot.Plugin.Hangman.Hangman (hangmanPlugin) where
 
 import Lambdabot.Config.Hangman (hangmanPhrases)
-import Lambdabot.IRC (IrcMessage (IrcMessage), ircMsgCommand, ircMsgLBName, ircMsgParams, ircMsgPrefix, ircMsgServer)
+import Lambdabot.IRC (IrcMessage (IrcMessage), MessageDirection (Outbound), ircDirection, ircMsgCommand, ircMsgLBName, ircMsgParams, ircMsgPrefix, ircMsgServer, ircTags)
 import qualified Lambdabot.Message as Msg (channels, lambdabotName, nick, server)
 import Lambdabot.Module (ircPersists)
 import Lambdabot.Monad (received, send)
@@ -129,8 +129,8 @@ maybeStartTimer _ = return ()
 
 timerLoop :: Hangman ()
 timerLoop = do
-  delayThen sendReply 10 "5 seconds left"
-  delayThen sendReply 2 "3 seconds"
+  delayThen sendReply 20 "10 seconds left"
+  delayThen sendReply 7 "3 seconds"
   delayThen sendReply 1 "2 seconds"
   delayThen sendReply 1 "1 seconds"
   delayThen receiveCommand 1 "?hangman-timer-tick"
@@ -151,6 +151,8 @@ delayThen sendOrReceive delay text = do
           , ircMsgPrefix = botName gameState ++ "!n=" ++ botName gameState ++ "@" ++ botName gameState ++ ".tmi.twitch.tv"
           , ircMsgCommand = "PRIVMSG"
           , ircMsgParams = [channel gameState, ":" ++ text]
+          , ircDirection = Outbound
+          , ircTags = []
           }
     Nothing -> return ()
 

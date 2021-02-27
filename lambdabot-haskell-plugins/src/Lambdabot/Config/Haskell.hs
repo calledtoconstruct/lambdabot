@@ -26,7 +26,6 @@ trustedPkgs =
   , "bytestring"
   , "containers"
   , "lambdabot-trusted-plugins"
-  , "random"
   ]
 
 configWithMerge [|(++)|] "trustedPackages" [t|[String]|] [|trustedPkgs|]

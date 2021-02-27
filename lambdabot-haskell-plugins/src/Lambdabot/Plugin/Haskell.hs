@@ -14,20 +14,11 @@ module Lambdabot.Plugin.Haskell (
   undoPlugin,
   unmtlPlugin,
   haskellPlugins,
-  module Lambdabot.Config.Haskell,
+  trustedPackages,
+  languageExts,
 ) where
 
-import Lambdabot.Config.Haskell (
-  djinnBinary,
-  evalPrefixes,
-  ghcBinary,
-  ghciBinary,
-  hoogleBinary,
-  languageExts,
-  maxPasteLength,
-  muevalBinary,
-  trustedPackages,
- )
+import Lambdabot.Config.Haskell (languageExts, trustedPackages)
 import Lambdabot.Plugin.Haskell.Check (checkPlugin)
 import Lambdabot.Plugin.Haskell.Djinn (djinnPlugin)
 import Lambdabot.Plugin.Haskell.Eval (evalPlugin)
@@ -46,8 +37,8 @@ import Lambdabot.Plugin.Haskell.Undo (undoPlugin)
 haskellPlugins :: [String]
 haskellPlugins =
   [ "check"
-  , "djinn"
-  , "eval"
+  , -- , "djinn"
+    "eval"
   , "free"
   , "haddock"
   , "hoogle"

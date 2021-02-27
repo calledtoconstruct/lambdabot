@@ -19,7 +19,7 @@ import Lambdabot.Plugin (
   say,
   showNick,
  )
-import Lambdabot.Util (random)
+import Lambdabot.Util (randomElem)
 
 type Slap = ModuleT () LB
 
@@ -48,7 +48,7 @@ slap "yourself" = do
 slap target = slapRandom target
 
 slapRandom :: String -> Cmd Slap ()
-slapRandom tgt = say . ($ tgt) =<< random slapList
+slapRandom tgt = say . ($ tgt) =<< randomElem slapList
 
 slapList :: [String -> String]
 slapList =

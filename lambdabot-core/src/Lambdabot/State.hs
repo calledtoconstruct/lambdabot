@@ -26,21 +26,24 @@ module Lambdabot.State
   )
 where
 
-import Lambdabot.File ( findLBFileForReading, findLBFileForWriting )
-import Lambdabot.Logging ( debugM, errorM )
-import Lambdabot.Monad ( MonadLB(..) )
-import Lambdabot.Module ( LB, Module(moduleSerialize), ModuleInfo(moduleState, theModule, moduleName), ModuleT )
-import Lambdabot.Nick ( Nick )
-import Lambdabot.Command ( Cmd )
-import Lambdabot.Util ( io )
-import Lambdabot.Util.Serial ( Serial(serialize, deserialize) )
+import qualified Lambdabot.File as Bot ( findLBFileForReading, findLBFileForWriting )
+import qualified Lambdabot.Logging as Bot ( debugM, errorM, MonadLogging )
+import qualified Lambdabot.Monad as Bot ( MonadLB(..) )
+import qualified Lambdabot.Module as Bot ( LB, Module(moduleSerialize), ModuleInfo(moduleState, theModule, moduleName), ModuleT )
+import qualified Lambdabot.Nick as Bot ( Nick )
+import qualified Lambdabot.Command as Bot ( Cmd )
+import qualified Lambdabot.Util as Bot ( io )
+import qualified Lambdabot.Util.Serial as Bot ( Serial(serialize, deserialize) )
 
 import Control.Concurrent.Lifted ( MVar, newMVar, readMVar, takeMVar, tryPutMVar )
 import Control.Exception.Lifted as E ( SomeException(..), bracket, catch, evaluate )
 import Control.Monad.Reader ( MonadIO(liftIO), MonadTrans(lift), asks )
 import Control.Monad.Trans.Control ( MonadBaseControl, MonadTransControl(restoreT, liftWith) )
-import qualified Data.ByteString.Char8         as P
+import qualified Data.ByteString.Char8 as P
 import Data.IORef.Lifted ( newIORef, readIORef, writeIORef )
+import qualified System.IO as I
+import qualified System.FilePath as I
+import qualified System.Directory as I
 
 -- | Thread-safe modification of an MVar.
 withMWriter :: MonadBaseControl IO m => MVar a -> (a -> (a -> m ()) -> m b) -> m b
@@ -53,7 +56,7 @@ withMWriter mvar f = bracket
   (\(_, ref) -> tryPutMVar mvar =<< readIORef ref)
   (\(x, ref) -> f x $ writeIORef ref)
 
-class MonadLB m => MonadLBState m where
+class Bot.MonadLB m => MonadLBState m where
     type LBState m
 
     -- | Update the module's private state.
@@ -69,14 +72,14 @@ class MonadLB m => MonadLBState m where
     -- to race conditions or semantic obscurities.
     withMS :: (LBState m -> (LBState m -> m ()) -> m a) -> m a
 
-instance MonadLB m => MonadLBState (ModuleT st m) where
-  type LBState (ModuleT st m) = st
+instance Bot.MonadLB m => MonadLBState (Bot.ModuleT st m) where
+  type LBState (Bot.ModuleT st m) = st
   withMS f = do
-    ref <- asks moduleState
-    withMWriter ref f
+    moduleState <- asks Bot.moduleState
+    withMWriter moduleState f
 
-instance MonadLBState m => MonadLBState (Cmd m) where
-  type LBState (Cmd m) = LBState m
+instance MonadLBState m => MonadLBState (Bot.Cmd m) where
+  type LBState (Bot.Cmd m) = LBState m
   withMS f = do
     x <- liftWith $ \run -> withMS $ \st wr -> run (f st (lift . wr))
     restoreT (return x)
@@ -100,7 +103,7 @@ writeMS = modifyMS . const
 -- This simple implementation is linear in the number of private states used.
 data GlobalPrivate g p = GP {
   global :: !g,
-  private :: ![(Nick,MVar (Maybe p))],
+  private :: ![(Bot.Nick, MVar (Maybe p))],
   maxSize :: Int
 }
 
@@ -113,16 +116,16 @@ mkGlobalPrivate ms g = GP { global = g, private = [], maxSize = ms }
 -- | Writes private state. For now, it locks everything.
 withPS
   :: (MonadLBState m, LBState m ~ GlobalPrivate g p)
-  => Nick  -- ^ The target
-  -> (Maybe p -> (Maybe p -> LB ()) -> LB a)
+  => Bot.Nick  -- ^ The target
+  -> (Maybe p -> (Maybe p -> Bot.LB ()) -> Bot.LB a)
     -- ^ @Just x@ writes x in the user's private state, @Nothing@ removes it.
   -> m a
 withPS who f = do
   mvar <- accessPS return id who
-  lb $ withMWriter mvar f
+  Bot.lb $ withMWriter mvar f
 
 -- | Reads private state.
-readPS :: (MonadLBState m, LBState m ~ GlobalPrivate g p) => Nick -> m (Maybe p)
+readPS :: (MonadLBState m, LBState m ~ GlobalPrivate g p) => Bot.Nick -> m (Maybe p)
 readPS = accessPS (liftIO . readMVar) (\_ -> return Nothing)
 
 -- | Reads private state, executes one of the actions success and failure
@@ -131,7 +134,7 @@ accessPS
   :: (MonadLBState m, LBState m ~ GlobalPrivate g p)
   => (MVar (Maybe p) -> m a)
   -> (m (MVar (Maybe p)) -> m a)
-  -> Nick
+  -> Bot.Nick
   -> m a
 accessPS success failure who = withMS $ \state writer ->
   case lookup who $ private state of
@@ -160,7 +163,7 @@ readGS = fmap global readMS
 
 -- The old interface, as we don't wanna be too fancy right now.
 writePS
-  :: (MonadLBState m, LBState m ~ GlobalPrivate g p) => Nick -> Maybe p -> m ()
+  :: (MonadLBState m, LBState m ~ GlobalPrivate g p) => Bot.Nick -> Maybe p -> m ()
 writePS who x = withPS who (\_ writer -> writer x)
 
 writeGS :: (MonadLBState m, LBState m ~ GlobalPrivate g p) => g -> m ()
@@ -171,42 +174,55 @@ writeGS g = withGS (\_ writer -> writer g)
 -- Handling global state
 --
 
--- | Peristence: write the global state out
-writeGlobalState :: ModuleT st LB ()
+-- | Write the global state to a file
+writeGlobalState :: Bot.ModuleT st Bot.LB ()
 writeGlobalState = do
-  m     <- asks theModule
-  mName <- asks moduleName
+  thisModule <- asks Bot.theModule
+  moduleName <- asks Bot.moduleName
+  Bot.debugM ("saving state for module " ++ show moduleName)
+  let nothingToWrite = pure ()
+  let writer = writeGlobalStateToFile moduleName
+  let write = serializeGlobalStateToFile writer nothingToWrite
+  maybe nothingToWrite write $ Bot.moduleSerialize thisModule
 
-  debugM ("saving state for module " ++ show mName)
-  case moduleSerialize m of
-    Nothing  -> return ()
-    Just ser -> do
-      state' <- readMS
-      case serialize ser state' of
-        Nothing  -> return ()   -- do not write any state
-        Just out -> do
-          stateFile <- lb (findLBFileForWriting mName)
-          io (P.writeFile stateFile out)
+serializeGlobalStateToFile :: MonadLBState m => (P.ByteString -> m ()) -> m () -> Bot.Serial (LBState m) -> m ()
+serializeGlobalStateToFile write nothingToWrite ser = do
+  moduleState <- readMS
+  maybe nothingToWrite write $ Bot.serialize ser moduleState
 
--- | Read it in
-readGlobalState :: Module st -> String -> LB (Maybe st)
-readGlobalState module' name = do
-  debugM ("loading state for module " ++ show name)
-  case moduleSerialize module' of
-    Just ser -> do
-      mbStateFile <- findLBFileForReading name
-      case mbStateFile of
-        Nothing        -> return Nothing
-        Just stateFile -> io $ do
-          state' <-
-            Just `fmap` P.readFile stateFile `E.catch` \SomeException{} ->
-              return Nothing
-          E.catch
-            (evaluate $ (Just $!) =<< (deserialize ser =<< state')) -- Monad Maybe)
-            (\e -> do
-              errorM $ "Error parsing state file for: " ++ name ++ ": " ++ show
-                (e :: SomeException)
-              errorM $ "Try removing: " ++ show stateFile
-              return Nothing
-            ) -- proceed regardless
-    Nothing -> return Nothing
+writeGlobalStateToFile :: Bot.MonadLB m => FilePath -> P.ByteString -> m ()
+writeGlobalStateToFile moduleName moduleState = do
+  stateFile <- Bot.lb $ Bot.findLBFileForWriting moduleName
+  let filePath = I.takeFileName stateFile
+  let folderPath = I.takeDirectory stateFile
+  (temporaryStateFile, handle) <- Bot.io $ I.openBinaryTempFileWithDefaultPermissions folderPath filePath
+  Bot.io $ P.hPutStr handle moduleState >> I.hClose handle
+  Bot.io $ I.renameFile temporaryStateFile stateFile
+
+-- | Read the global state from a file
+readGlobalState :: Bot.Module st -> String -> Bot.LB (Maybe st)
+readGlobalState thisModule moduleName = do
+  Bot.debugM $ "loading state for module " ++ show moduleName
+  maybe (pure Nothing) (deserializeGlobalState moduleName) (Bot.moduleSerialize thisModule)
+
+deserializeGlobalState :: FilePath -> Bot.Serial st -> Bot.LB (Maybe st)
+deserializeGlobalState filePath engine = do
+  maybeStateFilePath <- Bot.findLBFileForReading filePath
+  maybeFileContents <- readGlobalStateFile maybeStateFilePath
+  let anyException = handleDeserializationException maybeStateFilePath filePath
+  let tryDeserialize = evaluate $ (Just $!) =<< (Bot.deserialize engine =<< maybeFileContents)
+  tryDeserialize `E.catch` anyException
+
+readGlobalStateFile :: MonadIO m => Maybe String -> m (Maybe P.ByteString)
+readGlobalStateFile Nothing = pure Nothing
+readGlobalStateFile (Just stateFilePath) = Bot.io $ do
+  let anyException = \SomeException{} -> pure Nothing
+  let tryReadFile = Just `fmap` P.readFile stateFilePath
+  tryReadFile `E.catch` anyException
+
+handleDeserializationException :: (Bot.MonadLogging m) => Maybe FilePath -> String -> SomeException -> m (Maybe st)
+handleDeserializationException Nothing _ _ = pure Nothing
+handleDeserializationException (Just stateFilePath) name e = do
+  Bot.errorM $ "Error parsing state file for: " ++ name ++ ": " ++ show (e :: SomeException)
+  Bot.errorM $ "Try removing: " ++ show stateFilePath
+  pure Nothing

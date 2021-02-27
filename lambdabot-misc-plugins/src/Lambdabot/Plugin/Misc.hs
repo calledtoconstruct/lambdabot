@@ -16,4 +16,11 @@ import Lambdabot.Plugin.Misc.Stats (statsPlugin)
 import Lambdabot.Plugin.Misc.Todo (todoPlugin)
 
 miscPlugins :: [String]
-miscPlugins = ["dummy", "error", "fresh", "hello", "stats", "todo"]
+miscPlugins =
+  [ "dummy"
+  , "error"
+  , "fresh"
+  , "hello"
+  , -- "stats",
+    "todo"
+  ]

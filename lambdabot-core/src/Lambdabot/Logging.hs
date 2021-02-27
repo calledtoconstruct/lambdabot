@@ -1,6 +1,15 @@
 module Lambdabot.Logging (
   L.Priority (..),
+  L.updateGlobalLogger,
+  L.rootLoggerName,
+  L.addHandler,
+  L.setLevel,
+  L.setHandlers,
+  L.removeAllHandlers,
   MonadLogging (..),
+  GenericHandler (formatter),
+  streamHandler,
+  simpleLogFormatter,
   debugM,
   infoM,
   noticeM,
@@ -12,6 +21,8 @@ module Lambdabot.Logging (
 ) where
 
 import Data.List (intercalate)
+import System.Log.Formatter (simpleLogFormatter)
+import System.Log.Handler.Simple (GenericHandler (formatter), streamHandler)
 import qualified System.Log.Logger as L
 
 class Monad m => MonadLogging m where

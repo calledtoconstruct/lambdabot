@@ -52,7 +52,7 @@ extra-source-files:     src/Lambdabot/Plugin/Haskell/Free/Test.hs
 
 source-repository head
   type:                 git
-  location:             https://github.com/lambdabot/lambdabot.git
+  location:             https://github.com/calledtoconstruct/lambdabot.git
 
 library
   hs-source-dirs:       src
@@ -63,8 +63,7 @@ library
 
   exposed-modules:      Lambdabot.Plugin.Haskell
 
-  other-modules:        Lambdabot.Config.Haskell
-                        Lambdabot.Plugin.Haskell.Check
+  other-modules:        Lambdabot.Plugin.Haskell.Check
                         Lambdabot.Plugin.Haskell.Djinn
                         Lambdabot.Plugin.Haskell.Eval
                         Lambdabot.Plugin.Haskell.Free
@@ -92,6 +91,8 @@ library
                         Lambdabot.Plugin.Haskell.Type
                         Lambdabot.Plugin.Haskell.Undo
                         Lambdabot.Plugin.Haskell.UnMtl
+
+  other-modules:        Lambdabot.Config.Haskell
                         Lambdabot.Util.Parser
 
   build-depends:        array,
@@ -102,10 +103,10 @@ library
                         filepath,
                         haskell-src-exts-simple,
                         lambdabot-core == 5.1.0.4,
-                        lambdabot-reference-plugins,
+                        lambdabot-reference-plugins == 5.1.0.4,
                         lifted-base,
                         mtl,
-                        oeis,
+                        -- oeis,
                         parsec,
                         pretty,
                         process,
@@ -113,18 +114,15 @@ library
                         regex-tdfa,
                         split,
                         syb,
-                        transformers,
                         utf8-string,
 
                         -- runtime dependencies - for eval etc.
                         arrows,
                         data-memocombinators,
-                        hoogle,
                         IOSpec,
                         lambdabot-trusted-plugins,
                         logict,
                         MonadRandom,
-                        mueval,
                         numbers,
                         show,
                         vector-space,

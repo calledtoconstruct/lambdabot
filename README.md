@@ -10,10 +10,14 @@ via internet relay chat and on the web.
 
 # Prerequisites
 
+Note: These are pre-installed by the devcontainer setup (where vscode devcontainer is used).
+
+```
 cabal install network happy
 sudo apt -y install zlib1g-dev
 sudo apt -y install libpcre2-dev libpcre3-dev
 sudo apt -y install libghc-curl-dev
+```
 
 # Create Template base on this project (Using nix)
 

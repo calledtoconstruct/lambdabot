@@ -5,8 +5,8 @@ module Lambdabot.Plugin.IRC.IRC (
 ) where
 
 import Lambdabot.Config.IRC (reconnectDelay)
-import Lambdabot.IRC (IrcMessage (..), pass, setNick, user)
-import Lambdabot.Logging (debugM, errorM)
+import Lambdabot.IRC (IrcMessage (..), pass, setNick, user, MessageDirection (Inbound))
+import Lambdabot.Logging (MonadLogging, infoM, debugM, errorM)
 import Lambdabot.Monad (
   IRCRWState (ircChannels, ircPersists, ircServerMap),
   MonadLB (lb),
@@ -61,6 +61,7 @@ import System.IO (
   hSetBuffering,
  )
 import System.Timeout.Lifted (timeout)
+import Data.Typeable (typeOf)
 
 data IRCState = IRCState
   { password :: Maybe String
@@ -143,6 +144,8 @@ decodeMessage svr lbn line =
         , ircMsgPrefix = prefix
         , ircMsgCommand = cmd
         , ircMsgParams = params
+        , ircDirection = Inbound
+        , ircTags = []
         }
  where
   decodePrefix k (':' : cs) = decodePrefix' k cs
@@ -212,7 +215,7 @@ online tag hostn portnum nickn ui = do
         lb $
           void $
             forkFinally
-              (E.catch (readerLoop tag nickn pongref sock ready) (\e@SomeException{} -> errorM (show e)))
+              (E.catch (readerLoop tag nickn pongref sock ready) handleReaderLoopException)
               (const $ io $ SSem.signal fin)
         void $
           forkFinally
@@ -268,22 +271,22 @@ readerLoop :: String -> String -> IORef Bool -> Handle -> SSem.SSem -> LB ()
 readerLoop tag nickn pongref sock ready = forever $ do
   line <- io $ hGetLine sock
   let line' = filter (`notElem` "\r\n") line
-  debugM $ "Received from " ++ tag ++ " :: " ++ nickn ++ " >> " ++ line'
-  if "PING" `isPrefixOf` line'
-    then io $ P.hPut sock $ P.pack "PONG\r\n"
-    else void . fork . void . timeout 15000000 $ do
-      let msg = decodeMessage tag nickn line'
-      when (ircMsgCommand msg == "001") $ io $ SSem.signal ready
-      received msg
+  -- debugM $ "Received from " ++ tag ++ " :: " ++ nickn ++ " >> " ++ line'
   if "PING " `isPrefixOf` line'
     then io $ P.hPut sock $ P.pack $ "PONG " ++ drop 5 line' ++ "\r\n"
     else void . fork . void . timeout 15000000 $ do
       let msg = decodeMessage tag nickn line'
+      debugM $ show msg
       if ircMsgCommand msg == "PONG"
         then io $ writeIORef pongref True
         else do
           when (ircMsgCommand msg == "001") $ io $ SSem.signal ready
           received msg
+
+handleReaderLoopException :: MonadLogging m => SomeException -> m ()
+handleReaderLoopException (SomeException e) = case show $ typeOf e of
+  "IOException" -> infoM "Ignoring io exception from reader loop."
+  _ -> errorM $ show e
 
 sendMsg :: Handle -> MVar () -> SSem.SSem -> IrcMessage -> IO ()
 sendMsg sock mv fin msg =

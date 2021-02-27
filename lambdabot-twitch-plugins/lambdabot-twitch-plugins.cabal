@@ -23,7 +23,7 @@ tested-with:            GHC == 8.2.2, GHC == 8.4.4, GHC == 8.6.5, GHC == 8.8.4, 
 
 source-repository head
   type:                 git
-  location:             https://github.com/lambdabot/lambdabot.git
+  location:             https://github.com/calledtoconstruct/lambdabot.git
 
 library
   hs-source-dirs:       src
@@ -33,18 +33,16 @@ library
 
   exposed-modules:      Lambdabot.Plugin.Twitch
 
+  other-modules:        Lambdabot.Plugin.Twitch.Twitch
+
   other-modules:        Lambdabot.Config.Twitch
-                        Lambdabot.Plugin.Twitch.Twitch
 
   build-depends:        base,
                         bytestring,
                         containers,
-                        directory,
-                        filepath,
                         lambdabot-core == 5.1.0.4,
                         lifted-base,
                         mtl,
                         network == 2.6.3.6,
-                        time,
                         SafeSemaphore,
                         split

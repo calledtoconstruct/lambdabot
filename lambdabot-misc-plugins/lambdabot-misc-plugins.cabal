@@ -34,7 +34,7 @@ tested-with:            GHC == 8.2.2, GHC == 8.4.4, GHC == 8.6.5, GHC == 8.8.4, 
 
 source-repository head
   type:                 git
-  location:             https://github.com/lambdabot/lambdabot.git
+  location:             https://github.com/calledtoconstruct/lambdabot.git
 
 flag network-uri
   description: Get Network.URI from the network-uri package
@@ -49,6 +49,7 @@ library
   default-language:     Haskell2010
 
   exposed-modules:      Lambdabot.Plugin.Misc
+  
   other-modules:        Lambdabot.Plugin.Misc.Dummy
                         Lambdabot.Plugin.Misc.Error
                         Lambdabot.Plugin.Misc.Fresh
@@ -66,26 +67,4 @@ library
                         lambdabot-core == 5.1.0.4,
                         lifted-base,
                         mtl,
-                        time,
-                        parsec,
-                        process,
-                        random,
-                        random-fu,
-                        random-source,
-                        regex-tdfa,
-                        SafeSemaphore,
-                        split,
-                        tagsoup,
-                        template-haskell,
-                        transformers,
-                        transformers-base,
-                        unix,
-                        utf8-string,
-                        zlib,
-                        pretty,
-                        curl
-
-  if flag(network-uri)
-    build-depends: network-uri >= 2.6, network >= 2.6
-  else
-    build-depends: network-uri < 2.6, network < 2.6
+                        zlib

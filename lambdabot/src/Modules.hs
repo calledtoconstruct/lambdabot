@@ -1,65 +1,43 @@
--- {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TemplateHaskell #-}
 
 module Modules (modulesInfo) where
 
-import Lambdabot.Main (Modules, basePlugin, composePlugin, helpPlugin, morePlugin, offlineRCPlugin, systemPlugin, versionPlugin)
+import Lambdabot.Main (Modules, modules)
 
 -- to add a new plugin, one must first add a qualified import here, and also
 -- add a string in the list below
 
-import Lambdabot.Plugin.Hangman (hangmanPlugin)
-import Lambdabot.Plugin.Haskell (typePlugin)
-import Lambdabot.Plugin.IRC (ircPlugin, localtimePlugin, topicPlugin)
-import Lambdabot.Plugin.Misc (dummyPlugin, freshPlugin, todoPlugin)
-import Lambdabot.Plugin.Novelty (bfPlugin, dicePlugin, elitePlugin, filterPlugin, numberwangPlugin, quotePlugin, slapPlugin, unlambdaPlugin, vixenPlugin)
-import Lambdabot.Plugin.Points (pointsPlugin)
-import Lambdabot.Plugin.Reference (dictPlugin, metarPlugin, oeisPlugin, searchPlugin, spellPlugin, tickerPlugin, urlPlugin, wherePlugin)
-import Lambdabot.Plugin.Social (activityPlugin, karmaPlugin, pollPlugin, seenPlugin, tellPlugin)
-import Lambdabot.Plugin.Suggest (suggestPlugin)
-import Lambdabot.Plugin.Twitch (twitchPlugin)
+import Lambdabot.Plugin.Dashboard (dashboardPlugin, dashboardPlugins)
+import Lambdabot.Plugin.Hangman (hangmanPlugin, hangmanPlugins)
+import Lambdabot.Plugin.Haskell (checkPlugin, evalPlugin, freePlugin, haddockPlugin, haskellPlugins, hooglePlugin, instancesPlugin, plPlugin, pointfulPlugin, prettyPlugin, sourcePlugin, typePlugin, undoPlugin, unmtlPlugin)
+import Lambdabot.Plugin.IRC (ircPlugin, ircPlugins, localtimePlugin, logPlugin, topicPlugin)
+import Lambdabot.Plugin.Misc (dummyPlugin, errorPlugin, freshPlugin, helloPlugin, miscPlugins, todoPlugin)
+import Lambdabot.Plugin.Novelty (dicePlugin, elitePlugin, filterPlugin, noveltyPlugins, numberwangPlugin, quotePlugin, slapPlugin, unlambdaPlugin, vixenPlugin)
+import Lambdabot.Plugin.Points (pointsPlugin, pointsPlugins)
+import Lambdabot.Plugin.Reference (dictPlugin, metarPlugin, oeisPlugin, referencePlugins, searchPlugin, spellPlugin, tickerPlugin, urlPlugin, wherePlugin)
+import Lambdabot.Plugin.Social (activityPlugin, karmaPlugin, pollPlugin, seenPlugin, socialPlugins, tellPlugin)
+import Lambdabot.Plugin.Story (storyPlugin, storyPlugins)
+import Lambdabot.Plugin.Suggest (suggestPlugin, suggestPlugins)
+import Lambdabot.Plugin.Term (termPlugin, termPlugins)
+import Lambdabot.Plugin.Twitch (twitchPlugin, twitchPlugins)
 
-import Data.Some (Some (Some))
+import Lambdabot.Plugin.Core (corePlugins, basePlugin, composePlugin, helpPlugin, morePlugin, offlineRCPlugin, systemPlugin, versionPlugin)
 
 modulesInfo :: Modules
 modulesInfo =
-  [ ("twitch", Some twitchPlugin)
-  , ("points", Some pointsPlugin)
-  , ("hangman", Some hangmanPlugin)
-  , ("suggest", Some suggestPlugin)
-  , ("irc", Some ircPlugin)
-  , ("localtime", Some localtimePlugin)
-  , ("topic", Some topicPlugin)
-  , ("dummy", Some dummyPlugin)
-  , ("fresh", Some freshPlugin)
-  , ("todo", Some todoPlugin)
-  , ("bf", Some bfPlugin)
-  , ("dice", Some dicePlugin)
-  , ("elite", Some elitePlugin)
-  , ("filter", Some filterPlugin)
-  , ("quote", Some quotePlugin)
-  , ("slap", Some slapPlugin)
-  , ("unlambda", Some unlambdaPlugin)
-  , ("dict", Some dictPlugin)
-  , ("metar", Some metarPlugin)
-  , ("oeis", Some oeisPlugin)
-  , ("search", Some searchPlugin)
-  , ("spell", Some spellPlugin)
-  , ("ticker", Some tickerPlugin)
-  , ("url", Some urlPlugin)
-  , ("where", Some wherePlugin)
-  , ("activity", Some activityPlugin)
-  , ("karma", Some karmaPlugin)
-  , ("poll", Some pollPlugin)
-  , ("seen", Some seenPlugin)
-  , ("tell", Some tellPlugin)
-  , ("base", Some basePlugin)
-  , ("system", Some systemPlugin)
-  , ("offlineRC", Some offlineRCPlugin)
-  , ("compose", Some composePlugin)
-  , ("help", Some helpPlugin)
-  , ("more", Some morePlugin)
-  , ("version", Some versionPlugin)
-  , ("numberwang", Some numberwangPlugin)
-  , ("vixen", Some vixenPlugin)
-  , ("type", Some typePlugin)
-  ]
+  $( modules $
+      corePlugins
+        ++ dashboardPlugins
+        ++ hangmanPlugins
+        ++ haskellPlugins
+        ++ ircPlugins
+        ++ miscPlugins
+        ++ noveltyPlugins
+        ++ pointsPlugins
+        ++ referencePlugins
+        ++ socialPlugins
+        ++ storyPlugins
+        ++ suggestPlugins
+        ++ twitchPlugins
+        ++ termPlugins
+   )

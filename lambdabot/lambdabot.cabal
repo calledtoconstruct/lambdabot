@@ -43,7 +43,7 @@ data-files:             scripts/online.rc.sample,
 
 source-repository head
   type:                 git
-  location:             https://github.com/lambdabot/lambdabot.git
+  location:             https://github.com/calledtoconstruct/lambdabot.git
 
 executable lambdabot
   hs-source-dirs:       src
@@ -59,14 +59,17 @@ executable lambdabot
                         mtl,
                         dependent-sum,
                         lambdabot-core == 5.1.0.4,
+                        lambdabot-dashboard-plugins == 5.1.0.4,
                         lambdabot-haskell-plugins == 5.1.0.4,
                         lambdabot-irc-plugins == 5.1.0.4,
                         lambdabot-twitch-plugins == 5.1.0.4,
                         lambdabot-hangman-plugins == 5.1.0.4,
+                        lambdabot-term-plugins == 5.1.0.4,
                         lambdabot-points-plugins == 5.1.0.4,
-                        lambdabot-suggest-plugins == 5.1.0.4,
                         lambdabot-misc-plugins == 5.1.0.4,
                         lambdabot-novelty-plugins == 5.1.0.4,
                         lambdabot-reference-plugins == 5.1.0.4,
                         lambdabot-social-plugins == 5.1.0.4,
+                        lambdabot-story-plugins == 5.1.0.4,
+                        lambdabot-suggest-plugins == 5.1.0.4,
                         lambdabot-trusted-plugins == 5.1.0.4

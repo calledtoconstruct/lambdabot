@@ -8,18 +8,9 @@ module Lambdabot.Plugin.Misc.Dummy (
 import qualified Data.ByteString.Char8 as P (pack, unpack)
 import Data.Char (isSpace, toLower)
 import qualified Data.Map as M (lookup)
-import Lambdabot.Plugin (
-  Module,
-  command,
-  contextual,
-  help,
-  moduleCmds,
-  newModule,
-  process,
-  say,
- )
+import Lambdabot.Plugin (Module (), command, help, moduleCmds, newModule, process, say)
 import Lambdabot.Plugin.Misc.Dummy.DocAssocs (docAssocs)
-import Lambdabot.Util (io, random, strip)
+import Lambdabot.Util (io, randomElem, strip)
 import System.FilePath ((<.>), (</>))
 
 dummyPlugin :: Module ()
@@ -36,7 +27,7 @@ dummyPlugin =
             , process = \args ->
                 if null args
                   then say "Choose between what?"
-                  else say =<< (io . random . words $ args)
+                  else say =<< (io . randomElem . words $ args)
             } :
             [ (command cmd)
               { help = say (dummyHelp cmd)

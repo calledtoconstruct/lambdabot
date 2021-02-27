@@ -1,0 +1,62 @@
+name:                   lambdabot-dashboard-plugins
+version:                5.1.0.4
+
+license:                GPL
+license-file:           LICENSE
+
+author:                 Joseph Woolley
+maintainer:             
+
+category:               Development, Web
+synopsis:               Dashboard plugins for Lambdabot
+description:            Lambdabot is an IRC bot written over several years by
+                        those on the #haskell IRC channel.
+                        .
+                        Provided plugins:
+
+homepage:               https://wiki.haskell.org/Lambdabot
+
+build-type:             Simple
+cabal-version:          >= 1.10
+tested-with:            GHC == 8.2.2, GHC == 8.4.4, GHC == 8.6.5, GHC == 8.8.4, GHC == 8.10.2
+
+source-repository head
+  type:                 git
+  location:             https://github.com/calledtoconstruct/lambdabot.git
+
+library
+  hs-source-dirs:       src
+  ghc-options:          -Wall
+                        -funbox-strict-fields
+                        
+  default-language:     Haskell2010
+
+  exposed-modules:      Lambdabot.Plugin.Dashboard
+
+  other-modules:        Lambdabot.Plugin.Dashboard.Configuration
+                        Lambdabot.Plugin.Dashboard.Dashboard
+                        Lambdabot.Plugin.Dashboard.Service
+                        Lambdabot.Plugin.Dashboard.Garbage
+                        Lambdabot.Plugin.Dashboard.StateChange
+
+  other-modules:        Lambdabot.Config.Dashboard
+
+  build-depends:        aeson,
+                        base,
+                        containers,
+                        http-types,
+                        lambdabot-core == 5.1.0.4,
+                        lifted-base,
+                        mtl,
+                        optparse-applicative,
+                        random,
+                        SafeSemaphore,
+                        scotty,
+                        split,
+                        text,
+                        Unique,
+                        universe-base,
+                        wai-cors,
+                        wai-middleware-static,
+                        wai-extra,
+                        warp

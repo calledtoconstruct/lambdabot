@@ -31,7 +31,6 @@ import Lambdabot.Util (arePrefixesWithSpaceOf, expandTab, io, strip)
 
 import Codec.Binary.UTF8.String (decodeString, encodeString)
 import Control.Exception (SomeException, try)
-import Control.Monad (when)
 import Data.List (nub, sort, sortBy)
 import Data.Ord (comparing)
 import qualified Language.Haskell.Exts.Simple as Hs
@@ -71,9 +70,11 @@ evalPlugin =
           ]
     , contextual = \txt -> do
         shouldRespond <- isEval txt
-        x <- (runGHC . dropPrefix) txt
-        resultOfEvaluation <- lineify [x]
-        when shouldRespond $ say resultOfEvaluation
+        if shouldRespond then do
+          x <- (runGHC . dropPrefix) txt
+          resultOfEvaluation <- lineify [x]
+          say resultOfEvaluation
+        else pure ()
     }
 
 args :: String -> String -> [String] -> [String] -> [String]
@@ -101,7 +102,9 @@ runGHC src = do
   binary <- getConfig muevalBinary
   exts <- getConfig languageExts
   trusted <- getConfig trustedPackages
-  (_, out, err) <- io (readProcessWithExitCode binary (args load src exts trusted) "")
+  let argList = args load src exts trusted
+  -- infoM $ concatMap (++ " ") argList
+  (_, out, err) <- io $ readProcessWithExitCode binary argList ""
   case (out, err) of
     ([], []) -> return "Terminated\n"
     _ -> do
@@ -175,7 +178,8 @@ comp src = do
   trusted <- getConfig trustedPackages
   let ghcArgs = concat [["-O", "-v0", "-c", "-Werror", "-fpackage-trust"], concat [["-trust", pkg] | pkg <- trusted], [".L.hs"]]
   ghc <- getConfig ghcBinary
-  (c, o', e') <- io (readProcessWithExitCode ghc ghcArgs "")
+  -- io $ infoM $ ghc ++ " " ++ concatMap (++ " ") ghcArgs
+  (c, o', e') <- io $ readProcessWithExitCode ghc ghcArgs ""
   -- cleanup, 'try' because in case of error the files are not generated
   _ <- io (try (removeFile ".L.hi") :: IO (Either SomeException ()))
   _ <- io (try (removeFile ".L.o") :: IO (Either SomeException ()))
