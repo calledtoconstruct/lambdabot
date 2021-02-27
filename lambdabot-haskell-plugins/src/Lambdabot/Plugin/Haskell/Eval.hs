@@ -31,14 +31,12 @@ import Lambdabot.Util (arePrefixesWithSpaceOf, expandTab, io, strip)
 
 import Codec.Binary.UTF8.String (decodeString, encodeString)
 import Control.Exception (SomeException, try)
-import Control.Monad (when)
 import Data.List (nub, sort, sortBy)
 import Data.Ord (comparing)
 import qualified Language.Haskell.Exts.Simple as Hs
 import System.Directory (copyFile, removeFile)
 import System.Exit (ExitCode (ExitSuccess))
 import System.Process (readProcessWithExitCode)
--- import Lambdabot.Logging (infoM)
 
 evalPlugin :: Module ()
 evalPlugin =
