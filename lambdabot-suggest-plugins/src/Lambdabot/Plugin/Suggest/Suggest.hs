@@ -1,20 +1,18 @@
-{-# LANGUAGE CPP #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE PatternGuards #-}
-
 module Lambdabot.Plugin.Suggest.Suggest (
   suggestPlugin,
 ) where
 
 import Lambdabot.Plugin (
-  Cmd,
+  Cmd (),
   Command (help, process),
   LB,
   Module (moduleCmds, moduleDefState, moduleInit, moduleSerialize),
   ModuleT,
   MonadLBState (withMS),
   command,
+  getTarget,
   modifyMS,
+  nName,
   newModule,
   say,
   stdSerial,
@@ -22,8 +20,11 @@ import Lambdabot.Plugin (
 import Lambdabot.Util (randomSuccessMsg, strip)
 
 import Data.Char (isSpace)
+import Data.List (partition)
 
-type Suggestions = [String]
+type ChannelName = String
+type Suggestion = String
+type Suggestions = [(ChannelName, [Suggestion])]
 type Suggest = ModuleT Suggestions LB
 
 suggestPlugin :: Module Suggestions
@@ -52,12 +53,21 @@ suggestPlugin =
 addSuggestion :: String -> Cmd Suggest ()
 addSuggestion rest
   | null rest = say "Incorrect arguments to quote"
-  | otherwise = do
-    withMS $ \bs writer -> writer $ bs ++ [rest]
+  | otherwise = withMS $ \ms writer -> do
+    thisChannelName <- nName <$> getTarget
+    let (thisChannelState, otherChannels) = partition ((== thisChannelName) . fst) ms
+    case thisChannelState of
+      [] -> writer $ (thisChannelName, [rest]) : otherChannels
+      thisChannel : _ -> writer $ (thisChannelName, rest : filter (/= rest) (snd thisChannel)) : otherChannels
     say =<< randomSuccessMsg
 
 listSuggestions :: Cmd Suggest ()
-listSuggestions = withMS (\suggestions _ -> mapM_ say $ formatSuggestions suggestions)
+listSuggestions = withMS $ \ms _ -> do
+  thisChannelName <- nName <$> getTarget
+  let thisChannelState = filter ((== thisChannelName) . fst) ms
+  case thisChannelState of
+    [] -> say "No suggestions have been submitted.  Add one today using ?suggest <idea>"
+    thisChannel : _ -> mapM_ say $ formatSuggestions $ snd thisChannel
 
 formatSuggestions :: [String] -> [String]
 formatSuggestions suggestions = map formatSuggestion indexedSuggestions
@@ -70,17 +80,20 @@ formatSuggestion (index, suggestion) = show index ++ ". " ++ suggestion
 removeSuggestion :: String -> Cmd Suggest ()
 removeSuggestion rest
   | null rest = say "Provide index of suggestion to remove."
-  | otherwise = do
+  | otherwise =
     let index = read rest
-    withMS
-      ( \suggestions write -> do
-          let updated' = removeSuggestion' suggestions index
-          case updated' of
-            Just updated -> do
-              write updated
-              say =<< randomSuccessMsg
-            Nothing -> say "Index out of range."
-      )
+     in withMS $ \ms write -> do
+          thisChannelName <- nName <$> getTarget
+          let (thisChannelState, otherChannels) = partition ((== thisChannelName) . fst) ms
+          case thisChannelState of
+            [] -> say =<< randomSuccessMsg
+            thisChannel : _ ->
+              let updated' = removeSuggestion' (snd thisChannel) index
+               in case updated' of
+                    Just updated -> do
+                      write $ (thisChannelName, updated) : otherChannels
+                      say =<< randomSuccessMsg
+                    Nothing -> say "Index out of range."
 
 removeSuggestion' :: [String] -> Int -> Maybe [String]
 removeSuggestion' suggestions index
