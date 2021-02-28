@@ -1,3 +1,5 @@
+{-# LANGUAGE OverloadedStrings #-}
+
 module Lambdabot.Plugin.Suggest.Suggest (
   suggestPlugin,
 ) where
@@ -17,13 +19,14 @@ import Lambdabot.Plugin (
   say,
   stdSerial,
  )
-import Lambdabot.Util (randomSuccessMsg, strip)
+import Lambdabot.Util (randomSuccessMsg)
 
-import Data.Char (isSpace)
 import Data.List (partition)
+import qualified Data.Text as T
+import qualified Data.Text.Read as T
 
-type ChannelName = String
-type Suggestion = String
+type ChannelName = T.Text
+type Suggestion = T.Text
 type Suggestions = [(ChannelName, [Suggestion])]
 type Suggest = ModuleT Suggestions LB
 
@@ -37,7 +40,7 @@ suggestPlugin =
         return
           [ (command "suggest")
               { help = say "suggest <suggestion> - Add a suggestion to the list."
-              , process = addSuggestion . strip isSpace
+              , process = addSuggestion . T.strip . T.pack
               }
           , (command "suggestions")
               { help = say "suggestions - List the current suggestions."
@@ -45,16 +48,16 @@ suggestPlugin =
               }
           , (command "remove-suggestion")
               { help = say "suggestions - List the current suggestions."
-              , process = removeSuggestion . strip isSpace
+              , process = removeSuggestion . T.strip . T.pack
               }
           ]
     }
 
-addSuggestion :: String -> Cmd Suggest ()
+addSuggestion :: T.Text -> Cmd Suggest ()
 addSuggestion rest
-  | null rest = say "Incorrect arguments to quote"
+  | T.null rest = say "Incorrect arguments to quote"
   | otherwise = withMS $ \ms writer -> do
-    thisChannelName <- nName <$> getTarget
+    thisChannelName <- T.pack . nName <$> getTarget
     let (thisChannelState, otherChannels) = partition ((== thisChannelName) . fst) ms
     case thisChannelState of
       [] -> writer $ (thisChannelName, [rest]) : otherChannels
@@ -63,42 +66,42 @@ addSuggestion rest
 
 listSuggestions :: Cmd Suggest ()
 listSuggestions = withMS $ \ms _ -> do
-  thisChannelName <- nName <$> getTarget
+  thisChannelName <- T.pack . nName <$> getTarget
   let thisChannelState = filter ((== thisChannelName) . fst) ms
   case thisChannelState of
     [] -> say "No suggestions have been submitted.  Add one today using ?suggest <idea>"
-    thisChannel : _ -> mapM_ say $ formatSuggestions $ snd thisChannel
+    thisChannel : _ -> mapM_ (say . T.unpack) $ formatSuggestions $ snd thisChannel
 
-formatSuggestions :: [String] -> [String]
+formatSuggestions :: [T.Text] -> [T.Text]
 formatSuggestions suggestions = map formatSuggestion indexedSuggestions
  where
   indexedSuggestions = zip [1 ..] suggestions
 
-formatSuggestion :: (Int, String) -> String
-formatSuggestion (index, suggestion) = show index ++ ". " ++ suggestion
+formatSuggestion :: (Int, T.Text) -> T.Text
+formatSuggestion (index, suggestion) = T.pack (show index) `T.append` ". " `T.append` suggestion
 
-removeSuggestion :: String -> Cmd Suggest ()
+removeSuggestion :: T.Text -> Cmd Suggest ()
 removeSuggestion rest
-  | null rest = say "Provide index of suggestion to remove."
-  | otherwise =
-    let index = read rest
-     in withMS $ \ms write -> do
-          thisChannelName <- nName <$> getTarget
-          let (thisChannelState, otherChannels) = partition ((== thisChannelName) . fst) ms
-          case thisChannelState of
-            [] -> say =<< randomSuccessMsg
-            thisChannel : _ ->
-              let updated' = removeSuggestion' (snd thisChannel) index
-               in case updated' of
-                    Just updated -> do
-                      write $ (thisChannelName, updated) : otherChannels
-                      say =<< randomSuccessMsg
-                    Nothing -> say "Index out of range."
+  | T.null rest = say "Provide index of suggestion to remove."
+  | otherwise = case T.decimal rest of
+    Right (index, _) -> withMS $ \ms write -> do
+      thisChannelName <- T.pack . nName <$> getTarget
+      let (thisChannelState, otherChannels) = partition ((== thisChannelName) . fst) ms
+      case thisChannelState of
+        [] -> say =<< randomSuccessMsg
+        thisChannel : _ ->
+          let updated' = removeSuggestion' (snd thisChannel) index
+           in case updated' of
+                Just updated -> do
+                  write $ (thisChannelName, updated) : otherChannels
+                  say =<< randomSuccessMsg
+                Nothing -> say "Index out of range."
+    Left err -> say err
 
-removeSuggestion' :: [String] -> Int -> Maybe [String]
+removeSuggestion' :: [T.Text] -> Int -> Maybe [T.Text]
 removeSuggestion' suggestions index
   | 0 < index && index < (1 + length suggestions) = Just $ remove suggestions index
   | otherwise = Nothing
 
-remove :: [String] -> Int -> [String]
+remove :: [T.Text] -> Int -> [T.Text]
 remove suggestions index = map snd . filter ((/= index) . fst) . zip [1 ..] $ suggestions

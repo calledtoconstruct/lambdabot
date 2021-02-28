@@ -1,4 +1,5 @@
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 module Lambdabot.Plugin.Dashboard.Dashboard where
 
@@ -33,6 +34,7 @@ import Lambdabot.Plugin.Dashboard.StateChange (StateChange (..), fromStateChange
 
 import Data.List (partition)
 import Data.Maybe (fromJust)
+import qualified Data.Text as T
 
 data MessageType = Join | Part | Quit | Rename | Speak | Room | User | Audience deriving (Eq)
 
@@ -72,24 +74,24 @@ withDashboardFM handler msg = do
 updateState :: MessageType -> IrcMessage -> Nick -> Nick -> StateChange DashboardState -> StateChange DashboardState
 updateState User _ chnl _ stateChange =
   let dashboardState = fromStateChange stateChange
-      channelName = nName chnl
+      channelName = T.pack $ nName chnl
       otherChannel = filter ((channelName /=) . nameFromChannel) $ watching dashboardState
    in Modified dashboardState{watching = MkChannel (channelName, []) : otherChannel}
 updateState Audience msg chnl sndr stateChange =
-  let sansBotName = tail $ tail $ ircMsgParams msg
+  let sansBotName = map T.pack $ tail $ tail $ ircMsgParams msg
       channelName = head sansBotName
-      listOfWatcher = words $ tail $ head $ tail sansBotName
-   in foldl (audienceJoin msg chnl{nName = channelName} sndr) stateChange listOfWatcher
+      listOfWatcher = T.words $ T.tail $ head $ tail sansBotName
+   in foldl (audienceJoin msg chnl{nName = T.unpack channelName} sndr) stateChange listOfWatcher
 updateState messageType msg chnl sndr stateChange =
-  let uniqueWatcherIdentifier = nName sndr
-      channelName = nName chnl
-      watcherName = nName sndr
+  let uniqueWatcherIdentifier = T.pack $ nName sndr
+      channelName = T.pack $ nName chnl
+      watcherName = T.pack $ nName sndr
       wtchr = MkWatcher (uniqueWatcherIdentifier, watcherName, Nothing)
       newWatching = MkWatching (uniqueWatcherIdentifier, [])
    in updateState' messageType msg channelName wtchr newWatching stateChange
 
 audienceJoin :: IrcMessage -> Nick -> Nick -> StateChange DashboardState -> WatcherName -> StateChange DashboardState
-audienceJoin msg chnl sndr stateChange watcher = updateState Join msg chnl (Nick{nName = watcher, nTag = nTag sndr}) stateChange
+audienceJoin msg chnl sndr stateChange watcher = updateState Join msg chnl (Nick{nName = T.unpack watcher, nTag = nTag sndr}) stateChange
 
 updateState' :: MessageType -> IrcMessage -> ChannelName -> Watcher -> Watching -> StateChange DashboardState -> StateChange DashboardState
 updateState' Speak msg channelName watcher newWatching@(MkWatching (uniqueWatcherIdentifier, _)) stateChange =
@@ -102,7 +104,7 @@ updateState' Speak msg channelName watcher newWatching@(MkWatching (uniqueWatche
        in if null idTags
             then stateChange
             else
-              let uniqueMessageIdentifier = snd $ head idTags
+              let uniqueMessageIdentifier = T.pack $ snd $ head idTags
                   maybeMessage = Just $ MkMessage (uniqueMessageIdentifier, uniqueWatcherIdentifier, getTextOfMessage msg, [])
                in updateState'' Speak channelName updatedWatcher updatedWatching maybeMessage stateChange
 updateState' messageType _ channelName watcher newWatching stateChange = updateState'' messageType channelName watcher newWatching Nothing stateChange
@@ -112,18 +114,18 @@ maybeAddTagToWatchingBadges existingWatching@(MkWatching (uniqueWatcherIdentifie
   if not $ null modTag
     then
       let (tagName, tagValue) = head modTag
-       in MkWatching (uniqueWatcherIdentifier, MkBadge (tagName, read tagValue) : badges)
+       in MkWatching (uniqueWatcherIdentifier, MkBadge (T.pack tagName, read tagValue) : badges)
     else existingWatching
 
 -- Skip first param (channel name)
 -- Trim colon prefix
-getTextOfMessage :: IrcMessage -> String
-getTextOfMessage = tail . unwords . drop 1 . ircMsgParams
+getTextOfMessage :: IrcMessage -> T.Text
+getTextOfMessage = T.pack . tail . unwords . drop 1 . ircMsgParams
 
 maybeUpdateWatcherName :: Watcher -> [IrcTag] -> Watcher
 maybeUpdateWatcherName watcher@(MkWatcher (uniqueWatcherIdentifier, _, watcherSystemIdentifier)) displayNameTag =
   if not $ null displayNameTag
-    then MkWatcher (uniqueWatcherIdentifier, snd $ head displayNameTag, watcherSystemIdentifier)
+    then MkWatcher (uniqueWatcherIdentifier, (T.pack . snd . head) displayNameTag, watcherSystemIdentifier)
     else watcher
 
 updateState'' :: MessageType -> ChannelName -> Watcher -> Watching -> Maybe Message -> StateChange DashboardState -> StateChange DashboardState

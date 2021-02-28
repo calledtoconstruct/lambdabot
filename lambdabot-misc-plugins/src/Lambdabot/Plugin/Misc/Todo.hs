@@ -37,42 +37,44 @@ import Lambdabot.Plugin (
 
 import Codec.Compression.GZip (compress, decompress)
 import Control.Monad (when, zipWithM)
-import qualified Data.ByteString.Char8 as P (ByteString, concat, lines, pack, unlines, unpack, empty)
+import qualified Data.Text as P (Text, lines, pack, unlines, unpack, empty)
+import qualified Data.Text.Encoding as E
 import Data.ByteString.Lazy (fromChunks, toChunks)
 import Data.List (partition)
 import Data.Maybe (fromJust, isJust)
+import qualified Data.ByteString as B
 
-gzip :: P.ByteString -> P.ByteString
-gzip = P.concat . toChunks . compress . fromChunks . (: [])
+gzip :: B.ByteString -> B.ByteString
+gzip = B.concat . toChunks . compress . fromChunks . (: [])
 
-gunzip :: P.ByteString -> P.ByteString
-gunzip = P.concat . toChunks . decompress . fromChunks . (: [])
+gunzip :: B.ByteString -> B.ByteString
+gunzip = B.concat . toChunks . decompress . fromChunks . (: [])
 
-type ChannelName = P.ByteString
+type ChannelName = P.Text
 data CompletionState = Complete | Incomplete | Deferred deriving (Eq, Show, Read)
-type Todo = (P.ByteString, P.ByteString, CompletionState)
+type Todo = (P.Text, P.Text, CompletionState)
 
 instance Packable TodoState where
-  readPacked ps = consumePackedChannel [] (P.lines . gunzip $ ps)
-  showPacked = gzip . P.unlines . concatMap producePackedChannel
+  readPacked ps = consumePackedChannel [] (P.lines . E.decodeUtf8 . gunzip $ ps)
+  showPacked = gzip . E.encodeUtf8 . P.unlines . concatMap producePackedChannel
 
-producePackedChannel :: (ChannelName, [Todo]) -> [P.ByteString]
+producePackedChannel :: (ChannelName, [Todo]) -> [P.Text]
 producePackedChannel (thisChannelName, todos) = thisChannelName : concatMap producePackedTodo todos ++ [P.empty]
 
-producePackedTodo :: Todo -> [P.ByteString]
+producePackedTodo :: Todo -> [P.Text]
 producePackedTodo (todo, sender, todoState) = [todo, sender, P.pack . show $ todoState]
 
-consumePackedChannel :: [(ChannelName, [Todo])] -> [P.ByteString] -> [(ChannelName, [Todo])]
+consumePackedChannel :: [(ChannelName, [Todo])] -> [P.Text] -> [(ChannelName, [Todo])]
 consumePackedChannel existing [] = existing
 consumePackedChannel existing (next : rest) =
   let (todos, rest') = consumePackedTodo [] rest
    in consumePackedChannel ((next, todos) : existing) rest'
 
-consumePackedTodo :: [Todo] -> [P.ByteString] -> ([Todo], [P.ByteString])
+consumePackedTodo :: [Todo] -> [P.Text] -> ([Todo], [P.Text])
 consumePackedTodo existing [_] = (existing, [])
 consumePackedTodo existing ~(a : b : c : rest) = (buildTodo [a, b, c] : existing, rest)
 
-buildTodo :: [P.ByteString] -> Todo
+buildTodo :: [P.Text] -> Todo
 buildTodo ~(k : v : s : _) = (k, v, read . P.unpack $ s)
 
 serializeTodoState :: Serial TodoState

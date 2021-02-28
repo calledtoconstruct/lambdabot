@@ -46,19 +46,20 @@ import Lambdabot.Plugin (LB, ModuleT)
 
 import Data.Aeson (FromJSON, ToJSON)
 import GHC.Generics (Generic)
+import qualified Data.Text as T
 
 -- Currently Twitch centric
 
 type WatcherSystemIdentifier = Maybe Int
-type WatcherUniqueIdentifier = String
-type MessageUniqueIdentifier = String
-type ChannelName = String
-type WatcherName = String
+type WatcherUniqueIdentifier = T.Text
+type MessageUniqueIdentifier = T.Text
+type ChannelName = T.Text
+type WatcherName = T.Text
 type EmoteUniqueIdentifier = Int
 type EmoteStartPosition = Int
 type EmoteEndPosition = Int
-type MessageText = String
-type BadgeName = String
+type MessageText = T.Text
+type BadgeName = T.Text
 type BadgeVersion = Int
 
 newtype Watcher = MkWatcher (WatcherUniqueIdentifier, WatcherName, WatcherSystemIdentifier) deriving (Read, Show, Eq, Generic)

@@ -1,3 +1,5 @@
+{-# LANGUAGE OverloadedStrings #-}
+
 module Lambdabot.Plugin.Term.Configuration (
   TermState (MkTermState, channels),
   TermDefinition,
@@ -15,13 +17,14 @@ module Lambdabot.Plugin.Term.Configuration (
 import Lambdabot.Plugin (io)
 
 import Control.Monad.Trans (MonadIO)
+import qualified Data.Text as T
 import Data.Time.Clock.System (SystemTime (systemSeconds), getSystemTime)
 import GHC.Int (Int64)
 
-type ChannelName = String
-type TermDescription = String
-type TermName = String
-type Message = String
+type ChannelName = T.Text
+type TermDescription = T.Text
+type TermName = T.Text
+type Message = T.Text
 
 type TermDefinition = ([TermName], TermDescription)
 

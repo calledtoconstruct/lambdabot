@@ -1,3 +1,5 @@
+{-# LANGUAGE OverloadedStrings #-}
+
 module Lambdabot.Plugin.Story.Story (storyPlugin) where
 
 import Lambdabot.Config.Story (defaultStories, secondsToWaitBeforeMovingToTheNextWord)
@@ -30,15 +32,15 @@ import Lambdabot.Plugin (
   withMS,
   withMsg,
  )
-import Lambdabot.Plugin.Story.Configuration (Definition, GameState (..), StoryState (..), newGameState, newStoryState, Vote)
+import Lambdabot.Plugin.Story.Configuration (Definition, GameState (..), StoryState (..), Vote, newGameState, newStoryState)
 
 import Control.Concurrent.Lifted (fork, threadDelay)
 import Control.Monad.Reader (MonadTrans (lift), unless, void, when)
 import Data.Char (isAlpha, isNumber)
 import Data.Either (fromLeft)
-import Data.List (findIndex, isPrefixOf, partition)
-import Data.List.Split (splitOn)
+import Data.List (findIndex, partition)
 import Data.Maybe (fromJust)
+import qualified Data.Text as T
 import Lambdabot.Logging (debugM)
 import qualified Lambdabot.Message as Msg
 import Text.ParserCombinators.ReadP (ReadP, between, munch, munch1, readP_to_S, sepBy)
@@ -58,45 +60,45 @@ storyPlugin =
           [ (command "story")
               { help = say "story - Start a random story."
               , aliases = ["story-time"]
-              , process = commandStartStory
+              , process = commandStartStory . T.pack
               , privileged = True
               }
           , (command "add-story")
               { help = say "add-story <story> <definition> - Add a new story to the database."
-              , process = commandAddStory
+              , process = commandAddStory . T.pack
               , privileged = True
               }
           , (command "remove-story")
               { aliases = ["rm-story"]
               , help = say "remove-story <story> - Remove a story from the database."
-              , process = commandRemoveStory
+              , process = commandRemoveStory . T.pack
               , privileged = True
               }
           , (command "reset-story")
               { aliases = ["rst-story"]
               , help = say "reset-story - Reset active story."
-              , process = commandResetStory
+              , process = commandResetStory . T.pack
               , privileged = True
               }
           , (command "factory-reset-story")
               { help = say "factory-reset-story - Reset entire story state to factory defaults."
-              , process = commandResetFactoryDefaultStory
+              , process = commandResetFactoryDefaultStory . T.pack
               , privileged = True
               }
           ]
-    , contextual = commandContextual
+    , contextual = commandContextual . T.pack
     }
 
 -- TODO: Fork a background thread here?
-commandContextual :: String -> Cmd Story ()
+commandContextual :: T.Text -> Cmd Story ()
 commandContextual txt =
-  let wrds = words txt
+  let wrds = T.words txt
       oneWord = length wrds == 1
    in when oneWord $
         withMsg $ \msg ->
           let srvr = Msg.server msg
               chan = head $ Msg.channels msg
-              channelName = srvr ++ nTag chan ++ nName chan
+              channelName = T.pack $ srvr ++ nTag chan ++ nName chan
            in withMS $ \storyState writer ->
                 let (game, other) = extractGame channelName storyState
                  in unless (null game) $
@@ -109,7 +111,7 @@ commandContextual txt =
 -- determine the type of the word
 -- if the word is the same type as the next word in the story
 
-addVote :: String -> (String, GameState) -> (String, GameState)
+addVote :: T.Text -> (T.Text, GameState) -> (T.Text, GameState)
 addVote word (channelName, gameState) =
   let (same, other) = partition ((==) word . fst) $ votes gameState
       newScore =
@@ -118,63 +120,63 @@ addVote word (channelName, gameState) =
           else [(word, 1 + snd (head same))]
    in (channelName, gameState{votes = newScore ++ other})
 
--- | Extract the game for the current channel
--- >>> ss <- newStoryState []
--- >>> let gs = MkGameState { server = "srvr", channel = "chnl", name = "name", botName = "btnm", story = ("title", "stry"), votes = [] }
--- >>> let (game, other) = extractGame "def" ss { games = [("abc", gs), ("def", gs)]}
--- >>> (not $ null game) && ("def" == fst (head game)) && (not $ null other) && ("abc" == fst (head other))
--- True
--- 
-extractGame :: String -> StoryState -> ([(String, GameState)], [(String, GameState)])
+{- | Extract the game for the current channel
+ >>> ss <- newStoryState []
+ >>> let gs = MkGameState { server = "srvr", channel = "chnl", name = "name", botName = "btnm", story = ("title", "stry"), votes = [] }
+ >>> let (game, other) = extractGame "def" ss { games = [("abc", gs), ("def", gs)]}
+ >>> (not $ null game) && ("def" == fst (head game)) && (not $ null other) && ("abc" == fst (head other))
+ True
+-}
+extractGame :: T.Text -> StoryState -> ([(T.Text, GameState)], [(T.Text, GameState)])
 extractGame channelName = partition ((==) channelName . fst) . games
 
-commandStartStory :: String -> Cmd Story ()
+commandStartStory :: T.Text -> Cmd Story ()
 commandStartStory _ = withMsg $ \msg ->
-  let srvr = Msg.server msg
+  let srvr = T.pack (Msg.server msg)
       chan = head $ Msg.channels msg
       botn = Msg.lambdabotName msg
    in withMS $ \storyState writer ->
-        let channelName = srvr ++ nTag chan ++ nName chan
+        let channelName = srvr `T.append` T.pack (nTag chan) `T.append` T.pack (nName chan)
             (game, other) = extractGame channelName storyState
          in when (null game) $ do
               delay <- getConfig secondsToWaitBeforeMovingToTheNextWord
               sts <- io $ randomElem $ stories storyState
               let newGame = newGameState srvr chan botn sts
               writer storyState{games = (channelName, newGame) : other}
-              say $ "Let's make a story together, the title will be '" ++ fst sts ++ "'."
-              say $ nextNeed $ fromLeft ("", "") $ nextWord newGame
+              say $ T.unpack $ "Let's make a story together, the title will be '" `T.append` fst sts `T.append` "'."
+              say $ T.unpack $ nextNeed $ fromLeft ("", "") $ nextWord newGame
               void $ lift $ fork $ storyLoop delay channelName
 
--- | Find the next placeholder or return the completed story
--- >>> nextWord MkGameState {story = ("title", "This is a __story__ with __two__ placeholders.")}
--- Left ("story","")
---
--- >>> nextWord MkGameState {story = ("title", "This is a story with zero placeholders.")}
--- Right "This is a story with zero placeholders."
---
-nextWord :: GameState -> Either (String, String) String
+{- | Find the next placeholder or return the completed story
+ >>> nextWord MkGameState {story = ("title", "This is a __story__ with __two__ placeholders.")}
+ Left ("story","")
+
+ >>> nextWord MkGameState {story = ("title", "This is a story with zero placeholders.")}
+ Right "This is a story with zero placeholders."
+-}
+nextWord :: GameState -> Either (T.Text, T.Text) T.Text
 nextWord gameState =
   let stry = story gameState
       text = snd stry
-      wrds = words text
-      fillIn = filter ("__" `isPrefixOf`) wrds
+      wrds = T.words text
+      fillIn = filter ("__" `T.isPrefixOf`) wrds
    in if null fillIn
         then Right text
         else
-          let parts = splitOn ":" $ init $ init $ tail $ tail $ head fillIn
-           in if length parts == 1 then Left (head parts, []) else Left (head parts, last parts)
+          let parts = T.splitOn ":" $ T.init $ T.init $ T.tail $ T.tail $ head fillIn
+           in if length parts == 1 then Left (head parts, T.empty) else Left (head parts, last parts)
 
-nextNeed :: (String, String) -> String
+nextNeed :: (T.Text, T.Text) -> T.Text
 nextNeed (wordType, wordSubType) =
-  let subType = if not $ null wordSubType then ", specifically a " ++ wordSubType else ""
-   in "I need a " ++ wordType ++ subType ++ ", type your choice now..."
+  let subType = if not $ T.null wordSubType then ", specifically a " `T.append` wordSubType else ""
+   in "I need a " `T.append` wordType `T.append` subType `T.append` ", type your choice now..."
 
-highestVote :: (String, String) -> (String, Int) -> String
+highestVote :: (T.Text, T.Text) -> (T.Text, Int) -> T.Text
 highestVote (wordType, wordSubType) (wrd, num) =
-  let subType = if not $ null wordSubType then " (" ++ wordSubType ++ ")" else ""
-   in "The most popular " ++ wordType ++ subType ++ " was '" ++ wrd ++ "' with " ++ show num ++ " votes."
+  let subType = if not $ T.null wordSubType then " (" `T.append` wordSubType `T.append` ")" else ""
+   in "The most popular " `T.append` wordType `T.append` subType `T.append` " was '" `T.append` wrd `T.append` "' with " `T.append` T.pack (show num) `T.append` " votes."
 
-storyLoop :: Int -> String -> Story ()
+storyLoop :: Int -> T.Text -> Story ()
 storyLoop delayInSeconds channelName = do
   void $ io $ threadDelay $ delayInSeconds * 1000 * 1000
   withMS $ \storyState writer -> do
@@ -199,84 +201,84 @@ storyLoop delayInSeconds channelName = do
                   lift $ sendText gameState "All done! Sending the story to the publisher! Get ready..."
                   void $ fork $ storyLoop 5 channelName
             Right stry -> do
-              lift $ sendText gameState $ "This is the story we made!  Title: '" ++ title ++ "' Story: " ++ stry
+              lift $ sendText gameState $ "This is the story we made!  Title: '" `T.append` title `T.append` "' Story: " `T.append` stry
               writer $
                 storyState
                   { games = other
                   }
 
--- | Select the vote with the highest rating
--- >>> mostVotes [("abc", 2), ("def", 3), ("ghi", 1)]
--- ("def",3)
---
+{- | Select the vote with the highest rating
+ >>> mostVotes [("abc", 2), ("def", 3), ("ghi", 1)]
+ ("def",3)
+-}
 mostVotes :: [Vote] -> Vote
 mostVotes = foldr (\l r -> if snd l > snd r then l else r) ("", 0)
 
--- | Replace a placeholder with the word which received the most votes
--- | Note, this fails if no placeholder exists.
--- >>> replace ("word", 1) ("title", "This is the __story__ text.")
--- ("title","This is the word text.")
---
+{- | Replace a placeholder with the word which received the most votes
+ | Note, this fails if no placeholder exists.
+ >>> replace ("word", 1) ("title", "This is the __story__ text.")
+ ("title","This is the word text.")
+-}
 replace :: Vote -> Definition -> Definition
 replace (wrd, _) (ttl, stry) =
-  let wrds = words stry
-      location = fromJust $ findIndex ("__" `isPrefixOf`) wrds
+  let wrds = T.words stry
+      location = fromJust $ findIndex ("__" `T.isPrefixOf`) wrds
       (before, after) = splitAt location wrds
-      replaced = unwords $ before ++ [wrd] ++ tail after
+      replaced = T.unwords $ before ++ [wrd] ++ tail after
    in (ttl, replaced)
 
-sendText :: GameState -> String -> LB ()
+sendText :: GameState -> T.Text -> LB ()
 sendText gameState text = do
   send
     IrcMessage
-      { ircMsgServer = server gameState
-      , ircMsgLBName = name gameState
-      , ircMsgPrefix = botName gameState ++ "!n=" ++ botName gameState ++ "@" ++ botName gameState ++ ".tmi.twitch.tv"
+      { ircMsgServer = T.unpack $ server gameState
+      , ircMsgLBName = T.unpack $ name gameState
+      , ircMsgPrefix = T.unpack $ botName gameState `T.append` "!n=" `T.append` botName gameState `T.append` "@" `T.append` botName gameState `T.append` ".tmi.twitch.tv"
       , ircMsgCommand = "PRIVMSG"
-      , ircMsgParams = [channel gameState, ":" ++ text]
+      , ircMsgParams = [T.unpack $ channel gameState, T.unpack $ ":" `T.append` text]
       , ircDirection = Outbound
       , ircTags = []
       }
 
--- | Parser tests
--- >>> fst $ last $ readP_to_S storyParameterParser "\"title\" \"this is the story.\""
--- ["title","this is the story."]
---
--- >>> fst $ last $ readP_to_S storyParameterParser "\"title\" this is the story."
--- ["title","this is the story."]
---
+{- | Parser tests
+ >>> fst $ last $ readP_to_S storyParameterParser "\"title\" \"this is the story.\""
+ ["title","this is the story."]
+
+ >>> fst $ last $ readP_to_S storyParameterParser "\"title\" this is the story."
+ ["title","this is the story."]
+-}
 storyParameterParser :: ReadP [String]
 storyParameterParser = storyPartParser `sepBy` storySpaceParser
 
 storySpaceParser :: ReadP String
 storySpaceParser = munch1 (' ' ==)
 
--- | Quoted string
--- >>> fst $ last $ readP_to_S storyPartParser "\"some text goes here\""
--- "some text goes here"
---
--- >>> fst $ last $ readP_to_S storyPartParser "some text goes here"
--- "some text goes here"
---
+{- | Quoted string
+ >>> fst $ last $ readP_to_S storyPartParser "\"some text goes here\""
+ "some text goes here"
+
+ >>> fst $ last $ readP_to_S storyPartParser "some text goes here"
+ "some text goes here"
+-}
 storyPartParser :: ReadP String
 storyPartParser = between storyQuoteParser storyQuoteParser storyTokenParser
 
 storyTokenParser :: ReadP String
-storyTokenParser = munch1 (\c -> isAlpha c || isNumber c || elem c " !@#$%^&*()-_=+\'\\|;:,<.>[]{}/?")
+storyTokenParser = munch1 (\c -> isAlpha c || isNumber c || elem c (" !@#$%^&*()-_=+\'\\|;:,<.>[]{}/?" :: String))
 
 storyQuoteParser :: ReadP String
 storyQuoteParser = munch ('"' ==)
 
-commandAddStory :: String -> Cmd Story ()
+commandAddStory :: T.Text -> Cmd Story ()
 commandAddStory msg =
-  let parts = fst $ last $ readP_to_S storyParameterParser msg
+  let parts = fst $ last $ readP_to_S storyParameterParser $ T.unpack msg
       twoParts = length parts == 2
       titleExists = not $ null $ head parts
       storyExists = not $ null $ last parts
    in if twoParts && titleExists && storyExists
         then withMS $ \storyState writer -> do
-          let title = head parts
-          let stry = last parts
+          let title = T.pack (head parts)
+          let stry = T.pack (last parts)
           let newStory = (title, stry)
           let otherStories = filter ((/=) title . fst) $ stories storyState
           writer storyState{stories = newStory : otherStories}
@@ -286,10 +288,10 @@ commandAddStory msg =
           debugM $ show parts
           say "Incorrect parameters, please provide a title and a story both enclosed in double-quotes and separated by a space."
 
-commandRemoveStory :: String -> Cmd Story ()
+commandRemoveStory :: T.Text -> Cmd Story ()
 commandRemoveStory msg =
-  let title = fst $ last $ readP_to_S storyPartParser msg
-   in if not $ null title
+  let title = (T.pack . fst . last . readP_to_S storyPartParser . T.unpack) msg
+   in if (not . T.null) title
         then withMS $ \storyState writer ->
           let sts = stories storyState
               (_, other) = partition ((==) title . fst) sts
@@ -301,18 +303,18 @@ commandRemoveStory msg =
                 else say "I couldn't find a story with that title."
         else say "Incorrect parameters, please provide a title enclosed in double-quotes."
 
-commandResetStory :: String -> Cmd Story ()
+commandResetStory :: T.Text -> Cmd Story ()
 commandResetStory resetAll = withMsg $ \msg ->
   let srvr = Msg.server msg
       chan = head $ Msg.channels msg
    in withMS $ \storyState writer -> do
-        let channelName = srvr ++ nTag chan ++ nName chan
+        let channelName = T.pack $ srvr ++ nTag chan ++ nName chan
         let others = filter ((/=) channelName . fst) $ games storyState
         writer storyState{games = if resetAll == "all" then [] else others}
         confirmation <- randomSuccessMsg
         say confirmation
 
-commandResetFactoryDefaultStory :: String -> Cmd Story ()
+commandResetFactoryDefaultStory :: T.Text -> Cmd Story ()
 commandResetFactoryDefaultStory _ = withMS $ \_ writer -> do
   ds <- getConfig defaultStories
   nss <- newStoryState ds

@@ -42,4 +42,5 @@ library
   other-modules:        Lambdabot.Config.Suggest
 
   build-depends:        base,
-                        lambdabot-core == 5.1.0.4
+                        lambdabot-core == 5.1.0.4,
+                        text

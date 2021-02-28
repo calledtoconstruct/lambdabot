@@ -1,3 +1,5 @@
+{-# LANGUAGE OverloadedStrings #-}
+
 module Lambdabot.Plugin.Term.Logic where
 
 import Lambdabot.Config.Term (termFrequency)
@@ -8,18 +10,19 @@ import Lambdabot.Plugin.Term.Configuration (
   TermDescription,
   TermName,
   TermState (..),
-  addChannel,
+  addChannel, Message
  )
 
 import Control.Monad.Trans (MonadIO)
 import Data.Char (isAlpha, isNumber, isPunctuation)
 import Data.List (partition)
 import Data.Maybe (fromJust, isJust)
+import qualified Data.Text as T
 import Text.ParserCombinators.ReadP (ReadP, munch1, readP_to_S, sepBy)
 
 data StateChangeResult = StateChangeResult
   { newState :: TermState
-  , message :: String
+  , message :: Message
   }
 
 addTerm :: MonadIO m => TermState -> ChannelName -> TermName -> TermDescription -> m StateChangeResult
@@ -56,7 +59,7 @@ removeTerm termState nameOfThisChannel term =
         then
           StateChangeResult
             { newState = termState
-            , message = "Remove Term :: Channel not found!"
+            , message =  "Remove Term :: Channel not found!"
             }
         else
           let thisChannel = head channelTermState
@@ -96,7 +99,7 @@ spacesAndPunctuation :: ReadP String
 spacesAndPunctuation = munch1 (\c -> c == ' ' || isPunctuation c)
 
 token :: ReadP String
-token = munch1 (\c -> isAlpha c || isNumber c || elem c "-\'")
+token = munch1 (\c -> isAlpha c || isNumber c || elem c ("-\'" :: String))
 
 findTerm :: MonadConfig m => MonadIO m => TermState -> ChannelName -> TermName -> m (Maybe FindTermResult)
 findTerm termState nameOfThisChannel msg =
@@ -106,7 +109,7 @@ findTerm termState nameOfThisChannel msg =
         else
           let thisChannel = head channelTermState
               recent = lockedTerms thisChannel
-              spokenWords = fst . last $ readP_to_S sentenceParser msg
+              spokenWords = map T.pack $ fst . last $ readP_to_S sentenceParser $ T.unpack msg
               mts = filter (`elem` spokenWords) $ filter (`notElem` recent) $ concatMap fst $ terms thisChannel
            in pure
                 =<< ( \mt doIt ->

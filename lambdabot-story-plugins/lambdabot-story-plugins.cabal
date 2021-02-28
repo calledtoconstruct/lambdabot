@@ -42,7 +42,8 @@ library
                         lambdabot-core == 5.1.0.4,
                         mtl,
                         lifted-base,
-                        split
+                        split,
+                        text
 
 test-suite doctests
   hs-source-dirs:       src

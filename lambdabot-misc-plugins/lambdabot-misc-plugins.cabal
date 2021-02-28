@@ -67,4 +67,5 @@ library
                         lambdabot-core == 5.1.0.4,
                         lifted-base,
                         mtl,
+                        text,
                         zlib

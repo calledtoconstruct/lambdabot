@@ -1,3 +1,5 @@
+{-# LANGUAGE OverloadedStrings #-}
+
 module Lambdabot.Plugin.Term.Term (termPlugin) where
 
 import Lambdabot.Config.Term (defaultTerms, secondsToWaitBeforeUnlockingTerm)
@@ -25,13 +27,13 @@ import Lambdabot.Plugin (
   stdSerial,
   withMS,
  )
-import Lambdabot.Plugin.Term.Configuration (Channel (lastUnlockedTerm, lockedTerms), TermState (channels), channelName, newTermState, terms)
+import Lambdabot.Plugin.Term.Configuration (Channel (lastUnlockedTerm, lockedTerms), TermState (channels), channelName, newTermState, terms, Message, TermName, ChannelName)
 import Lambdabot.Plugin.Term.Logic (FindTermResult (foundDefinition, foundTerm), addTerm, findTerm, message, newState, removeTerm)
 
 import Control.Monad (unless, when)
 import Data.List (partition)
+import qualified Data.Text as T
 import Data.Time.Clock.System (SystemTime (systemSeconds), getSystemTime)
-import Lambdabot.Logging (debugM)
 
 type Term = ModuleT TermState LB
 
@@ -45,27 +47,26 @@ termPlugin =
         return
           [ (command "term")
               { help = say "term <term> - Show the specified term."
-              , process = commandShowTerm
+              , process = commandShowTerm . T.pack
               }
           , (command "add-term")
               { help = say "add-term <term> <definition> - Add a new term to the database."
-              , process = commandAddTerm
+              , process = commandAddTerm . T.pack
               , privileged = True
               }
           , (command "remove-term")
               { aliases = ["rm-term"]
               , help = say "remove-term <term> - Remove a term from the database."
-              , process = commandRemoveTerm
+              , process = commandRemoveTerm . T.pack
               , privileged = True
               }
           ]
-    , contextual = commandContextual
+    , contextual = commandContextual . T.pack
     }
 
-commandContextual :: String -> Cmd Term ()
+commandContextual :: T.Text -> Cmd Term ()
 commandContextual msg = withMS $ \termState writer -> do
-  thisChannelName <- nName <$> getTarget
-  debugM $ "Contextual for channel name :: " ++ thisChannelName
+  thisChannelName <- T.pack . nName <$> getTarget
   let (thisChannelTermState, otherChannels) = partition ((== thisChannelName) . channelName) $ channels termState
   unless (null thisChannelTermState) $ do
     found <- findTerm termState thisChannelName msg
@@ -84,7 +85,7 @@ commandContextual msg = withMS $ \termState writer -> do
           termState
             { channels = updatedChannel : otherChannels
             }
-        say $ term ++ " :: " ++ foundDefinition result
+        say $ T.unpack $ term `T.append` " :: " `T.append` foundDefinition result
       Nothing ->
         when (itHasBeenLongEnough && termCanBeUnlocked) $
           let updatedChannel =
@@ -97,40 +98,42 @@ commandContextual msg = withMS $ \termState writer -> do
                   { channels = updatedChannel : otherChannels
                   }
 
-commandShowTerm :: String -> Cmd Term ()
+commandShowTerm :: T.Text -> Cmd Term ()
 commandShowTerm term = withMS $ \termState _ -> do
-  thisChannelName <- nName <$> getTarget
+  thisChannelName <- T.pack . nName <$> getTarget
   let thisChannelTermState = filter ((== thisChannelName) . channelName) $ channels termState
   unless (null thisChannelTermState) $
     let foundItems = filter (elem term . fst) $ terms $ head thisChannelTermState
      in case foundItems of
-          [found] -> say $ term ++ " :: " ++ snd found
-          _ -> say $ "I don't know about " ++ term
+          [found] -> say $ T.unpack term ++ " :: " ++ T.unpack (snd found)
+          _ -> say $ "I don't know about " ++ T.unpack term
 
-commandAddTerm :: String -> Cmd Term ()
+commandAddTerm :: T.Text -> Cmd Term ()
 commandAddTerm txt' = do
-  x  <- maybeGetChannelNameFromText (words txt') . nName <$> getTarget
+  x <- maybeGetChannelNameFromText (T.words txt') . T.pack . nName <$> getTarget
   case x of
     Just ~(thisChannelName, term : definition) -> withMS $ \termState writer -> do
-      result <- addTerm termState thisChannelName term $ unwords definition
+      result <- addTerm termState thisChannelName term $ T.unwords definition
       writer $ newState result
       sayMessage $ message result
     Nothing -> say "Not enough parameters.  add-term help for more information."
 
-maybeGetChannelNameFromText :: [String] -> String -> Maybe (String, [String])
+maybeGetChannelNameFromText :: [T.Text] -> ChannelName -> Maybe (ChannelName, [T.Text])
 maybeGetChannelNameFromText wrds thisChannelName'
   | length wrds > 2 && "offlinerc" == thisChannelName' = Just (head wrds, tail wrds)
   | length wrds > 1 = Just (thisChannelName', wrds)
   | otherwise = Nothing
 
-commandRemoveTerm :: String -> Cmd Term ()
-commandRemoveTerm [] = say "Not enough parameters.  remove-term <term>"
-commandRemoveTerm term = withMS $ \termState writer -> do
-  thisChannelName <- nName <$> getTarget
-  let result = removeTerm termState thisChannelName term
-  writer $ newState result
-  sayMessage $ message result
+commandRemoveTerm :: TermName -> Cmd Term ()
+commandRemoveTerm term
+  | T.null term = say "Not enough parameters.  remove-term <term>"
+  | otherwise = withMS $ \termState writer -> do
+    thisChannelName <- T.pack . nName <$> getTarget
+    let result = removeTerm termState thisChannelName term
+    writer $ newState result
+    sayMessage $ message result
 
-sayMessage :: String -> Cmd Term ()
-sayMessage [] = return ()
-sayMessage output = say output
+sayMessage :: Message -> Cmd Term ()
+sayMessage output
+  | T.null output = return ()
+  | otherwise = say $ T.unpack output

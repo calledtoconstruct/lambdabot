@@ -1,5 +1,6 @@
-module Lambdabot.Plugin.Dashboard.Service (startListening) where
+{-# LANGUAGE OverloadedStrings #-}
 
+module Lambdabot.Plugin.Dashboard.Service (startListening) where
 
 import Lambdabot.Plugin.Dashboard.Configuration (Channel, ChannelName, Dashboard, DashboardState, Message (MkMessage), MessageUniqueIdentifier, Spoken, Watcher (MkWatcher), WatcherName, WatcherUniqueIdentifier, channelNameFromSpoken, listOfMessageUniqueIdentifierFromSpoken, messages, nameFromChannel, shutdown, speaking, uniqueIdentifierFromWatching, watchers, watching, watchingFromChannel, ChannelWatcher (MkChannelWatcher), nameFromWatcher, uniqueIdentifierFromWatcher, listOfBadgesFromWatching, Watching)
 
@@ -36,27 +37,27 @@ startListening port = do
 
           get (capture "/channel/:channel/watcher/list") $
             json =<< listWatcher
-              <$> param (T.pack "channel")
+              <$> param "channel"
               <*> liftIO (readIORef ioref)
 
           get (capture "/channel/:channel/watcher/:watcher/list") $
             json =<< listWatcherChat
-              <$> param (T.pack "channel")
-              <*> param (T.pack "watcher")
+              <$> param "channel"
+              <*> param "watcher"
               <*> liftIO (readIORef ioref)
 
           get (capture "/watcher/:watcher/channel/list") $
             json =<< listWatcherChannel
-              <$> param (T.pack "watcher")
+              <$> param "watcher"
               <*> liftIO (readIORef ioref)
 
           get (capture "/channel/:channel/chat/mode") $ do
-            requestedChannel <- param (T.pack "channel")
-            status status404 *> text (T.pack $ "Not Implemented: " ++ requestedChannel)
+            requestedChannel <- param "channel"
+            status status404 *> text ("Not Implemented: " `T.append` T.pack requestedChannel)
 
           get (capture "/channel/:channel/chat/list") $
             json =<< listChat
-              <$> param (T.pack "channel")
+              <$> param "channel"
               <*> liftIO (readIORef ioref)
 
           get (capture "/channel/list") $
