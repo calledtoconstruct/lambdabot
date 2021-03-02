@@ -1,251 +1,193 @@
-{-# LANGUAGE CPP #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 module Lambdabot.Plugin.Hangman.Hangman (hangmanPlugin) where
 
 import Lambdabot.Config.Hangman (hangmanPhrases)
-import Lambdabot.IRC (IrcMessage (IrcMessage), MessageDirection (Outbound), ircDirection, ircMsgCommand, ircMsgLBName, ircMsgParams, ircMsgPrefix, ircMsgServer, ircTags)
+import Lambdabot.Plugin.Hangman.Background (maybeStartTimer, signalShutdown)
+
 import qualified Lambdabot.Message as Msg (channels, lambdabotName, nick, server)
-import Lambdabot.Module (ircPersists)
-import Lambdabot.Monad (received, send)
 import Lambdabot.Plugin (
   Cmd,
-  LB,
-  Module,
-  ModuleT,
+  Module (..),
   MonadConfig (getConfig),
+  Nick,
   aliases,
   command,
   help,
-  lb,
-  moduleCmds,
-  moduleDefState,
-  moduleInit,
-  moduleSerialize,
   newModule,
   privileged,
   process,
-  readMS,
   say,
   stdSerial,
   withMS,
-  withMsg,
+  withMsg, readMS
  )
-import Lambdabot.Plugin.Hangman.Configuration (newConfiguration)
+import Lambdabot.Plugin.Hangman.Configuration (Phrase, newConfiguration)
 import Lambdabot.Plugin.Hangman.Game (
   Game (..),
-  GameState (botName, channel, initiator, server),
+  GameState (..),
   Messages,
   Result (game, messages),
   incorrectArgumentsForAddPhrase,
   incorrectArgumentsForAppend,
+  incorrectArgumentsForFinalAnswer,
   incorrectArgumentsForProgress,
   incorrectArgumentsForRemovePhrase,
   incorrectArgumentsForShow,
   incorrectArgumentsForStart,
   initializeGame,
   messageIncorrectArgumentsForConfigure,
-  showGame,
+  showGame, HangmanState, Hangman
  )
-import Lambdabot.Plugin.Hangman.Logic (addGuess, progressGame)
+import Lambdabot.Plugin.Hangman.Logic (addGuess, guessFinal, progressGame)
 import Lambdabot.Plugin.Hangman.Manage (addPhrase, configure, removePhrase)
 
-import Control.Concurrent.Lifted (fork, threadDelay)
-import Control.Monad (unless, void, when)
-import Control.Monad.State (gets, modify)
 import Control.Monad.Trans (lift)
-import Data.Map (delete, insert, member)
-import System.Timeout.Lifted (timeout)
-
-type HangmanState = Game
-type Hangman = ModuleT HangmanState LB
+import Data.List (partition)
+import qualified Data.Text as T
+import Lambdabot.Nick (fmtNick)
 
 hangmanPlugin :: Module HangmanState
 hangmanPlugin =
   newModule
     { moduleSerialize = Just stdSerial
-    , moduleDefState = do
-        phrases <- getConfig hangmanPhrases
-        return $ NoGame $ newConfiguration phrases
-    , moduleInit = startup
+    , moduleDefState = pure []
+    , moduleInit = do
+      games <- readMS
+      maybeStartTimer games
+    , moduleExit = signalShutdown
     , moduleCmds =
         return
           [ (command "hangman-start")
               { help = say "hangman-start - Starts the game."
-              , process = commandStartGame
+              , process = commandStartGame . T.pack
               }
           , (command "hangman-status")
               { aliases = ["hangman-state"]
               , help = say "hangman-status - Prints the current state of the game."
-              , process = commandStatus
+              , process = commandStatus . T.pack
+              }
+          , (command "hangman-next")
+              { help = say "hangman-next - Tallies the guesses and applies the most popular one."
+              , process = commandNext . T.pack
               }
           , (command "hangman-final-answer")
-              { help = say "hangman-final-answer - Tallies the guesses and applies the most popular one."
-              , process = commandFinalAnswer
+              { help = say "hangman-final-answer - Guesses the phrase.  An incorrect guess decreases the number of wrong answers available."
+              , process = commandFinalAnswer . T.pack
               }
           , (command "hangman-timer-tick")
               { help = say "hangman-timer-tick - For internal use only."
-              , process = commandFinalAnswer
+              , process = commandNext . T.pack
               }
           , (command "hangman-guess")
               { aliases = ["hg"]
               , help = say "hangman-guess [letter] - Provide your guess."
-              , process = commandAppendGuess
+              , process = commandAppendGuess . T.pack
               }
           , (command "hangman-add")
               { help = say "hangman-add [phrase] - Add a new phrase to the database."
-              , process = commandAddPhrase
+              , process = commandAddPhrase . T.pack
               , privileged = True
               }
           , (command "hangman-remove")
               { help = say "hangman-remove [phrase] - Remove a phrase from the database."
-              , process = commandRemovePhrase
+              , process = commandRemovePhrase . T.pack
               , privileged = True
               }
           , (command "hangman-configure")
               { help = say "hangman-configure [option] [value] - Update the configuration option to the value provided."
-              , process = commandConfigure
+              , process = commandConfigure . T.pack
               , privileged = True
               }
           ]
     }
 
-startup :: Hangman ()
-startup = withMS $ \current _ -> maybeStartTimer current
+withCommandChannelGameState :: (Game -> String -> Nick -> Nick -> Nick -> (Game -> Cmd Hangman ()) -> Cmd Hangman ()) -> Cmd Hangman ()
+withCommandChannelGameState f = withMS $ \games write -> withMsg $ \msg ->
+  let thisServerName = Msg.server msg
+      thisChannelName = head $ Msg.channels msg
+      who = Msg.nick msg
+      lbn = Msg.lambdabotName msg
+      (thisChannel, otherChannels) = partition (gameFor thisServerName thisChannelName) games
+   in do
+        defaultPhrases <- getConfig hangmanPhrases
+        let thisGame = if null thisChannel then NoGame (newConfiguration defaultPhrases) else head thisChannel
+        f thisGame thisServerName thisChannelName who lbn $ \updatedGame -> do
+          let updatedGames = updatedGame : otherChannels
+          write updatedGames
+          lift (maybeStartTimer updatedGames)
 
-maybeStartTimer :: Game -> Hangman ()
-maybeStartTimer (InGame _ _) = do
-  _ <- fork timerLoop
-  lift $
-    modify
-      ( \state ->
-          state
-            { ircPersists = insert "hangman-timer-loop" True $ ircPersists state
-            }
-      )
-  return ()
-maybeStartTimer _ = return ()
+withChannelGameState :: (Game -> (Game -> Cmd Hangman ()) -> Cmd Hangman ()) -> Cmd Hangman ()
+withChannelGameState f = withCommandChannelGameState $ \thisGame _ _ _ _ write -> f thisGame write
 
-timerLoop :: Hangman ()
-timerLoop = do
-  delayThen sendReply 20 "10 seconds left"
-  delayThen sendReply 7 "3 seconds"
-  delayThen sendReply 1 "2 seconds"
-  delayThen sendReply 1 "1 seconds"
-  delayThen receiveCommand 1 "?hangman-timer-tick"
-  run <- lift $ gets (member "hangman-timer-loop" . ircPersists)
-  when run $ void $ fork timerLoop
+gameFor :: String -> Nick -> Game -> Bool
+gameFor _ _ (NoGame _) = False
+gameFor serverName channelName (InGame gameState _) = sameServer && sameChannel
+ where
+  sameServer = server gameState == serverName
+  sameChannel = channel gameState == fmtNick serverName channelName
 
-delayThen :: (IrcMessage -> Hangman ()) -> Int -> String -> Hangman ()
-delayThen sendOrReceive delay text = do
-  threadDelay $ delay * 1000 * 1000
-  run <- lift $ gets (member "hangman-timer-loop" . ircPersists)
-  currentGame <- readMS
-  when run $ case gameInProgress' currentGame of
-    Just gameState ->
-      sendOrReceive $
-        IrcMessage
-          { ircMsgServer = server gameState
-          , ircMsgLBName = initiator gameState
-          , ircMsgPrefix = botName gameState ++ "!n=" ++ botName gameState ++ "@" ++ botName gameState ++ ".tmi.twitch.tv"
-          , ircMsgCommand = "PRIVMSG"
-          , ircMsgParams = [channel gameState, ":" ++ text]
-          , ircDirection = Outbound
-          , ircTags = []
-          }
-    Nothing -> return ()
-
-receiveCommand :: IrcMessage -> Hangman ()
-receiveCommand = lb . void . timeout (10 * 1000 * 1000) . received
-
-sendReply :: IrcMessage -> Hangman ()
-sendReply = lift . send
-
-gameInProgress' :: Game -> Maybe GameState
-gameInProgress' (NoGame _) = Nothing
-gameInProgress' (InGame gameState _) = Just gameState
-
-commandStartGame :: String -> Cmd Hangman ()
-commandStartGame [] =
-  withMS $ \previous writer -> do
-    wasRunning <- lift $ lift $ gets (member "hangman-timer-loop" . ircPersists)
-    withMsg $ \msg -> do
-      let result = initializeGame previous (Msg.server msg) (head $ Msg.channels msg) (Msg.nick msg) (Msg.lambdabotName msg)
-      writer $ game result
-      sayMessages $ messages result
-      unless wasRunning startTimer
-commandStartGame _ = say incorrectArgumentsForStart
-
-startTimer :: Cmd Hangman ()
-startTimer = do
-  _ <- lift $ fork timerLoop
-  lift $
-    lift $
-      modify
-        ( \state ->
-            state
-              { ircPersists = insert "hangman-timer-loop" True $ ircPersists state
-              }
-        )
-
-commandStatus :: String -> Cmd Hangman ()
-commandStatus [] = withMS $ \current _ -> sayMessages $ showGame current
-commandStatus _ = say incorrectArgumentsForShow
-
-commandFinalAnswer :: String -> Cmd Hangman ()
-commandFinalAnswer [] =
-  withMS $ \previous writer -> do
-    let result = progressGame previous
-    writer $ game result
+commandStartGame :: Phrase -> Cmd Hangman ()
+commandStartGame phrase
+  | T.null phrase = withCommandChannelGameState $ \thisGame thisServerName thisChannelName who lbn write -> do
+    let result = initializeGame thisGame thisServerName thisChannelName who lbn
     sayMessages $ messages result
-    maybeStopTimer $ game result
-commandFinalAnswer _ = say incorrectArgumentsForProgress
+    write (game result)
+  | otherwise = say $ T.unpack incorrectArgumentsForStart
 
-maybeStopTimer :: Game -> Cmd Hangman ()
-maybeStopTimer (NoGame _) =
-  lift $
-    lift $
-      modify
-        ( \state ->
-            state
-              { ircPersists = delete "hangman-timer-loop" $ ircPersists state
-              }
-        )
-maybeStopTimer (InGame _ _) = return ()
+commandStatus :: Phrase -> Cmd Hangman ()
+commandStatus phrase
+  | T.null phrase = withChannelGameState $ \thisGame _ -> sayMessages $ showGame thisGame
+  | otherwise = say $ T.unpack incorrectArgumentsForShow
 
-commandAppendGuess :: String -> Cmd Hangman ()
-commandAppendGuess [] = say incorrectArgumentsForAppend
-commandAppendGuess (letter : _) =
-  withMS $ \previous writer -> do
-    let result = addGuess previous letter
-    writer $ game result
-    sayMessages $ messages result
+commandFinalAnswer :: Phrase -> Cmd Hangman ()
+commandFinalAnswer phrase
+  | T.null phrase = say $ T.unpack incorrectArgumentsForFinalAnswer
+  | otherwise = withChannelGameState $ \thisGame write -> do
+    let result = guessFinal thisGame phrase
+    sayMessages (messages result)
+    write (game result)
 
-commandAddPhrase :: String -> Cmd Hangman ()
-commandAddPhrase [] = say incorrectArgumentsForAddPhrase
-commandAddPhrase phrase =
-  withMS $ \previous writer -> do
-    let result = addPhrase previous phrase
-    writer $ game result
-    sayMessages $ messages result
+commandNext :: Phrase -> Cmd Hangman ()
+commandNext phrase
+  | T.null phrase = withChannelGameState $ \thisGame write -> do
+    let result = progressGame thisGame
+    sayMessages (messages result)
+    write (game result)
+  | otherwise = say $ T.unpack incorrectArgumentsForProgress
 
-commandRemovePhrase :: String -> Cmd Hangman ()
-commandRemovePhrase [] = say incorrectArgumentsForRemovePhrase
-commandRemovePhrase phrase =
-  withMS $ \previous writer -> do
-    let result = removePhrase previous phrase
-    writer $ game result
-    sayMessages $ messages result
+commandAppendGuess :: Phrase -> Cmd Hangman ()
+commandAppendGuess phrase
+  | T.null phrase = say $ T.unpack incorrectArgumentsForAppend
+  | otherwise = withChannelGameState $ \thisGame write -> do
+    let result = addGuess thisGame (T.head phrase)
+    sayMessages (messages result)
+    write (game result)
 
-commandConfigure :: String -> Cmd Hangman ()
-commandConfigure [] = say messageIncorrectArgumentsForConfigure
-commandConfigure input =
-  withMS $ \previous writer -> do
-    let result = configure previous input
-    writer $ game result
-    sayMessages $ messages result
+commandAddPhrase :: Phrase -> Cmd Hangman ()
+commandAddPhrase phrase
+  | T.null phrase = say $ T.unpack incorrectArgumentsForAddPhrase
+  | otherwise = withChannelGameState $ \thisGame write -> do
+    let result = addPhrase thisGame phrase
+    sayMessages (messages result)
+    write (game result)
+
+commandRemovePhrase :: Phrase -> Cmd Hangman ()
+commandRemovePhrase phrase
+  | T.null phrase = say $ T.unpack incorrectArgumentsForRemovePhrase
+  | otherwise = withChannelGameState $ \thisGame write -> do
+    let result = removePhrase thisGame phrase
+    sayMessages (messages result)
+    write (game result)
+
+commandConfigure :: Phrase -> Cmd Hangman ()
+commandConfigure input
+  | T.null input = say $ T.unpack messageIncorrectArgumentsForConfigure
+  | otherwise = withChannelGameState $ \thisGame write -> do
+    let result = configure thisGame input
+    sayMessages (messages result)
+    write (game result)
 
 sayMessages :: Messages -> Cmd Hangman ()
 sayMessages [] = return ()
-sayMessages output = foldr1 (>>) $ fmap say output
+sayMessages output = foldr1 (>>) $ say . T.unpack <$> output

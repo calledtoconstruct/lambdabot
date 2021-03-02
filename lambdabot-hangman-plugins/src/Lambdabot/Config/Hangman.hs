@@ -2,16 +2,18 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# OPTIONS_GHC -fno-warn-overlapping-patterns #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 module Lambdabot.Config.Hangman (
   hangmanPhrases,
 ) where
 
 import Lambdabot.Config (config)
+import qualified Data.Text as T
 
 config
   "hangmanPhrases"
-  [t|[String]|]
+  [t|[T.Text]|]
   [|
     [ "MONKATOS"
     , "BEST STREAMER"

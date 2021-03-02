@@ -1,7 +1,10 @@
 {-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 module Lambdabot.Plugin.Hangman.Configuration (
   Configuration (Configuration),
+  Phrase,
+  Message,
   phrases,
   lastPhrase,
   messagePhraseAdded,
@@ -13,45 +16,60 @@ module Lambdabot.Plugin.Hangman.Configuration (
   messageIncorrectGuessesTried,
   messageNumberOfGuessesRemaining,
   messageGuessing,
+  messageGuessed,
   messageCorrect,
   messageIncorrect,
   messageAlreadyGuessed,
   messageOutcome,
-  allowedMisses,
+  initialAllowedMisses,
+  defaultSecondsBetweenCycles,
+  defaultWarningAt,
   newConfiguration,
   selectPhrase,
   validCharacters,
+  elemText,
+  upperText,
 ) where
 
 import GHC.Generics (Generic)
 import System.Random (mkStdGen, random)
+import qualified Data.Text as T
+import Data.Char (toUpper)
+
+type Phrase = T.Text
+type Message = T.Text
 
 data Configuration = Configuration
-  { phrases :: [String]
+  { phrases :: [Phrase]
   , lastPhrase :: Int
-  , allowedMisses :: Int
-  , messagePhraseAdded :: String
-  , messagePhraseRemoved :: String
-  , messageYouWon :: String
-  , messageYouLost :: String
-  , messageThereWereNoGuesses :: String
-  , messageNewGameHasBegun :: String
-  , messageIncorrectGuessesTried :: String
-  , messageNumberOfGuessesRemaining :: String
-  , messageGuessing :: String
-  , messageCorrect :: String
-  , messageIncorrect :: String
-  , messageAlreadyGuessed :: String
-  , messageOutcome :: String
+  , initialAllowedMisses :: Int
+  , defaultSecondsBetweenCycles :: Int
+  , defaultWarningAt :: [Int]
+  , messagePhraseAdded :: Message
+  , messagePhraseRemoved :: Message
+  , messageYouWon :: Message
+  , messageYouLost :: Message
+  , messageThereWereNoGuesses :: Message
+  , messageNewGameHasBegun :: Message
+  , messageIncorrectGuessesTried :: Message
+  , messageNumberOfGuessesRemaining :: Message
+  , messageGuessing :: Message
+  , messageGuessed :: Message
+  , messageCorrect :: Message
+  , messageIncorrect :: Message
+  , messageAlreadyGuessed :: Message
+  , messageOutcome :: Message
   }
   deriving (Generic, Show, Read)
 
-newConfiguration :: [String] -> Configuration
+newConfiguration :: [Phrase] -> Configuration
 newConfiguration allThePhrases =
   Configuration
     { phrases = allThePhrases
     , lastPhrase = 0
-    , allowedMisses = 10
+    , initialAllowedMisses = 10
+    , defaultSecondsBetweenCycles = 30
+    , defaultWarningAt = [10, 3, 2, 1]
     , messagePhraseAdded = "Phrase added"
     , messagePhraseRemoved = "Phrase removed"
     , messageYouWon = "You win!"
@@ -61,13 +79,14 @@ newConfiguration allThePhrases =
     , messageIncorrectGuessesTried = "The following guesses were incorrect or duplicate: [@]"
     , messageNumberOfGuessesRemaining = "You will lose if you make @ more mistake(s)."
     , messageGuessing = "You are guessing this phrase: [@]"
+    , messageGuessed = "You guessed the phrase: [@]"
     , messageCorrect = "correct"
     , messageIncorrect = "incorrect"
     , messageAlreadyGuessed = "already guessed"
     , messageOutcome = "The popular guess was @ and that was @."
     }
 
-selectPhrase :: Configuration -> (Configuration, String)
+selectPhrase :: Configuration -> (Configuration, Phrase)
 selectPhrase configuration = (updatedConfiguration, phrase)
  where
   lengthOfPhrases = length listOfPhrases
@@ -77,14 +96,20 @@ selectPhrase configuration = (updatedConfiguration, phrase)
   updatedConfiguration = configuration{lastPhrase = selected}
   listOfPhrases = phrases configuration
 
-validLetters :: String
+validLetters :: Phrase
 validLetters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
-validNumbers :: String
+validNumbers :: Phrase
 validNumbers = "0123456789"
 
-validSymbols :: String
+validSymbols :: Phrase
 validSymbols = "`~!@#$%^&*()-_=+[{]}\\|;:\'\",<.>/?"
 
-validCharacters :: String
-validCharacters = validLetters ++ validNumbers ++ validSymbols
+validCharacters :: Phrase
+validCharacters = validLetters `T.append` validNumbers `T.append` validSymbols
+
+elemText :: Char -> T.Text -> Bool
+elemText c = ((c ==) `T.any`)
+
+upperText :: T.Text -> T.Text
+upperText = T.map toUpper

@@ -1,10 +1,13 @@
 {-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 module Lambdabot.Plugin.Hangman.Game (
   Result (Result),
   game,
   messages,
   Game (NoGame, InGame),
+  Hangman,
+  HangmanState,
   newGame,
   getConfiguration,
   initializeGame,
@@ -12,15 +15,7 @@ module Lambdabot.Plugin.Hangman.Game (
   showBoard,
   showGuesses,
   calculateRemaining,
-  GameState (GameState),
-  userLetters,
-  correctLetters,
-  incorrectLetters,
-  target,
-  server,
-  channel,
-  initiator,
-  botName,
+  GameState (..),
   Messages,
   gameInProgress,
   noGameInProgress,
@@ -34,23 +29,41 @@ module Lambdabot.Plugin.Hangman.Game (
   messageUnknownConfigurationOption,
   messageConfigurationUpdated,
   substituteTokens,
+  incorrectArgumentsForFinalAnswer,
+  hist,
+  most,
+  getMostPopularGuess,
+  isSolved,
+  completeSetOfLetters,
 ) where
 
 import Lambdabot.Nick (Nick, fmtNick)
 import Lambdabot.Plugin.Hangman.Configuration (
   Configuration (
-    allowedMisses,
+    defaultSecondsBetweenCycles,
+    defaultWarningAt,
+    initialAllowedMisses,
+    messageGuessed,
     messageGuessing,
     messageIncorrectGuessesTried,
     messageNewGameHasBegun,
     messageNumberOfGuessesRemaining
   ),
+  Message,
+  Phrase,
+  elemText,
   selectPhrase,
  )
 
-import Data.List.Split (splitOn)
+import qualified Data.Map as M
+import qualified Data.Text as T
 import Data.Universe.Helpers ((+++))
 import GHC.Generics (Generic)
+import Lambdabot.Module (LB)
+import Lambdabot.Plugin (ModuleT)
+
+type HangmanState = [Game]
+type Hangman = ModuleT HangmanState LB
 
 data Game
   = NoGame Configuration
@@ -58,10 +71,13 @@ data Game
   deriving (Generic, Show, Read)
 
 data GameState = GameState
-  { userLetters :: String
-  , correctLetters :: String
-  , incorrectLetters :: String
-  , target :: String
+  { userLetters :: Phrase
+  , correctLetters :: Phrase
+  , incorrectLetters :: Phrase
+  , allowedMisses :: Int
+  , secondsToNextCycle :: Int
+  , warningAt :: [Int]
+  , target :: Phrase
   , server :: String
   , channel :: String
   , initiator :: String
@@ -69,14 +85,14 @@ data GameState = GameState
   }
   deriving (Generic, Show, Read)
 
-type Messages = [String]
+type Messages = [Message]
 
 data Result = Result
   { messages :: Messages
   , game :: Game
   }
 
-newGame :: String -> Configuration -> String -> Nick -> Nick -> Nick -> Game
+newGame :: Phrase -> Configuration -> String -> Nick -> Nick -> Nick -> Game
 newGame answer configuration serverName channelName userName lambdabotName =
   InGame
     ( GameState
@@ -84,6 +100,9 @@ newGame answer configuration serverName channelName userName lambdabotName =
         , userLetters = ""
         , correctLetters = ""
         , incorrectLetters = ""
+        , secondsToNextCycle = defaultSecondsBetweenCycles configuration
+        , warningAt = defaultWarningAt configuration
+        , allowedMisses = initialAllowedMisses configuration
         , server = serverName
         , channel = fmtNick serverName channelName
         , initiator = fmtNick serverName userName
@@ -112,74 +131,91 @@ showGame (InGame gameState configuration) = board : guesses
   board = showBoard gameState configuration
   guesses = showGuesses gameState configuration
 
-showBoard :: GameState -> Configuration -> String
-showBoard (GameState _ correct _ answer _ _ _ _) configuration = message
+showBoard :: GameState -> Configuration -> Message
+showBoard gameState@(GameState _ correct _ _ _ _ answer _ _ _ _) configuration = message
  where
-  message = substituteTokens (messageGuessing configuration) "@" [board]
-  board = intercalate '.' boardState
-  boardState = map (`transformLetter` correct) answer
+  message = substituteTokens (messageToUse configuration) "@" [board]
+  board = T.intersperse '.' boardState
+  boardState = T.map (`transformLetter` correct) answer
+  messageToUse = if isSolved gameState then messageGuessed else messageGuessing
 
 showGuesses :: GameState -> Configuration -> Messages
 showGuesses gameState configuration = [remainingGuesses, incorrectGuesses]
  where
-  remaining = calculateRemaining configuration incorrect
+  remaining = calculateRemaining gameState incorrect
   remainingGuesses = substituteTokens (messageNumberOfGuessesRemaining configuration) "@" [numberOfGuessesRemaining]
   incorrectGuesses = substituteTokens (messageIncorrectGuessesTried configuration) "@" [incorrect]
-  numberOfGuessesRemaining = show remaining
+  numberOfGuessesRemaining = T.pack $ show remaining
   incorrect = incorrectLetters gameState
 
-calculateRemaining :: Configuration -> String -> Int
-calculateRemaining configuration incorrect = allowedMisses configuration - length incorrect
+calculateRemaining :: GameState -> Phrase -> Int
+calculateRemaining gameState incorrect = allowedMisses gameState - T.length incorrect
 
-substituteTokens :: String -> String -> [String] -> String
+substituteTokens :: Phrase -> Phrase -> [Phrase] -> Phrase
 substituteTokens template token values = message
  where
-  segments = splitOn token template
-  message = concat $ (+++) segments values
+  segments = T.splitOn token template
+  message = T.concat $ (+++) segments values
 
-transformLetter :: Char -> [Char] -> Char
+transformLetter :: Char -> Phrase -> Char
 transformLetter ' ' _ = ' '
 transformLetter letter correctGuesses
-  | letter `elem` correctGuesses = letter
+  | letter `elemText` correctGuesses = letter
   | otherwise = '_'
 
-intercalate :: Char -> [Char] -> [Char]
-intercalate _ [] = []
-intercalate value (first : rest)
-  | null ending = first : ending
-  | otherwise = first : value : ending
- where
-  ending = intercalate value rest
+completeSetOfLetters :: GameState -> Phrase
+completeSetOfLetters gameState = T.pack $ M.keys $ T.foldl hist M.empty (T.filter (/= ' ') (target gameState))
 
-incorrectArgumentsForStart :: String
+isSolved :: GameState -> Bool
+isSolved gameState = T.length (correctLetters gameState) == M.size (T.foldl hist M.empty (T.filter (/= ' ') (target gameState)))
+
+getMostPopularGuess :: GameState -> Maybe Char
+getMostPopularGuess gameState
+  | T.null letters = Nothing
+  | otherwise = Just $ fst (M.foldlWithKey most (' ', 0 :: Int) (T.foldl hist M.empty letters))
+ where
+  letters = userLetters gameState
+
+most :: Ord k => Ord a => Num a => (k, a) -> k -> a -> (k, a)
+most (pk, pc) ck cc = if pc < cc then (ck, cc) else (pk, pc)
+
+type Histogram k a = M.Map k a
+
+hist :: Ord k => Num a => Histogram k a -> k -> Histogram k a
+hist m c = M.insertWith (+) c 1 m
+
+incorrectArgumentsForStart :: Message
 incorrectArgumentsForStart = "Incorrect number of arguments, please do not add parameters to start command."
 
-incorrectArgumentsForShow :: String
+incorrectArgumentsForShow :: Message
 incorrectArgumentsForShow = "Incorrect number of arguments, please do not add parameters to show command."
 
-incorrectArgumentsForProgress :: String
-incorrectArgumentsForProgress = "Incorrect number of arguments, please do not add parameters to final answer command."
+incorrectArgumentsForProgress :: Message
+incorrectArgumentsForProgress = "Incorrect number of arguments, please do not add parameters to next command."
 
-incorrectArgumentsForAppend :: String
+incorrectArgumentsForFinalAnswer :: Message
+incorrectArgumentsForFinalAnswer = "Incorrect number of arguments, please include your guess for the whole phrase."
+
+incorrectArgumentsForAppend :: Message
 incorrectArgumentsForAppend = "Incorrect number of arguments, please include the character you want to guess."
 
-incorrectArgumentsForAddPhrase :: String
+incorrectArgumentsForAddPhrase :: Message
 incorrectArgumentsForAddPhrase = "Incorrect number of arguments, please include the phrase you want to add."
 
-incorrectArgumentsForRemovePhrase :: String
+incorrectArgumentsForRemovePhrase :: Message
 incorrectArgumentsForRemovePhrase = "Incorrect number of arguments, please include the phrase you want to remove."
 
-noGameInProgress :: String
+noGameInProgress :: Message
 noGameInProgress = "No game is in progress, use ?hangman-start to start a new game."
 
-gameInProgress :: String
+gameInProgress :: Message
 gameInProgress = "A game is in progress, please complete this game before starting a new one."
 
-messageIncorrectArgumentsForConfigure :: String
+messageIncorrectArgumentsForConfigure :: Message
 messageIncorrectArgumentsForConfigure = "Incorrect number of arguments, please use ?hangman-configure [option] [value]."
 
-messageUnknownConfigurationOption :: String
+messageUnknownConfigurationOption :: Message
 messageUnknownConfigurationOption = "Unknown configuration option"
 
-messageConfigurationUpdated :: String
+messageConfigurationUpdated :: Message
 messageConfigurationUpdated = "Configuration updated"

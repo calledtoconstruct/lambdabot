@@ -1,8 +1,10 @@
+{-# LANGUAGE OverloadedStrings #-}
+
 module Lambdabot.Plugin.Hangman.Manage where
 
 import Lambdabot.Plugin.Hangman.Configuration (
   Configuration (
-    allowedMisses,
+    initialAllowedMisses,
     messageAlreadyGuessed,
     messageCorrect,
     messageGuessing,
@@ -18,7 +20,9 @@ import Lambdabot.Plugin.Hangman.Configuration (
     messageYouWon,
     phrases
   ),
-  validCharacters,
+  Message,
+  Phrase,
+  validCharacters, elemText, upperText
  )
 import Lambdabot.Plugin.Hangman.Game (
   Game (..),
@@ -29,49 +33,40 @@ import Lambdabot.Plugin.Hangman.Game (
   messageUnknownConfigurationOption,
  )
 
-import Data.Char (toUpper)
-import Data.List.Split (splitOn)
-import Data.Universe.Helpers ((+++))
+import qualified Data.Text as T
+import qualified Data.Text.Read as T
 
-addPhrase :: Game -> String -> Result
+addPhrase :: Game -> Phrase -> Result
 addPhrase previous phrase
-  | isValid = Result [messagePhraseAdded configuration] $ addPhraseToGame previous upperPhrase
+  | isValid = Result [messagePhraseAdded configuration] $ addPhraseToGame previous (upperText phrase)
   | otherwise = Result ["The phrase contains one or more invalid characters, therefore, it was not added."] previous
  where
   configuration = getConfiguration previous
-  upperPhrase = map toUpper phrase
-  isValid = not $ any (`notElem` ' ' : validCharacters) upperPhrase
+  isValid = T.all (`elemText` (validCharacters `T.append` " ")) (upperText phrase)
 
-addPhraseToGame :: Game -> String -> Game
+addPhraseToGame :: Game -> Phrase -> Game
 addPhraseToGame (NoGame configuration) phrase = NoGame $ addPhraseToConfiguration configuration phrase
 addPhraseToGame (InGame gameState configuration) phrase = InGame gameState $ addPhraseToConfiguration configuration phrase
 
-addPhraseToConfiguration :: Configuration -> String -> Configuration
-addPhraseToConfiguration configuration phrase = configuration{phrases = upperPhrase : phrases configuration}
- where
-  upperPhrase = map toUpper phrase
+addPhraseToConfiguration :: Configuration -> Phrase -> Configuration
+addPhraseToConfiguration configuration phrase = configuration{phrases = upperText phrase : phrases configuration}
 
-removePhrase :: Game -> String -> Result
+removePhrase :: Game -> Phrase -> Result
 removePhrase previous phrase = Result [messagePhraseRemoved configuration] $ removePhraseFromGame previous phrase
  where
   configuration = getConfiguration previous
 
-removePhraseFromGame :: Game -> String -> Game
+removePhraseFromGame :: Game -> Phrase -> Game
 removePhraseFromGame (NoGame configuration) phrase = NoGame $ removePhraseFromConfiguration configuration phrase
 removePhraseFromGame (InGame gameState configuration) phrase = InGame gameState $ removePhraseFromConfiguration configuration phrase
 
-removePhraseFromConfiguration :: Configuration -> String -> Configuration
-removePhraseFromConfiguration configuration phrase = configuration{phrases = filtered}
- where
-  filtered = filter (/= upperPhrase) $ phrases configuration
-  upperPhrase = map toUpper phrase
+removePhraseFromConfiguration :: Configuration -> Phrase -> Configuration
+removePhraseFromConfiguration configuration phrase = configuration{phrases = filter (/= upperText phrase) (phrases configuration)}
 
-configure :: Game -> String -> Result
-configure previous input = configureGame previous parameters
- where
-  parameters = splitOn " " input
+configure :: Game -> Message -> Result
+configure previous input = configureGame previous (T.words input)
 
-configureGame :: Game -> [String] -> Result
+configureGame :: Game -> [Message] -> Result
 configureGame (NoGame configuration) parameters = Result output $ NoGame updatedConfiguration
  where
   (output, updatedConfiguration) = configureConfiguration configuration parameters
@@ -79,18 +74,14 @@ configureGame (InGame gameState configuration) parameters = Result output $ InGa
  where
   (output, updatedConfiguration) = configureConfiguration configuration parameters
 
-configureConfiguration :: Configuration -> [String] -> ([String], Configuration)
+configureConfiguration :: Configuration -> [Message] -> ([Message], Configuration)
 configureConfiguration configuration [] = ([messageIncorrectArgumentsForConfigure], configuration)
 configureConfiguration configuration [_] = ([messageIncorrectArgumentsForConfigure], configuration)
-configureConfiguration configuration (option : rest) = case result of
+configureConfiguration configuration (option : rest) = case updateConfiguration configuration option (T.unwords rest) of
   Just updatedConfiguration -> ([messageConfigurationUpdated], updatedConfiguration)
   Nothing -> ([messageUnknownConfigurationOption], configuration)
- where
-  result = updateConfiguration configuration option value
-  value = concat $ (+++) rest $ replicate numberOfSegments " "
-  numberOfSegments = flip (-) 1 $ length rest
 
-updateConfiguration :: Configuration -> String -> String -> Maybe Configuration
+updateConfiguration :: Configuration -> Message -> Message -> Maybe Configuration
 updateConfiguration configuration "messageYouWon" value = Just configuration{messageYouWon = value}
 updateConfiguration configuration "messageYouLost" value = Just configuration{messageYouLost = value}
 updateConfiguration configuration "messageThereWereNoGuesses" value = Just configuration{messageThereWereNoGuesses = value}
@@ -102,5 +93,7 @@ updateConfiguration configuration "messageCorrect" value = Just configuration{me
 updateConfiguration configuration "messageIncorrect" value = Just configuration{messageIncorrect = value}
 updateConfiguration configuration "messageAlreadyGuessed" value = Just configuration{messageAlreadyGuessed = value}
 updateConfiguration configuration "messageOutcome" value = Just configuration{messageOutcome = value}
-updateConfiguration configuration "allowedMisses" value = Just configuration{allowedMisses = read value}
+updateConfiguration configuration "initialAllowedMisses" value = case T.decimal value of
+  Right (n, _) -> Just configuration{initialAllowedMisses = n}
+  Left _ -> Nothing
 updateConfiguration _ _ _ = Nothing
